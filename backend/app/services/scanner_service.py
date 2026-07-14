@@ -70,25 +70,79 @@ def ensure_cache_dir() -> None:
     if not CACHE_DIR.exists():
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+def _get_cache_path(ticker: str, period: str = "2y", interval: str = "1d") -> Path:
+    """Ritorna il percorso del file di cache parquet per un ticker."""
+    clean_ticker = str(ticker).strip().upper().replace("/", "_")
+    base_part = clean_ticker.split(".")[0]
+    if base_part in ["CON", "PRN", "AUX", "NUL"] or any(
+        base_part.startswith(x) for x in ["COM", "LPT"] if len(base_part) == 4 and base_part[3].isdigit()
+    ):
+        clean_ticker = f"W_{clean_ticker}"
+    if interval == "1d":
+        return CACHE_DIR / f"{clean_ticker}_{period}_history.parquet"
+    return CACHE_DIR / f"{clean_ticker}_{period}_{interval}.parquet"
+
+def bulk_download_and_cache(tickers: List[str], period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> None:
+    """
+    Scarica i dati storici per tutti i ticker in blocco (bulk) per massimizzare la velocità
+    e popola la cache parquet locale.
+    """
+    ensure_cache_dir()
+    
+    tickers_to_download = []
+    for ticker in tickers:
+        if not ticker or not isinstance(ticker, str):
+            continue
+        cache_path = _get_cache_path(ticker, period, interval)
+        use_cache = False
+        if cache_path.exists() and not force_refresh:
+            file_mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
+            if datetime.now() - file_mtime < timedelta(hours=4):
+                use_cache = True
+        if not use_cache:
+            tickers_to_download.append(ticker)
+            
+    if not tickers_to_download:
+        return
+        
+    print(f"[SCANNER BULK] Download in blocco di {len(tickers_to_download)} ticker da Yahoo Finance...")
+    try:
+        data = yf.download(tickers_to_download, period=period, interval=interval, group_by="ticker", progress=False, auto_adjust=False, threads=True)
+        if data.empty:
+            print("[SCANNER BULK] Risposta vuota dal download in blocco.")
+            return
+            
+        if len(tickers_to_download) == 1:
+            ticker = tickers_to_download[0]
+            cache_path = _get_cache_path(ticker, period, interval)
+            df = data.copy()
+            if isinstance(df.columns, pd.MultiIndex):
+                if ticker in df.columns.levels[0]:
+                    df = df[ticker].copy()
+            df.dropna(how="all").to_parquet(cache_path)
+            return
+
+        for ticker in tickers_to_download:
+            cache_path = _get_cache_path(ticker, period, interval)
+            try:
+                if isinstance(data.columns, pd.MultiIndex) and ticker in data.columns.levels[0]:
+                    df_ticker = data[ticker].dropna(how="all").copy()
+                    if not df_ticker.empty:
+                        if not isinstance(df_ticker.index, pd.DatetimeIndex):
+                            df_ticker.index = pd.to_datetime(df_ticker.index)
+                        df_ticker.to_parquet(cache_path)
+            except Exception as e:
+                print(f"[SCANNER BULK] Errore nel salvataggio della cache per {ticker}: {e}")
+    except Exception as e:
+        print(f"[SCANNER BULK] Errore durante il download in blocco: {e}")
+
 def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> pd.DataFrame:
     """
     Scarica i dati storici per un ticker da Yahoo Finance.
     Usa la cache locale parquet se disponibile e aggiornata (meno di 12 ore fa).
     """
     ensure_cache_dir()
-    clean_ticker = str(ticker).strip().upper().replace("/", "_")
-    
-    # Sanitizzazione per nomi riservati Windows
-    base_part = clean_ticker.split(".")[0]
-    if base_part in ["CON", "PRN", "AUX", "NUL"] or any(
-        base_part.startswith(x) for x in ["COM", "LPT"] if len(base_part) == 4 and base_part[3].isdigit()
-    ):
-        clean_ticker = f"W_{clean_ticker}"
-        
-    if interval == "1d":
-        cache_path = CACHE_DIR / f"{clean_ticker}_{period}_history.parquet"
-    else:
-        cache_path = CACHE_DIR / f"{clean_ticker}_{period}_{interval}.parquet"
+    cache_path = _get_cache_path(ticker, period, interval)
     
     # Verifica validità cache (4 ore per allineamento intraday)
     use_cache = False
@@ -149,6 +203,7 @@ def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", f
             except Exception as e_fallback:
                 print(f"Impossibile leggere la cache di fallback per {ticker}: {e_fallback}")
         return pd.DataFrame()
+
 
 
 def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.DataFrame:

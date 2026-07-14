@@ -696,22 +696,30 @@ export default function MultiPatternLabPanel({
           disabled={isScanning}
           onClick={handleScan}
           style={{
-            flex: "0 0 auto", height: "48px", minWidth: "170px",
+            flex: "0 0 auto", height: "48px", minWidth: "190px",
             fontWeight: 700, letterSpacing: "0.03em", fontSize: "0.88rem",
-            background: isScanning
-              ? "rgba(59,130,246,0.25)"
-              : "linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)",
-            border: isScanning ? "1px solid rgba(59,130,246,0.3)" : "1px solid rgba(59,130,246,0.5)",
-            borderRadius: "10px", color: "#ffffff", cursor: isScanning ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem",
-            transition: "all 0.2s ease",
-            boxShadow: isScanning ? "none" : "0 2px 12px rgba(59,130,246,0.35)",
+            background: "linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #1e40af 100%)",
+            backgroundSize: "200% 200%",
+            animation: isScanning ? "shimmerBtn 2s ease infinite, glowPulse 1.5s ease-in-out infinite" : "none",
+            border: isScanning ? "1px solid rgba(99,102,241,0.7)" : "1px solid rgba(59,130,246,0.5)",
+            borderRadius: "10px", color: "#ffffff", cursor: isScanning ? "wait" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+            transition: "border 0.2s ease",
+            boxShadow: isScanning
+              ? "0 0 0 3px rgba(99,102,241,0.3), 0 4px 20px rgba(59,130,246,0.5)"
+              : "0 2px 12px rgba(59,130,246,0.35)",
           }}
         >
           {isScanning ? (
             <>
-              <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
-              Scansione...
+              <span style={{
+                width: "16px", height: "16px", borderRadius: "50%",
+                border: "2.5px solid rgba(255,255,255,0.3)",
+                borderTopColor: "#ffffff",
+                animation: "spin 0.75s linear infinite",
+                display: "inline-block", flexShrink: 0,
+              }} />
+              Analisi in corso...
             </>
           ) : (
             <>🔍 Avvia Scansione</>
@@ -745,10 +753,26 @@ export default function MultiPatternLabPanel({
       )}
 
       {isScanning && (
-        <div style={{ textAlign: "center", padding: "2rem", background: "rgba(7,17,32,0.6)", borderRadius: "16px", border: "1px solid rgba(59,130,246,0.15)" }}>
-          <span style={{ fontSize: "1.1rem", display: "block", color: "#60a5fa" }}>🔍 Scansione mercati in corso...</span>
-          <span style={{ fontSize: "0.82rem", color: "#8cb4d9", marginTop: "0.4rem", display: "block" }}>
-            Pattern: <strong style={{ color: "#fff" }}>{activePatternLabel}</strong> · Mercato: <strong style={{ color: "#fff" }}>{marketLabel}</strong>
+        <div style={{ textAlign: "center", padding: "2.5rem 1.5rem", background: "rgba(7,17,32,0.65)", borderRadius: "16px", border: "1px solid rgba(59,130,246,0.25)", animation: "fadeIn 0.3s ease", position: "relative", overflow: "hidden" }}>
+          {/* Barra luminosa in cima */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", background: "linear-gradient(90deg, transparent 0%, #3b82f6 50%, #6366f1 80%, transparent 100%)", backgroundSize: "200% 100%", animation: "shimmerBtn 1.8s linear infinite" }} />
+
+          {/* Icona con anelli radar */}
+          <div style={{ position: "relative", width: "60px", height: "60px", margin: "0 auto 1.2rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: "1.6rem", zIndex: 1, position: "relative" }}>🔍</span>
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid rgba(59,130,246,0.8)", animation: "radarPulse 1.8s ease-out infinite" }} />
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid rgba(99,102,241,0.6)", animation: "radarPulse 1.8s ease-out infinite 0.6s" }} />
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid rgba(139,92,246,0.4)", animation: "radarPulse 1.8s ease-out infinite 1.2s" }} />
+          </div>
+
+          {/* Progress bar indeterminata */}
+          <div style={{ width: "100%", maxWidth: "300px", margin: "0 auto 1rem", height: "4px", background: "rgba(59,130,246,0.15)", borderRadius: "4px", overflow: "hidden", position: "relative" }}>
+            <div style={{ width: "45%", height: "100%", borderRadius: "4px", background: "linear-gradient(90deg, rgba(59,130,246,0), #3b82f6, #6366f1, rgba(99,102,241,0))", animation: "progressScan 1.6s ease-in-out infinite", position: "absolute" }} />
+          </div>
+
+          <span style={{ fontSize: "1rem", display: "block", color: "#60a5fa", fontWeight: 700, marginBottom: "0.35rem" }}>Scansione mercati in corso...</span>
+          <span style={{ fontSize: "0.82rem", color: "#8cb4d9", display: "block" }}>
+            Pattern: <strong style={{ color: "#a5f3fc" }}>{activePatternLabel}</strong> · Mercato: <strong style={{ color: "#a5f3fc" }}>{marketLabel}</strong>
           </span>
         </div>
       )}
@@ -1146,10 +1170,27 @@ export default function MultiPatternLabPanel({
         </section>
       )}
 
-      {/* CSS inline per animazione spin e fadeIn */}
+      {/* CSS inline per animazioni */}
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shimmerBtn {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(99,102,241,0.3), 0 4px 20px rgba(59,130,246,0.4); }
+          50%       { box-shadow: 0 0 0 6px rgba(99,102,241,0.55), 0 6px 35px rgba(59,130,246,0.8); }
+        }
+        @keyframes progressScan {
+          0%   { left: -45%; }
+          100% { left: 110%; }
+        }
+        @keyframes radarPulse {
+          0%   { transform: scale(1);   opacity: 0.9; }
+          100% { transform: scale(2.8); opacity: 0;   }
+        }
       `}</style>
     </div>
   );
