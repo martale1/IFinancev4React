@@ -1,0 +1,177 @@
+{
+  "STMMI_BuyAndHold": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "Close", "op": ">", "val": 0 }
+    ],
+    "short": [
+      { "col": "Close", "op": "<", "val": 0 }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_EMA30_Trend": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "Close", "op": ">", "col2": "EMA_30" },
+      { "col": "TECH_SCORE", "op": ">=", "val": 45 }
+    ],
+    "short": [
+      { "col": "Close", "op": "<", "col2": "EMA_30" },
+      { "col": "TECH_SCORE", "op": "<", "val": 40 }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_MA30_Pullback": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "Close", "op": ">", "col2": "EMA_30" },
+      { "col": "RSI", "op": ">", "val": 40 },
+      { "col": "RSI", "op": "<", "val": 70 },
+      { "col": "Stoch_K", "op": ">", "col2": "Stoch_D" },
+      { "col": "Stoch_K", "op": "<=", "val": 80 }
+    ],
+    "short": [
+      { "col": "Close", "op": "<", "col2": "EMA_30" },
+      { "col": "RSI", "op": "<", "val": 40 },
+      { "col": "Stoch_K", "op": "<", "col2": "Stoch_D" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_Alligator_FastTrend": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "Close", "op": ">", "col2": "Alligator_Teeth" },
+      { "col": "Signal6", "op": "==", "val": "Uptrend" },
+      { "col": "MACD", "op": ">", "col2": "MACD_Signal" }
+    ],
+    "short": [
+      { "col": "Close", "op": "<", "col2": "Alligator_Teeth" },
+      { "col": "Signal6", "op": "==", "val": "Downtrend" },
+      { "col": "MACD", "op": "<", "col2": "MACD_Signal" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_MACDH_SwingLong": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "MACD_Hist", "op": ">", "val": 0 },
+      { "col": "MACD", "op": ">", "col2": "MACD_Signal" },
+      { "col": "Close", "op": ">", "col2": "EMA_30" }
+    ],
+    "short": [
+      { "col": "MACD_Hist", "op": "<", "val": 0 },
+      { "col": "MACD", "op": "<", "col2": "MACD_Signal" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_ADX_TrendLong": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "ADX", "op": ">=", "val": 18 },
+      { "col": "PLUS_DI", "op": ">", "col2": "MINUS_DI" },
+      { "col": "Close", "op": ">", "col2": "EMA_30" }
+    ],
+    "short": [
+      { "col": "PLUS_DI", "op": "<=", "col2": "MINUS_DI" },
+      { "col": "ADX", "op": "<", "val": 15 },
+      { "col": "Close", "op": "<", "col2": "EMA_30" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_TS_LongOnly": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "TECH_SCORE", "op": ">=", "val": 55 },
+      { "col": "Close", "op": ">", "col2": "EMA_30" }
+    ],
+    "short": [
+      { "col": "TECH_SCORE", "op": "<", "val": 50 },
+      { "col": "Close", "op": "<", "col2": "EMA_30" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_TS_ADX_StrongTrend": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "TECH_SCORE", "op": ">=", "val": 65 },
+      { "col": "ADX", "op": ">=", "val": 20 },
+      { "col": "Close", "op": ">", "col2": "EMA_30" }
+    ],
+    "short": [
+      { "col": "TECH_SCORE", "op": "<", "val": 60 },
+      { "col": "ADX", "op": "<", "val": 18 },
+      { "col": "Close", "op": "<", "col2": "EMA_30" }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_PCTV_Volume_Momo_Long": {
+    "precompute": "alligator",
+    "long": [
+      { "col": "PCTV_5D", "op": ">", "val": 2 },
+      { "col": "PCTV_30D", "op": ">", "val": 5 },
+      { "col": "Vol_Perc_vs_MA20", "op": ">=", "val": 110 },
+      { "col": "Close", "op": ">", "col2": "EMA_30" }
+    ],
+    "short": [
+      { "col": "PCTV_5D", "op": "<", "val": 0 },
+      { "col": "Close", "op": "<", "col2": "EMA_30" },
+      { "col": "Vol_Perc_vs_MA20", "op": "<", "val": 100 }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STMMI_Alligator_MCS_Confirm": {
+    "precompute": "alligator",
+    "long_blocks_logic": "AND",
+    "long_blocks": [
+      [
+        { "col": "Signal6", "op": "==", "val": "Uptrend" }
+      ],
+      [
+        { "col": "MCS_Smoothed", "op": ">=", "val": 20 }
+      ],
+      [
+        { "col": "Close", "op": ">", "col2": "Alligator_Teeth" }
+      ]
+    ],
+    "short_blocks_logic": "OR",
+    "short_blocks": [
+      [
+        { "col": "Close", "op": "<", "col2": "Alligator_Teeth" }
+      ],
+      [
+        { "col": "MCS_Smoothed", "op": "<", "val": 0 }
+      ],
+      [
+        { "col": "Signal6", "op": "==", "val": "Downtrend" }
+      ]
+    ],
+    "signal_name": "Trading_Signal"
+  }
+}

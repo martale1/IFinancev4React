@@ -1,0 +1,67 @@
+version: 1
+defaults:
+  cooldown_minutes: 0
+  send_on_first_match_only: true
+  max_per_day: 3
+  min_gap_minutes: 0
+rules:
+- id: CARD_ALERT_TEN_MI
+  enabled: true
+  scope:
+    tickers:
+    - TEN.MI
+  when:
+    all:
+    - field: Williams_R
+      op: <
+      value: -70
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🔔 Alert {{Ticker}}
+    body: 'Close: {{Close}}
+
+      RSI: {{RSI}}
+
+      willR: {{Williams_R}}
+
+      SARMA: {{SIG_MA_SAR}}
+
+      MACD: {{MACD}}
+
+      S3: {{MACD_vs_Signal}}
+
+      Action: {{Action}}
+
+      TECH: {{TECH_SCORE}}'
+- id: CARD_ALERT_BMPS_MI
+  enabled: true
+  scope:
+    tickers:
+    - BMPS.MI
+  when:
+    all:
+    - field: ADX
+      op: '>'
+      value: 34
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🔔 Alert {{Ticker}}
+    body: 'Close: {{Close}}
+
+      RSI: {{RSI}}
+
+      willR: {{Williams_R}}
+
+      SARMA: {{SIG_MA_SAR}}
+
+      MACD: {{MACD}}
+
+      S3: {{MACD_vs_Signal}}
+
+      Action: {{Action}}
+
+      TECH: {{TECH_SCORE}}'

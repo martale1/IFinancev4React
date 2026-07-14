@@ -1,0 +1,80 @@
+{
+
+
+  "MACD_BASIC": {
+  "precompute": "sig_ma_sar",
+    "long": [
+            {"col": "MACDH_Trend", "op": "==", "val": "Up"},
+            {"col": "MACDH_Trend_Days", "op": ">=", "val": 2}
+             ],
+    "short": [
+              {"col": "MACDH_Trend", "op": "==", "val": "Down"},
+               {"col": "MACDH_Trend_Days", "op": ">=", "val": 2}
+            ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+
+  "Trend_MA_SAR_MACD_ALLIGATOR": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {
+        "col": "MCS",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "col2": "MACD_Signal"
+      }
+
+    ],
+    "short": [
+      {
+        "col": "MCS",
+        "op": "<",
+        "val": 0
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "Alligator_Lips"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "SK": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {
+        "col": "Stoch_K",
+        "op": "<=",
+        "val": 30
+      },
+      {
+        "col": "Stoch_K",
+        "op": ">",
+        "col2": "Stoch_D"
+      },
+      {
+        "col": "SK_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+
+    ],
+    "short": [
+              {"col": "Close", "op": "<", "col2": "Stop_Level"}
+
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  }
+}

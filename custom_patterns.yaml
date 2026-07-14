@@ -1,0 +1,21 @@
+patterns:
+- id: custom_rsi_oversold
+  label: RSI Oversold
+  desc: RSI sotto 30 e incrocio stocastico
+  color: '#f43f5e'
+  query: RSI < 30 and Stoch_K > Stoch_D
+- id: custom_golden_cross
+  label: Golden Cross
+  desc: EMA30 sopra EMA50 con ADX forte
+  color: '#eab308'
+  query: EMA_30 > EMA_50 and ADX > 25
+- id: custom_bullish_alligator
+  label: Alligator Bull
+  desc: Prezzo sopra SAR e Alligator in Uptrend
+  color: '#10b981'
+  query: "Close > SAR and Signal6.str.startswith('Uptrend')"
+- id: custom_volume_breakout
+  label: Volume Breakout
+  desc: Prezzo crescente con volume 1.5x rispetto a MA20
+  color: '#a78bfa'
+  query: Close > Open and Volume > Volume_MA20 * 1.5

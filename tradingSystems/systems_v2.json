@@ -1,0 +1,230 @@
+{
+  "Trend_MA_SAR_ADX": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {"col": "SIG_MA_SAR", "op": ">", "val": 0},
+      {"col": "ADX", "op": ">=", "val": 25},
+      {"col": "Close", "op": ">", "col2": "EMA_30"}
+    ],
+    "short": [
+      {"col": "Close", "op": "<", "col2": "EMA_30"},
+      {"col": "MACD", "op": "<", "col2": "MACD_Signal"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "Alligator_Uptrend_ADX": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "Signal6", "op": "==", "val": "Uptrend"},
+      {"col": "Close", "op": ">", "col2": "Alligator_Teeth"},
+      {"col": "ADX", "op": ">=", "val": 20}
+    ],
+    "short": [
+      {"col": "Close", "op": "<", "col2": "Alligator_Lips"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+  "Momentum_MACD_RSI_Vol20": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "MACD", "op": ">", "col2": "MACD_Signal"},
+      {"col": "RSI", "op": ">", "val": 55},
+      {"col": "Vol_Perc_vs_MA20", "op": ">=", "val": 120},
+      {"col": "Close", "op": ">", "col2": "EMA_30"}
+    ],
+    "short": [
+      {"col": "MACD", "op": "<", "col2": "MACD_Signal"},
+      {"col": "RSI", "op": "<", "val": 45}
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "Breakout_CE_ATR": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "Close", "op": ">", "col2": "CE_Long"},
+      {"col": "ATR_Long_OK", "op": "==", "val": true},
+      {"col": "Close", "op": ">", "col2": "EMA_30"}
+    ],
+    "short": [
+      {"col": "Close", "op": "<", "col2": "CE_Short"},
+      {"col": "ATR_Short_OK", "op": "==", "val": true}
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+  "Breakout_PCTV_Volume": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "PCTV_5D", "op": ">", "val": 3},
+      {"col": "PCTV_30D", "op": ">", "val": 10},
+      {"col": "Vol_Perc_vs_MA20", "op": ">=", "val": 110},
+      {"col": "Close", "op": ">", "col2": "EMA_30"}
+    ],
+    "short": [
+      {"col": "PCTV_5D", "op": "<", "val": -3},
+      {"col": "Close", "op": "<", "col2": "EMA_30"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "Pullback_Uptrend_StochRSI": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "Close", "op": ">", "col2": "EMA_30"},
+      {"col": "Stoch_K", "op": ">", "col2": "Stoch_D"},
+      {"col": "Stoch_K", "op": "<", "val": 80},
+      {"col": "RSI", "op": ">", "val": 50}
+    ],
+    "short": [
+      {"col": "Close", "op": "<", "col2": "EMA_30"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+
+  "WILLR": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "Williams_R", "op": "<=", "val": -80},
+      {"col": "WILLR_Trend", "op": "==", "val": "Up"}
+    ],
+    "short": [
+      {"col": "Williams_R", "op": ">=", "val": -20},
+      {"col": "WILLR_Trend", "op": "==", "val": "Down"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+
+
+  "SAR_Trailing_MA": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {"col": "Close", "op": ">", "col2": "EMA_30"},
+      {"col": "SAR_Above_Price", "op": "==", "val": false}
+    ],
+    "short": [
+      {"col": "SAR_Above_Price", "op": "==", "val": true},
+      {"col": "Close", "op": "<", "col2": "Alligator_Lips"}
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+
+  "STOCH_Reversal_Basic": {
+    "precompute": "alligator",
+    "long": [
+      {"col": "Stoch_K", "op": "<=", "val": 30},
+      {"col": "SK_Trend", "op": "==", "val": "Up"},
+      {"col": "Stoch_K", "op": ">", "col2": "Stoch_D"},
+      {"col": "SK_Trend_Days", "op": ">=", "val": 1}
+    ],
+    "short": [
+      {"col": "Stoch_K", "op": ">=", "val": 80},
+      {"col": "SK_Trend", "op": "==", "val": "Down"},
+      {"col": "Stoch_K", "op": "<", "col2": "Stoch_D"},
+      {"col": "SK_Trend_Days", "op": ">=", "val": 1}
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+
+
+  "STOCH_Reversal_Adv": {
+  "precompute": "alligator",
+
+  "long_blocks_logic": "AND",
+  "long_blocks": [
+    [
+      {"col": "Stoch_K", "op": "<=", "val": 30},
+      {"col": "SK_Trend", "op": "==", "val": "Up"},
+      {"col": "Stoch_K", "op": ">", "col2": "Stoch_D"},
+      {"col": "SK_Trend_Days", "op": ">=", "val": 1}
+    ]
+  ],
+
+  "short_blocks_logic": "OR",
+  "short_blocks": [
+    [
+      {"col": "Stoch_K", "op": ">=", "val": 80},
+      {"col": "SK_Trend", "op": "==", "val": "Down"},
+      {"col": "Stoch_K", "op": "<", "col2": "Stoch_D"},
+      {"col": "SK_Trend_Days", "op": ">=", "val": 1}
+    ],
+    [
+      {"col": "RSI", "op": "<", "val": 40}
+    ],
+    [
+      {"col": "MACD", "op": "<", "col2": "MACD_Signal"}
+    ]
+  ],
+
+  "signal_name": "Trading_Signal"
+},
+
+  "WILLR_Improved_v3": {
+  "precompute": "alligator",
+  "prefer_short_on_conflict": false,
+
+  "long_blocks_logic": "OR",
+  "long_blocks": [
+    [
+      {"col": "Williams_R", "op": "<=", "val": -80},
+      {"col": "WILLR_Trend", "op": "==", "val": "Up"}
+    ],
+    [
+      {"col": "Williams_R", "op": "<=", "val": -70},
+      {"col": "MACD", "op": ">", "col2": "MACD_Signal"}
+    ],
+    [
+      {"col": "Williams_R", "op": "<=", "val": -60},
+      {"col": "RSI", "op": ">", "val": 45},
+      {"col": "Close", "op": ">", "col2": "EMA_30"}
+    ]
+  ],
+
+  "short_blocks_logic": "OR",
+  "short_blocks": [
+    [
+      {"col": "Williams_R", "op": ">=", "val": -65}
+    ],
+    [
+      {"col": "MACD", "op": "<", "col2": "MACD_Signal"},
+      {"col": "RSI", "op": "<", "val": 48}
+    ],
+    [
+      {"col": "Close", "op": "<", "col2": "EMA_30"}
+    ],
+    [
+      {"col": "SAR_Above_Price", "op": "==", "val": true}
+    ],
+    [
+      {"col": "Stoch_K", "op": "<", "col2": "Stoch_D"},
+      {"col": "SK_Trend", "op": "==", "val": "Down"}
+    ]
+  ],
+
+  "signal_name": "Trading_Signal"
+}
+
+
+}

@@ -1,0 +1,877 @@
+{
+  "Trend_MA_SAR_MACD_ALLIGATOR": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {
+        "col": "MCS",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "col2": "MACD_Signal"
+      }
+    ],
+    "short": [
+      {
+        "col": "MCS",
+        "op": "<",
+        "val": 0
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "Alligator_Lips"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "OR",
+    "signal_name": "Trading_Signal"
+  },
+  "Trend_ADX_MA_MACD": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "ADX_Trend",
+        "op": "==",
+        "val": "Bullish"
+      },
+      {
+        "col": "Close",
+        "op": ">",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "val": 0
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "ADX_Trend",
+        "op": "==",
+        "val": "Bearish"
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "MACD",
+        "op": "<",
+        "val": 0
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Trend_Alligator_SAR_Confirm": {
+    "precompute": "sig_ma_sar",
+    "long": [
+      {
+        "col": "SIG_MA_SAR",
+        "op": "==",
+        "val": 1
+      },
+      {
+        "col": "Close",
+        "op": ">",
+        "col2": "Alligator_Lips"
+      },
+      {
+        "col": "Alligator_Lips",
+        "op": ">",
+        "col2": "Alligator_Teeth"
+      }
+    ],
+    "short": [
+      {
+        "col": "SIG_MA_SAR",
+        "op": "==",
+        "val": -1
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "Alligator_Lips"
+      },
+      {
+        "col": "Alligator_Lips",
+        "op": "<",
+        "col2": "Alligator_Teeth"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Breakout_PCTV10_VolSpike": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "PCTV_10D",
+        "op": ">",
+        "val": 5
+      },
+      {
+        "col": "Vol_SpikeRatio_30",
+        "op": ">",
+        "val": 1.5
+      },
+      {
+        "col": "Liquidity",
+        "op": "==",
+        "val": "OK"
+      }
+    ],
+    "short": [
+      {
+        "col": "PCTV_10D",
+        "op": "<",
+        "val": -5
+      },
+      {
+        "col": "Vol_SpikeRatio_30",
+        "op": ">",
+        "val": 1.5
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Breakout_ATR_Bands": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "Close",
+        "op": ">",
+        "col2": "ATR_Upper"
+      },
+      {
+        "col": "ATR_Long_OK",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "short": [
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "ATR_Lower"
+      },
+      {
+        "col": "ATR_Short_OK",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Momentum_MACDH_Trend": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "MACDH_Trend",
+        "op": "==",
+        "val": "Up"
+      },
+      {
+        "col": "MACDH_Trend_Days",
+        "op": ">=",
+        "val": 2
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "col2": "MACD_Signal"
+      }
+    ],
+    "short": [
+      {
+        "col": "MACDH_Trend",
+        "op": "==",
+        "val": "Down"
+      },
+      {
+        "col": "MACDH_Trend_Days",
+        "op": ">=",
+        "val": 3
+      },
+      {
+        "col": "MACD",
+        "op": "<",
+        "col2": "MACD_Signal"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Momentum_MCS_Streak": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "MCS",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MCS_z_streak",
+        "op": ">=",
+        "val": 3
+      },
+      {
+        "col": "MACD_Positive_Days",
+        "op": ">=",
+        "val": 2
+      }
+    ],
+    "short": [
+      {
+        "col": "MCS",
+        "op": "<",
+        "val": 0
+      },
+      {
+        "col": "MCS_z_streak",
+        "op": ">=",
+        "val": 3
+      },
+      {
+        "col": "MACD_Negative_Days",
+        "op": ">=",
+        "val": 2
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "MeanRev_RSI_Oversold_Bounce": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "RSI",
+        "op": "<=",
+        "val": 30
+      },
+      {
+        "col": "RSI_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "RSI",
+        "op": ">=",
+        "val": 70
+      },
+      {
+        "col": "RSI_Trend",
+        "op": "==",
+        "val": "Down"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "MeanRev_WilliamsR_Extremes": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "WILLR_Oversold",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "WILLR_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "WILLR_Overbought",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "WILLR_Trend",
+        "op": "==",
+        "val": "Down"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Stoch_Cross_Reversal": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "Stoch_K",
+        "op": "<=",
+        "val": 20
+      },
+      {
+        "col": "Stoch_K",
+        "op": ">",
+        "col2": "Stoch_D"
+      },
+      {
+        "col": "SK_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "Stoch_K",
+        "op": ">=",
+        "val": 80
+      },
+      {
+        "col": "Stoch_K",
+        "op": "<",
+        "col2": "Stoch_D"
+      },
+      {
+        "col": "SK_Trend",
+        "op": "==",
+        "val": "Down"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Volatility_Squeeze_Break": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ATR_PCT",
+        "op": "<=",
+        "val": 2
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 20
+      },
+      {
+        "col": "PCTV_5D",
+        "op": ">",
+        "val": 3
+      }
+    ],
+    "short": [
+      {
+        "col": "ATR_PCT",
+        "op": "<=",
+        "val": 2
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 20
+      },
+      {
+        "col": "PCTV_5D",
+        "op": "<",
+        "val": -3
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "ATR_Trailing_Trend": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "CE_Long",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "ATR_Long_OK",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "short": [
+      {
+        "col": "CE_Short",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "ATR_Short_OK",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Volume_Breakout_Filter": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "Vol_Perc_vs_MA5",
+        "op": ">",
+        "val": 50
+      },
+      {
+        "col": "Vol_SpikeRatio_30",
+        "op": ">",
+        "val": 2
+      },
+      {
+        "col": "Liquidity",
+        "op": "==",
+        "val": "OK"
+      },
+      {
+        "col": "PCTV_1D",
+        "op": ">",
+        "val": 1
+      }
+    ],
+    "short": [
+      {
+        "col": "Vol_Perc_vs_MA5",
+        "op": ">",
+        "val": 50
+      },
+      {
+        "col": "Vol_SpikeRatio_30",
+        "op": ">",
+        "val": 2
+      },
+      {
+        "col": "PCTV_1D",
+        "op": "<",
+        "val": -1
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "MA_Cross_30_50": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "EMA_30",
+        "op": ">",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "PCTV_10D",
+        "op": ">",
+        "val": 0
+      }
+    ],
+    "short": [
+      {
+        "col": "EMA_30",
+        "op": "<",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "PCTV_10D",
+        "op": "<",
+        "val": 0
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "SAR_Flip": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "SAR_Flip_RunDown",
+        "op": "==",
+        "val": 1
+      },
+      {
+        "col": "SAR_Above_Price",
+        "op": "==",
+        "val": false
+      }
+    ],
+    "short": [
+      {
+        "col": "SAR_Flip_RunDown",
+        "op": "==",
+        "val": 1
+      },
+      {
+        "col": "SAR_Above_Price",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Signal6_Trend_Confirm": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "Signal6",
+        "op": "==",
+        "val": "Uptrend"
+      },
+      {
+        "col": "Signal6_Trend_Days",
+        "op": ">=",
+        "val": 2
+      },
+      {
+        "col": "Close",
+        "op": ">",
+        "col2": "EMA_50"
+      }
+    ],
+    "short": [
+      {
+        "col": "Signal6",
+        "op": "==",
+        "val": "Downtrend"
+      },
+      {
+        "col": "Signal6_Trend_Days",
+        "op": ">=",
+        "val": 2
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "EMA_50"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "ADX_DI_Cross": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Cross",
+        "op": "==",
+        "val": "BullCross"
+      },
+      {
+        "col": "PLUS_DI",
+        "op": ">",
+        "col2": "MINUS_DI"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Cross",
+        "op": "==",
+        "val": "BearCross"
+      },
+      {
+        "col": "MINUS_DI",
+        "op": ">",
+        "col2": "PLUS_DI"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Pullback_In_Uptrend": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "EMA_30",
+        "op": ">",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "Close",
+        "op": "<",
+        "col2": "EMA_30"
+      },
+      {
+        "col": "RSI",
+        "op": ">=",
+        "val": 40
+      }
+    ],
+    "short": [
+      {
+        "col": "EMA_30",
+        "op": "<",
+        "col2": "EMA_50"
+      },
+      {
+        "col": "Close",
+        "op": ">",
+        "col2": "EMA_30"
+      },
+      {
+        "col": "RSI",
+        "op": "<=",
+        "val": 60
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Reversal_MACD0_MCSz": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "MCS_z_macd0",
+        "op": "==",
+        "val": 1
+      },
+      {
+        "col": "MACD",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MCS_z_slope",
+        "op": ">",
+        "val": 0
+      }
+    ],
+    "short": [
+      {
+        "col": "MCS_z_macd0",
+        "op": "==",
+        "val": -1
+      },
+      {
+        "col": "MACD",
+        "op": "<",
+        "val": 0
+      },
+      {
+        "col": "MCS_z_slope",
+        "op": "<",
+        "val": 0
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Overheat_TakeProfit": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "PCTV_5D",
+        "op": ">",
+        "val": 10
+      },
+      {
+        "col": "RSI",
+        "op": ">=",
+        "val": 75
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 30
+      }
+    ],
+    "short": [
+      {
+        "col": "PCTV_5D",
+        "op": "<",
+        "val": -10
+      },
+      {
+        "col": "RSI",
+        "op": "<=",
+        "val": 25
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 30
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Range_Trade_Low_ADX": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX",
+        "op": "<=",
+        "val": 15
+      },
+      {
+        "col": "RSI",
+        "op": "<=",
+        "val": 35
+      },
+      {
+        "col": "WILLR_Oversold",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX",
+        "op": "<=",
+        "val": 15
+      },
+      {
+        "col": "RSI",
+        "op": ">=",
+        "val": 65
+      },
+      {
+        "col": "WILLR_Overbought",
+        "op": "==",
+        "val": true
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Volatility_Expansion_After_Calm": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ATR_PCT",
+        "op": "<=",
+        "val": 2
+      },
+      {
+        "col": "PCTV_1D",
+        "op": ">",
+        "val": 2
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 10
+      }
+    ],
+    "short": [
+      {
+        "col": "ATR_PCT",
+        "op": "<=",
+        "val": 2
+      },
+      {
+        "col": "PCTV_1D",
+        "op": "<",
+        "val": -2
+      },
+      {
+        "col": "Vol_Perc_vs_MA20",
+        "op": ">",
+        "val": 10
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Liquidity_Ignore_Dry": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "Liquidity",
+        "op": "==",
+        "val": "OK"
+      },
+      {
+        "col": "Vol_LowDays_30",
+        "op": "<=",
+        "val": 5
+      }
+    ],
+    "short": [
+      {
+        "col": "Liquidity",
+        "op": "==",
+        "val": "OK"
+      },
+      {
+        "col": "Vol_LowDays_30",
+        "op": "<=",
+        "val": 5
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Liquidity_Filter"
+  }
+}

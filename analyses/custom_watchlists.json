@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "watchlists": {
+    "MIB30": {
+      "items": [
+        {
+          "ticker": "STMMI.MI",
+          "source_market": "MIB30",
+          "added_at": "2026-04-30T21:53:47"
+        },
+        {
+          "ticker": "STLAM.MI",
+          "source_market": "MIB30",
+          "added_at": "2026-05-01T16:06:41"
+        }
+      ],
+      "created_at": "2026-04-30T21:53:47",
+      "updated_at": "2026-05-01T16:06:41"
+    },
+    "Lista1": {
+      "items": [
+        {
+          "ticker": "VOD.L",
+          "source_market": "MIB30",
+          "added_at": "2026-05-03T16:24:16"
+        }
+      ],
+      "created_at": "2026-05-03T16:24:16",
+      "updated_at": "2026-05-03T16:24:16"
+    }
+  }
+}

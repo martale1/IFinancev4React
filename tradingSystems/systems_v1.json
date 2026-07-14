@@ -1,0 +1,123 @@
+{
+  "MeanRev_WilliamsR_Extremes": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "WILLR_Oversold",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "WILLR_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "WILLR_Overbought",
+        "op": "==",
+        "val": true
+      },
+      {
+        "col": "WILLR_Trend",
+        "op": "==",
+        "val": "Down"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "Stoch_Cross_Reversal": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "Stoch_K",
+        "op": "<=",
+        "val": 20
+      },
+      {
+        "col": "Stoch_K",
+        "op": ">",
+        "col2": "Stoch_D"
+      },
+      {
+        "col": "SK_Trend",
+        "op": "==",
+        "val": "Up"
+      }
+    ],
+    "short": [
+      {
+        "col": "ADX_Strong",
+        "op": "==",
+        "val": false
+      },
+      {
+        "col": "Stoch_K",
+        "op": ">=",
+        "val": 80
+      },
+      {
+        "col": "Stoch_K",
+        "op": "<",
+        "col2": "Stoch_D"
+      },
+      {
+        "col": "SK_Trend",
+        "op": "==",
+        "val": "Down"
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "signal_name": "Trading_Signal"
+  },
+  "My_New_System": {
+    "precompute": null,
+    "long": [
+      {
+        "col": "MACD_Hist",
+        "op": ">",
+        "val": 0
+      },
+      {
+        "col": "MACDH_Trend_Days",
+        "op": ">",
+        "val": 2
+      }
+    ],
+    "short": [
+      {
+        "col": "MACDH_Trend",
+        "op": "<",
+        "val": "Down"
+      },
+      {
+        "col": "MACDH_Trend_Days",
+        "op": ">",
+        "val": 2
+      }
+    ],
+    "long_logic": "AND",
+    "short_logic": "AND",
+    "prefer_short_on_conflict": false,
+    "signal_name": "Trading_Signal"
+  }
+}

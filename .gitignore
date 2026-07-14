@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.idea/
+node_modules/
+venv/
+.venv/
+*.log
+
+# Cartelle temporanee/cache/log
+cache/
+logs/
+telegram_exports/
+
+# File di output/log locali
+err.txt
+out.txt
+*.xlsx

@@ -1,0 +1,157 @@
+{
+  "wl1": {
+    "created_date": "2025-08-16 18:59:54",
+    "stocks": [
+      {
+        "ticker": "3CFL.MI",
+        "name": "ETFCoffee",
+        "added_date": "2025-08-16 19:00:11"
+      },
+      {
+        "ticker": "COCO.MI",
+        "name": "ETFS COCOA",
+        "added_date": "2025-08-16 19:00:33"
+      },
+      {
+        "ticker": "LPLA.MI",
+        "name": "ETFS LEVERAGED PLATINUM",
+        "added_date": "2025-08-16 23:27:14"
+      },
+      {
+        "ticker": "3AMZ.MI",
+        "name": "LEVERAGE SHARES 3X AMAZON ETP.MI",
+        "added_date": "2025-08-16 23:27:34"
+      },
+      {
+        "ticker": "3AMD.MI",
+        "name": "Leverage Shares 3x AMD ETP.MI",
+        "added_date": "2025-08-16 23:28:37"
+      },
+      {
+        "ticker": "LOIL.MI",
+        "name": "ETFS LEVERAGED WTI CRUDE OIL",
+        "added_date": "2025-08-16 23:29:16"
+      },
+      {
+        "ticker": "LCFE.MI",
+        "name": "ETFS LEVERAGED COFFEE",
+        "added_date": "2025-08-16 23:29:53"
+      },
+      {
+        "ticker": "LDO.MI",
+        "name": "Leonardo",
+        "added_date": "2025-08-16 23:30:20"
+      },
+      {
+        "ticker": "3BRL.MI",
+        "name": "WISDOMTREE BRENT CRUDE OIL 3X DAILY L.MI",
+        "added_date": "2025-08-16 23:31:13"
+      },
+      {
+        "ticker": "3BAL.MI",
+        "name": "WISDOMTREE EURO STOXX BANKS 3X DAILY LEV.MI",
+        "added_date": "2025-08-16 23:31:21"
+      },
+      {
+        "ticker": "3GOL.MI",
+        "name": "WISDOMTREE GOLD 3X DAILY LEVERAGED.MI",
+        "added_date": "2025-08-16 23:31:43"
+      },
+      {
+        "ticker": "3SIL.MI",
+        "name": "WISDOMTREE SILVER 3X DAILY LEVERAGED.MI",
+        "added_date": "2025-08-16 23:31:58"
+      },
+      {
+        "ticker": "3LCO.MI",
+        "name": "GRANITESHARES 3X LONG COINBASE DAILY ETP.MI",
+        "added_date": "2025-08-16 23:32:08"
+      },
+      {
+        "ticker": "3LMI.MI",
+        "name": "GRANITESHARES 3X LONG MICROSTRATEGY ETP.MI",
+        "added_date": "2025-08-16 23:32:20"
+      },
+      {
+        "ticker": "3LPO.MI",
+        "name": "GRANITESHARES 3X LONG SPOTIFY DAILY ETP.MI",
+        "added_date": "2025-08-16 23:33:35"
+      },
+      {
+        "ticker": "3NGL.MI",
+        "name": "WISDOMTREE NATURAL GAS 3X DAILY LEV.MI",
+        "added_date": "2025-08-16 23:33:48"
+      },
+      {
+        "ticker": "3WHL.MI",
+        "name": "WISDOMTREE WHEAT 3X DAILY LEVERAGED.MI",
+        "added_date": "2025-08-16 23:34:03"
+      },
+      {
+        "ticker": "500H.MI",
+        "name": "AMUNDI S&P 500 DAILY HEDGED UCITS ETF.MI",
+        "added_date": "2025-08-16 23:34:30"
+      },
+      {
+        "ticker": "TDIV.MI",
+        "name": "VanEck Morningstar Developed Markets Dividend Leaders UCITS ETF.MI",
+        "added_date": "2025-08-16 23:36:46"
+      },
+      {
+        "ticker": "LEVMIB.MI",
+        "name": "Amundi FTSE MIB Daily (2x) Leveraged UCITS ETF.MI",
+        "added_date": "2025-08-17 00:32:44"
+      }
+    ]
+  },
+  "wl2": {
+    "created_date": "2025-08-16 19:00:43",
+    "stocks": [
+      {
+        "ticker": "COPA.MI",
+        "name": "ETFS COPPER",
+        "added_date": "2025-08-16 19:01:22"
+      },
+      {
+        "ticker": "ENEL.MI",
+        "name": "Enel",
+        "added_date": "2025-08-16 19:02:56"
+      },
+      {
+        "ticker": "TIT.MI",
+        "name": "Telecom Italia",
+        "added_date": "2025-08-17 19:01:33"
+      },
+      {
+        "ticker": "ISP.MI",
+        "name": "Intesa Sanpaolo",
+        "added_date": "2025-08-17 19:01:49"
+      },
+      {
+        "ticker": "G.MI",
+        "name": "Generali",
+        "added_date": "2025-08-17 19:02:07"
+      },
+      {
+        "ticker": "STLAM.MI",
+        "name": "Stellantis Br",
+        "added_date": "2025-08-17 19:02:25"
+      },
+      {
+        "ticker": "IG.MI",
+        "name": "Italgas",
+        "added_date": "2025-08-17 19:02:38"
+      },
+      {
+        "ticker": "SRG.MI",
+        "name": "Snam",
+        "added_date": "2025-08-17 19:03:08"
+      },
+      {
+        "ticker": "PST.MI",
+        "name": "Poste Italiane",
+        "added_date": "2025-08-17 19:03:27"
+      }
+    ]
+  }
+}

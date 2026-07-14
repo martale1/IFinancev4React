@@ -1,0 +1,7 @@
+﻿version: 1
+defaults:
+  cooldown_minutes: 240
+  send_on_first_match_only: true
+rules: []
+
+

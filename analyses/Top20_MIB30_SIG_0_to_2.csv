@@ -1,0 +1,8 @@
+Ticker,Name,Volume,PCTV_1D,SIG_MA_SAR,MCS,Signal6,Signal6_Trend_Days
+TIT.MI,Telecom Italia,202746220,-1.52,1,19.25,Uptrend-,1
+ENI.MI,Eni,9750885,1.38,1,52.21,wakeup1,2
+STMMI.MI,Stmicroelectronics,6569229,4.25,1,45.49,sleep1,5
+IVG.MI,Iveco Grp,1275225,0.24,1,17.19,Uptrend,2
+ERG.MI,Erg,206741,2.55,1,72.09,wakeup2*,1
+ENEL.MI,Enel,20247764,1.39,2,56.58,wakeup1,1
+HER.MI,Hera,1652740,0.25,2,25.65,wakeup1,3
