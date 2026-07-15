@@ -255,6 +255,78 @@ npm run dev
 
 Il frontend sarà disponibile su **http://localhost:5173**
 
+### Installazione su Raspberry Pi (ARM64)
+
+Questa procedura richiede un Raspberry con sistema operativo a 64 bit. Verifica che `uname -m` restituisca `aarch64`. Su Raspberry Pi 3 l'analisi completa, soprattutto della lista ETF, può richiedere molto tempo; è consigliato usare `tmux` e disporre di swap sufficiente.
+
+```bash
+# Pacchetti di sistema
+sudo apt update
+sudo apt install -y git curl build-essential tmux nodejs npm
+
+# Miniforge ARM64
+cd ~
+curl -L -o Miniforge3.sh \
+  https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
+bash Miniforge3.sh -b -p "$HOME/miniforge3"
+source "$HOME/miniforge3/bin/activate"
+conda init bash
+source ~/.bashrc
+
+# Repository e branch Raspberry
+git clone --branch sicilia2026 --single-branch \
+  https://github.com/martale1/IFinancev4React.git
+cd IFinancev4React
+
+# Ambiente Python e dipendenze native ARM64
+conda create -n IFinanceTA python=3.11 -y
+conda activate IFinanceTA
+conda install -c conda-forge -y numpy pandas scipy numba ta-lib
+pip install -r backend/requirements.txt
+pip install vectorbt
+
+# Configurazione locale (non committare .env)
+cp .env.example .env
+nano .env
+
+# Dipendenze frontend
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+Verifica l'ambiente prima di generare i dati:
+
+```bash
+python -c "import talib, vectorbt, pandas, yfinance; print('Python OK')"
+node --version  # deve essere >= 18
+```
+
+Gli Excel in `analyses/` sono generati localmente e non vengono distribuiti tramite Git. Alla prima installazione avvia quindi `main.py` dalla radice del progetto:
+
+```bash
+tmux new -s ifinance-main
+conda activate IFinanceTA
+python main.py
+```
+
+Per lasciare il processo attivo e uscire da `tmux`, premi `Ctrl+B` e poi `D`. Per rientrare usa `tmux attach -t ifinance-main`.
+
+Avvia poi backend e frontend in due terminali separati:
+
+```bash
+# Backend
+cd ~/IFinancev4React/backend
+conda run -n IFinanceTA python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+
+# Frontend
+cd ~/IFinancev4React/frontend
+npm run dev -- --host 0.0.0.0
+```
+
+Da un altro dispositivo della stessa rete apri `http://<IP_RASPBERRY>:5173`. Ricava l'indirizzo con `hostname -I`. Non esporre direttamente le porte 5173 e 8011 su Internet.
+
 ---
 
 ## 🔧 Variabili d'ambiente
