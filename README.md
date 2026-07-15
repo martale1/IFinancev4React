@@ -281,7 +281,7 @@ cd IFinancev4React
 # Ambiente Python e dipendenze native ARM64
 conda create -n IFinanceTA python=3.11 -y
 conda activate IFinanceTA
-conda install -c conda-forge -y numpy pandas scipy numba ta-lib
+conda install -c conda-forge -y numpy pandas scipy numba ta-lib pyarrow
 pip install -r backend/requirements.txt
 pip install vectorbt
 
