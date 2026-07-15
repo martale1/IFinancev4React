@@ -22,9 +22,13 @@ PROVIDER_TZ = None  # metti "UTC" se i tuoi timestamp sono naive ma in UTC
 # --- COSTANTI GLOBALI ---
 # --- COSTANTI GLOBALI ---
 
-OUTPUT_FOLDER = r"C:\Users\theoi\PycharmProjects\LearningPython\IFinancev4React\analyses"
+PROJECT_ROOT = Path(__file__).resolve().parent
+_analyses_dir = Path(os.getenv("ANALYSES_DIR", "analyses")).expanduser()
+if not _analyses_dir.is_absolute():
+    _analyses_dir = PROJECT_ROOT / _analyses_dir
+OUTPUT_FOLDER = _analyses_dir.resolve()
+OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 OUTPUT_FILENAME = "TA_Analyses.xlsx"
-#OUTPUT_FOLDER = "/home/pi/PycharmProjects/IFinancev4ReactV1/IFinancev4React/analyses/"
 
 
 
