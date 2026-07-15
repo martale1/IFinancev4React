@@ -103,10 +103,10 @@ Scanner di pattern tecnici con simulazione VectorBT istantanea:
 | **S3** – MACD Cross | Incrocio MACD rialzista confermato |
 | **S4** – EMA+RSI+Vol | EMA crossover + RSI favorevole + volume |
 | **Comb. S2&S3** | Combinazione S2 e S3 |
-| **RSI Oversold** | RSI < 30 con incrocio stocastico |
-| **Golden Cross** | EMA30 supera EMA50 con ADX forte |
-| **Alligator Bull** | Prezzo > SAR e linee Alligator in Uptrend |
-| **Volume Breakout** | Volume 1.5x MA20 con prezzo in salita |
+| **S5 – RSI Oversold** | RSI < 30 con incrocio stocastico rialzista |
+| **S6 – Golden Cross** | EMA30 supera EMA50 con ADX > 25 |
+| **S7 – Alligator Bull** | Prezzo > SAR e stato Alligator in Uptrend |
+| **S8 – Volume Breakout** | Candela rialzista con volume > 1.5x MA20 |
 | *Pattern personalizzati* | Definibili dall'utente via YAML |
 
 Per ogni scansione si ottengono:
@@ -402,6 +402,19 @@ Il **Multi-Pattern Lab** è il modulo di screening avanzato. Permette di:
 3. **Avviare la scansione** — il backend itera su tutti i ticker del mercato selezionato
 4. **Visualizzare i risultati** con i titoli che soddisfano il pattern
 5. **Avviare il backtest VectorBT** su ogni titolo per validare la strategia storicamente
+
+### Scansione rapida da Excel
+
+Durante l'esecuzione, `main.py` calcola S2–S8 sull'intera serie storica di ogni ticker e salva nell'Excel di mercato le colonne:
+
+- `Pattern_S2_Days_Ago` … `Pattern_S8_Days_Ago`: numero di sedute trascorse dall'ultimo segnale (`999` se assente)
+- `Pattern_S2_Match` … `Pattern_S8_Match`: presenza del segnale sulla singola riga storica
+- `Pattern_Combined_Days_Ago`: ultimo segnale congiunto S2 e S3
+- `SAR_Filter_Ok` e `SMA200_Filter_Ok`: filtri tecnici pre-calcolati
+
+I file vengono scritti in `analyses/<MERCATO>_TA_Analyses.xlsx`. Il backend usa queste colonne per S2–S8, **Comb. S2&S3** e **Qualsiasi S2/S3**, evitando nuovi download da Yahoo Finance durante la scansione. Se il file non esiste o proviene da una versione precedente e non contiene le colonne richieste, viene usata automaticamente la scansione realtime.
+
+Le voci YAML `RSI Oversold`, `Golden Cross`, `Alligator Bull` e `Volume Breakout` sono mappate rispettivamente su S5, S6, S7 e S8 e sfruttano lo stesso percorso rapido.
 
 ### Pattern personalizzati (YAML)
 Definisci i tuoi pattern in `custom_patterns.yaml`:

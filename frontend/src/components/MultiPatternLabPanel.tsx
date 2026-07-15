@@ -144,7 +144,7 @@ export default function MultiPatternLabPanel({
   const [scanResults, setScanResults] = useState<ScanResult[] | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   // Progress tracking for SSE streaming scans (custom patterns)
-  const [scanProgress, setScanProgress] = useState<{ done: number; total: number; market: string } | null>(null);
+  const [, setScanProgress] = useState<{ done: number; total: number; market: string } | null>(null);
   // AbortController ref to cancel in-flight SSE streams when user changes params
   const abortRef = useRef<AbortController | null>(null);
 
@@ -230,7 +230,10 @@ export default function MultiPatternLabPanel({
   const [alertBusy, setAlertBusy] = useState(false);
 
   // Set of built-in pattern IDs that use the fast pre-calculated Excel path
-  const BUILTIN_PATTERNS = new Set(["S2", "S3", "S4", "Combined", "S2_or_S3"]);
+  const BUILTIN_PATTERNS = new Set([
+    "S2", "S3", "S4", "S5", "S6", "S7", "S8", "Combined", "S2_or_S3",
+    "custom_rsi_oversold", "custom_golden_cross", "custom_bullish_alligator", "custom_volume_breakout"
+  ]);
 
   async function handleScan() {
     // Cancel any previous in-flight scan
@@ -864,22 +867,21 @@ export default function MultiPatternLabPanel({
                         {row.Pattern_Days_Ago === 0 ? "Oggi" : row.Pattern_Days_Ago === 1 ? "Ieri" : `${row.Pattern_Days_Ago}gg fa`}
                       </td>
                       {(() => {
-                        // Per "Qualsiasi" usa Pattern_Type dal backend (può essere S2/S3/misto).
-                        // Per tutti gli altri, mostra il pattern selezionato — il backend non sempre
-                        // popola Pattern_Type correttamente per i pattern singoli.
-                        const displayPt = pattern === "S2_or_S3"
-                          ? (row.Pattern_Type ?? pattern)
-                          : pattern;
+                        const displayPt = row.Pattern_Type || pattern;
                         const ptColor =
                           displayPt === "S2 & S3" || displayPt === "Combined" ? "#4ade80"
                           : displayPt === "S2"       ? "#60a5fa"
                           : displayPt === "S3"       ? "#38bdf8"
                           : displayPt === "S4"       ? "#a78bfa"
                           : displayPt === "S2_or_S3" ? "#f97316"
+                          : displayPt.includes("RSI") || displayPt.includes("S5") ? "#f472b6"
+                          : displayPt.includes("Golden") || displayPt.includes("S6") ? "#fbbf24"
+                          : displayPt.includes("Alligator") || displayPt.includes("S7") ? "#34d399"
+                          : displayPt.includes("Volume") || displayPt.includes("S8") ? "#c084fc"
                           : "#fbbf24";
                         return (
                           <td style={{ fontWeight: "bold", color: ptColor }}>
-                            {displayPt === "S2_or_S3" ? "Qualsiasi" : displayPt}
+                            {displayPt}
                           </td>
                         );
                       })()}

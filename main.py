@@ -457,6 +457,29 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             s4_macd      = macd > signal                                                   # MACD > Signal
             s4_volume    = df_tmp['Volume'] > (df_tmp['Volume_MA20'] * 1.5)               # Volume > media×1.5
             s4_active    = s4_ema & s4_rsi & s4_macd & s4_volume
+
+            # S5 Pattern – RSI Oversold con incrocio stocastico rialzista
+            rsi_s5    = df_tmp['RSI']     if 'RSI'     in df_tmp.columns else pd.Series(50.0, index=df_tmp.index)
+            s5_active = (rsi_s5 < 30) & (k > d)
+
+            # S6 Pattern – Golden Cross (EMA30 > EMA50 con ADX forte)
+            ema30_s6  = df_tmp['EMA_30'] if 'EMA_30' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            ema50_s6  = df_tmp['EMA_50'] if 'EMA_50' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            adx_s6    = df_tmp['ADX']    if 'ADX'    in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            s6_active = (ema30_s6 > ema50_s6) & (adx_s6 > 25)
+
+            # S7 Pattern – Alligator Bull (Close > SAR e Signal6 in Uptrend)
+            sar_s7 = df_tmp['SAR'] if 'SAR' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            if 'Signal6' in df_tmp.columns:
+                sig6_uptrend = df_tmp['Signal6'].astype(str).str.startswith('Uptrend')
+            else:
+                sig6_uptrend = pd.Series(False, index=df_tmp.index)
+            s7_active = (df_tmp['Close'] > sar_s7) & sig6_uptrend
+
+            # S8 Pattern – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
+            open_s8     = df_tmp['Open']        if 'Open'        in df_tmp.columns else df_tmp['Close']
+            vol_ma20_s8 = df_tmp['Volume_MA20'] if 'Volume_MA20' in df_tmp.columns else pd.Series(1.0, index=df_tmp.index)
+            s8_active   = (df_tmp['Close'] > open_s8) & (df_tmp['Volume'] > (vol_ma20_s8 * 1.5))
             
             def _days_since(s: pd.Series) -> int:
                 true_indices = s[s].index
@@ -470,11 +493,19 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S3_Days_Ago'] = _days_since(s3_active)
             df_tmp['Pattern_Combined_Days_Ago'] = _days_since(s2_active & s3_active)
             df_tmp['Pattern_S4_Days_Ago'] = _days_since(s4_active)
+            df_tmp['Pattern_S5_Days_Ago'] = _days_since(s5_active)
+            df_tmp['Pattern_S6_Days_Ago'] = _days_since(s6_active)
+            df_tmp['Pattern_S7_Days_Ago'] = _days_since(s7_active)
+            df_tmp['Pattern_S8_Days_Ago'] = _days_since(s8_active)
 
             df_tmp['Pattern_S2_Match'] = s2_active.astype(int)
             df_tmp['Pattern_S3_Match'] = s3_active.astype(int)
             df_tmp['Pattern_Combined_Match'] = (s2_active & s3_active).astype(int)
             df_tmp['Pattern_S4_Match'] = s4_active.astype(int)
+            df_tmp['Pattern_S5_Match'] = s5_active.astype(int)
+            df_tmp['Pattern_S6_Match'] = s6_active.astype(int)
+            df_tmp['Pattern_S7_Match'] = s7_active.astype(int)
+            df_tmp['Pattern_S8_Match'] = s8_active.astype(int)
             
             # Filtri di Sicurezza
             if 'SAR' in df_tmp.columns:
@@ -491,7 +522,15 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S3_Match'] = 0
             df_tmp['Pattern_Combined_Match'] = 0
             df_tmp['Pattern_S4_Match'] = 0
+            df_tmp['Pattern_S5_Match'] = 0
+            df_tmp['Pattern_S6_Match'] = 0
+            df_tmp['Pattern_S7_Match'] = 0
+            df_tmp['Pattern_S8_Match'] = 0
             df_tmp['Pattern_S4_Days_Ago'] = 999
+            df_tmp['Pattern_S5_Days_Ago'] = 999
+            df_tmp['Pattern_S6_Days_Ago'] = 999
+            df_tmp['Pattern_S7_Days_Ago'] = 999
+            df_tmp['Pattern_S8_Days_Ago'] = 999
             df_tmp['SAR_Filter_Ok'] = 0
             df_tmp['SMA200'] = df_tmp['Close']
             df_tmp['SMA200_Filter_Ok'] = 0
@@ -934,10 +973,10 @@ markets_to_run = ['MIB30','Preferite','DAX','ETC','ETF']
 # Imposta la validità della cache in ore per la scansione del mercato.
 # - 0.0: scarica sempre l'ultimo aggiornamento in tempo reale da Yahoo Finance.
 # - 0.25: usa la cache se più recente di 15 minuti (utile per test rapidi).
-CACHE_HOURS = 0.0
+CACHE_HOURS = 24.0
 # Disabilita completamente la creazione/uso di file di cache durante l'esecuzione di main.py.
 # La cache viene creata/usata solo quando apri i grafici dalla GUI web.
-USE_CACHE = False
+USE_CACHE = True
 
 all_results = run_markets(
     markets_to_run,

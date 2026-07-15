@@ -405,6 +405,31 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
         s4_volume = vol > (vol_ma20 * 1.5)
         s4_active_series = s4_ema & s4_rsi & s4_macd & s4_volume
 
+        # 4. Pattern S5 – RSI Oversold con incrocio stocastico
+        k_s5   = df_calc['Stoch_K'] if 'Stoch_K' in df_calc.columns else pd.Series(50.0, index=df_calc.index)
+        d_s5   = df_calc['Stoch_D'] if 'Stoch_D' in df_calc.columns else pd.Series(50.0, index=df_calc.index)
+        rsi_s5 = df_calc['RSI']     if 'RSI'     in df_calc.columns else pd.Series(50.0, index=df_calc.index)
+        s5_active_series = (rsi_s5 < 30) & (k_s5 > d_s5)
+
+        # 5. Pattern S6 – Golden Cross (EMA30 > EMA50 con ADX forte)
+        ema30_s6 = df_calc['EMA_30'] if 'EMA_30' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
+        ema50_s6 = df_calc['EMA_50'] if 'EMA_50' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
+        adx_s6   = df_calc['ADX']    if 'ADX'    in df_calc.columns else pd.Series(0.0, index=df_calc.index)
+        s6_active_series = (ema30_s6 > ema50_s6) & (adx_s6 > 25)
+
+        # 6. Pattern S7 – Alligator Bull (Close > SAR e Signal6 in Uptrend)
+        sar_s7 = df_calc['SAR'] if 'SAR' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
+        if 'Signal6' in df_calc.columns:
+            sig6_up = df_calc['Signal6'].astype(str).str.startswith('Uptrend')
+        else:
+            sig6_up = pd.Series(False, index=df_calc.index)
+        s7_active_series = (df_calc['Close'] > sar_s7) & sig6_up
+
+        # 7. Pattern S8 – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
+        open_s8     = df_calc['Open']        if 'Open'        in df_calc.columns else df_calc['Close']
+        vol_ma20_s8 = df_calc['Volume_MA20'] if 'Volume_MA20' in df_calc.columns else pd.Series(1.0, index=df_calc.index)
+        s8_active_series = (df_calc['Close'] > open_s8) & (df_calc['Volume'] > (vol_ma20_s8 * 1.5))
+
         custom_query = get_pattern_rule(pattern)
         if custom_query:
             try:
@@ -420,6 +445,14 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
             active_series = s3_active_series
         elif pattern == "S4":
             active_series = s4_active_series
+        elif pattern == "S5":
+            active_series = s5_active_series
+        elif pattern == "S6":
+            active_series = s6_active_series
+        elif pattern == "S7":
+            active_series = s7_active_series
+        elif pattern == "S8":
+            active_series = s8_active_series
         elif pattern == "Combined":
             active_series = s2_active_series & s3_active_series
         elif pattern == "S2_or_S3":
@@ -730,8 +763,16 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
     Scansiona il mercato caricando i dati pre-calcolati dall'Excel salvato ogni 20 minuti da main.py.
     Se l'Excel non è disponibile o mancano le colonne dei pattern, esegue il fallback in tempo reale.
     """
-    if pattern not in ["S2", "S3", "S4", "Combined", "S2_or_S3"]:
-        # È un pattern personalizzato, esegui direttamente la scansione in tempo reale
+    pattern_mapping = {
+        "custom_rsi_oversold": "S5",
+        "custom_golden_cross": "S6",
+        "custom_bullish_alligator": "S7",
+        "custom_volume_breakout": "S8"
+    }
+    mapped_pattern = pattern_mapping.get(pattern, pattern)
+
+    if mapped_pattern not in ["S2", "S3", "S4", "S5", "S6", "S7", "S8", "Combined", "S2_or_S3"]:
+        # È un pattern personalizzato reale, esegui direttamente la scansione in tempo reale
         return scan_market_realtime(market, pattern, use_sar, use_sma200, lookback)
 
     from app.services.watchlist_service import load_market_dataframe, prepare_dataframe
@@ -741,12 +782,11 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
         df = prepare_dataframe(df)
         
         # Verifica se le colonne precalcolate dei pattern sono presenti
-        if pattern == "S2_or_S3":
+        if mapped_pattern == "S2_or_S3":
             required = ['Pattern_S2_Days_Ago', 'Pattern_S3_Days_Ago', 'SAR_Filter_Ok', 'SMA200_Filter_Ok']
         else:
-            days_ago_col = f"Pattern_{pattern}_Days_Ago"
+            days_ago_col = f"Pattern_{mapped_pattern}_Days_Ago"
             required = [days_ago_col, 'SAR_Filter_Ok', 'SMA200_Filter_Ok']
-            # S4 potrebbe non essere nell'Excel vecchio: forza real-time in quel caso
             
         if not all(col in df.columns for col in required):
             raise KeyError(f"Colonne pre-calcolate dei pattern sperimentali non trovate nell'Excel.")
@@ -756,7 +796,7 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
         return scan_market_realtime(market, pattern, use_sar, use_sma200, lookback)
 
     # Filtra il DataFrame locale in base al pattern selezionato e al lookback
-    if pattern == "S2_or_S3":
+    if mapped_pattern == "S2_or_S3":
         df_filtered = df[(df['Pattern_S2_Days_Ago'] <= (lookback - 1)) | (df['Pattern_S3_Days_Ago'] <= (lookback - 1))]
     else:
         df_filtered = df[df[days_ago_col] <= (lookback - 1)]
@@ -796,7 +836,7 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
 
         ticker = str(row.get("Ticker", ""))
         
-        if pattern == "S2_or_S3":
+        if mapped_pattern == "S2_or_S3":
             days_s2 = int(row.get("Pattern_S2_Days_Ago", 999)) if not pd.isna(row.get("Pattern_S2_Days_Ago")) else 999
             days_s3 = int(row.get("Pattern_S3_Days_Ago", 999)) if not pd.isna(row.get("Pattern_S3_Days_Ago")) else 999
             days_ago = min(days_s2, days_s3)
@@ -812,9 +852,9 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
             else:
                 pat_type = "None"
         else:
-            days_ago_col = f"Pattern_{pattern}_Days_Ago"
+            days_ago_col = f"Pattern_{mapped_pattern}_Days_Ago"
             days_ago = int(row.get(days_ago_col, 999)) if not pd.isna(row.get(days_ago_col)) else 999
-            pat_type = pattern
+            pat_type = get_pattern_label(pattern)
         
         # ── Fast path: usa i valori già presenti nell'Excel pre-calcolato da main.py ──
         # PCTV_1D = variazione % rispetto a ieri, già calcolata da main.py → nessuna
@@ -895,12 +935,7 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
             "MACD_vs_Signal": _clean(row.get("MACD_vs_Signal")),
         }
 
-    scanned_results = []
-    rows = [row for _, row in df_filtered.iterrows()]
-    if rows:
-        max_workers = min(15, len(rows))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            scanned_results = list(executor.map(_process_row, rows))
+    scanned_results = [_process_row(row) for _, row in df_filtered.iterrows()]
 
     # Ordina i risultati per Ticker
     scanned_results.sort(key=lambda x: x["Ticker"])
@@ -950,6 +985,14 @@ def run_vectorbt_backtest(
                 "(MACD > MACD_Signal) & "
                 "(Volume > Volume_MA20 * 1.5)"
             )
+        if pattern == "S5":
+            pattern_conditions.append("(RSI < 30) & (Stoch_K > Stoch_D)")
+        if pattern == "S6":
+            pattern_conditions.append("(EMA_30 > EMA_50) & (ADX > 25)")
+        if pattern == "S7":
+            pattern_conditions.append("(Close > SAR) & (Signal6.str.startswith('Uptrend'))")
+        if pattern == "S8":
+            pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
             
         if not pattern_conditions:
             pattern_rule = "(Close > 0)"

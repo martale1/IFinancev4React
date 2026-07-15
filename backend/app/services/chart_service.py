@@ -244,6 +244,14 @@ def chart_backtest_png_bytes(
                         "(MACD > MACD_Signal) & "
                         "(Volume > Volume_MA20 * 1.5)"
                     )
+                if pattern == "S5":
+                    pattern_conditions.append("(RSI < 30) & (Stoch_K > Stoch_D)")
+                if pattern == "S6":
+                    pattern_conditions.append("(EMA_30 > EMA_50) & (ADX > 25)")
+                if pattern == "S7":
+                    pattern_conditions.append("(Close > SAR) & (Signal6.str.startswith('Uptrend'))")
+                if pattern == "S8":
+                    pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
 
                 if not pattern_conditions:
                     pattern_rule = "(Close > 0)"
