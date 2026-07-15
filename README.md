@@ -327,6 +327,20 @@ npm run dev -- --host 0.0.0.0
 
 Da un altro dispositivo della stessa rete apri `http://<IP_RASPBERRY>:5173`. Ricava l'indirizzo con `hostname -I`. Non esporre direttamente le porte 5173 e 8011 su Internet.
 
+In alternativa, lo script Raspberry avvia in background il backend e serve direttamente la build React sulla porta 8011:
+
+```bash
+cd ~/IFinancev4React
+./start_raspberry.sh
+```
+
+Per controllare il log o arrestare l'applicazione:
+
+```bash
+tail -f logs/ifinance.log
+./stop_raspberry.sh
+```
+
 ---
 
 ## 🔧 Variabili d'ambiente

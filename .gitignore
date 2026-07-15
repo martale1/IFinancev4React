@@ -12,6 +12,7 @@ venv/
 # Cartelle temporanee/cache/log
 cache/
 logs/
+.run/
 telegram_exports/
 
 # File di output/log locali
