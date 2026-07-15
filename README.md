@@ -334,6 +334,8 @@ cd ~/IFinancev4React
 ./start_raspberry.sh
 ```
 
+Sul Raspberry Pi 3 il primo caricamento può richiedere fino a due minuti; lo script attende che l'API risponda prima di stampare l'indirizzo della pagina.
+
 Per controllare il log o arrestare l'applicazione:
 
 ```bash

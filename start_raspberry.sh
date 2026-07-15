@@ -38,14 +38,14 @@ fi
 
 echo "Avvio IFinance..."
 cd "$ROOT_DIR/backend"
-nohup "$PYTHON_BIN" -m uvicorn app.main:app \
+nohup "$PYTHON_BIN" -u -m uvicorn app.main:app \
   --host 0.0.0.0 \
   --port 8011 \
   >"$LOG_FILE" 2>&1 &
 PID=$!
 echo "$PID" > "$PID_FILE"
 
-for _ in {1..30}; do
+for _ in {1..120}; do
   if ! kill -0 "$PID" 2>/dev/null; then
     echo "Errore durante l'avvio. Ultime righe del log:"
     tail -n 30 "$LOG_FILE" || true
@@ -64,6 +64,6 @@ for _ in {1..30}; do
   sleep 1
 done
 
-echo "Il processo è attivo ma non ha risposto entro 30 secondi."
+echo "Il processo è attivo ma non ha risposto entro 120 secondi."
 echo "Controlla il log con: tail -f $LOG_FILE"
 exit 1
