@@ -303,7 +303,7 @@ python -c "import talib, vectorbt, pandas, yfinance; print('Python OK')"
 node --version  # deve essere >= 18
 ```
 
-Gli Excel in `analyses/` sono generati localmente e non vengono distribuiti tramite Git. Alla prima installazione avvia quindi `main.py` dalla radice del progetto:
+Le liste ticker di input in `validTickersXLS/` sono distribuite tramite Git. Gli Excel di analisi in `analyses/` sono invece generati localmente. Alla prima installazione avvia quindi `main.py` dalla radice del progetto:
 
 ```bash
 tmux new -s ifinance-main

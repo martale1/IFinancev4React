@@ -18,3 +18,7 @@ telegram_exports/
 err.txt
 out.txt
 *.xlsx
+
+# Liste ticker di input necessarie a main.py e al backend
+!validTickersXLS/
+!validTickersXLS/*.xlsx
