@@ -458,23 +458,28 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             s4_volume    = df_tmp['Volume'] > (df_tmp['Volume_MA20'] * 1.5)               # Volume > media×1.5
             s4_active    = s4_ema & s4_rsi & s4_macd & s4_volume
 
-            # S5 Pattern – RSI Oversold con incrocio stocastico rialzista
+            # S5 Pattern – RSI Oversold con evento di incrocio stocastico rialzista
             rsi_s5    = df_tmp['RSI']     if 'RSI'     in df_tmp.columns else pd.Series(50.0, index=df_tmp.index)
-            s5_active = (rsi_s5 < 30) & (k > d)
+            s5_active = (rsi_s5 < 30) & (k > d) & (k_shift1 <= d_shift1)
 
-            # S6 Pattern – Golden Cross (EMA30 > EMA50 con ADX forte)
+            # S6 Pattern – Golden Cross: evento di incrocio EMA30 sopra EMA50 con ADX forte
             ema30_s6  = df_tmp['EMA_30'] if 'EMA_30' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
             ema50_s6  = df_tmp['EMA_50'] if 'EMA_50' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
             adx_s6    = df_tmp['ADX']    if 'ADX'    in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
-            s6_active = (ema30_s6 > ema50_s6) & (adx_s6 > 25)
+            s6_active = (
+                (ema30_s6 > ema50_s6)
+                & (ema30_s6.shift(1) <= ema50_s6.shift(1))
+                & (adx_s6 > 25)
+            )
 
-            # S7 Pattern – Alligator Bull (Close > SAR e Signal6 in Uptrend)
+            # S7 Pattern – ingresso nello stato Alligator Bull
             sar_s7 = df_tmp['SAR'] if 'SAR' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
             if 'Signal6' in df_tmp.columns:
                 sig6_uptrend = df_tmp['Signal6'].astype(str).str.startswith('Uptrend')
             else:
                 sig6_uptrend = pd.Series(False, index=df_tmp.index)
-            s7_active = (df_tmp['Close'] > sar_s7) & sig6_uptrend
+            s7_bull_state = (df_tmp['Close'] > sar_s7) & sig6_uptrend
+            s7_active = s7_bull_state & ~s7_bull_state.shift(1, fill_value=False)
 
             # S8 Pattern – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
             open_s8     = df_tmp['Open']        if 'Open'        in df_tmp.columns else df_tmp['Close']
@@ -526,6 +531,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S6_Match'] = 0
             df_tmp['Pattern_S7_Match'] = 0
             df_tmp['Pattern_S8_Match'] = 0
+            df_tmp['Pattern_S2_Days_Ago'] = 999
+            df_tmp['Pattern_S3_Days_Ago'] = 999
+            df_tmp['Pattern_Combined_Days_Ago'] = 999
             df_tmp['Pattern_S4_Days_Ago'] = 999
             df_tmp['Pattern_S5_Days_Ago'] = 999
             df_tmp['Pattern_S6_Days_Ago'] = 999

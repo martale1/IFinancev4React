@@ -1,18 +1,18 @@
 {
   "CARD_ALERT_TEN_MI__TEN.MI": {
-    "was_true": true,
+    "was_true": false,
     "last_sent_ts": 1783523122,
-    "sent_day": "2026-07-08",
-    "sent_count": 1,
+    "sent_day": "2026-07-15",
+    "sent_count": 0,
     "sent_total": 6,
-    "updated_at": "2026-07-08T15:05:22.154144+00:00"
+    "updated_at": "2026-07-15T21:05:16.949292+00:00"
   },
   "CARD_ALERT_BMPS_MI__BMPS.MI": {
     "was_true": true,
-    "last_sent_ts": 1783523122,
-    "sent_day": "2026-07-08",
-    "sent_count": 1,
-    "sent_total": 6,
-    "updated_at": "2026-07-08T15:05:22.315699+00:00"
+    "last_sent_ts": 1784149517,
+    "sent_day": "2026-07-15",
+    "sent_count": 2,
+    "sent_total": 8,
+    "updated_at": "2026-07-15T21:05:17.655699+00:00"
   }
 }

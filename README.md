@@ -101,11 +101,11 @@ Scanner di pattern tecnici con simulazione VectorBT istantanea:
 |---------|-------------|
 | **S2** – willR+Stoch | Williams %R + Stocastico in zona oversold |
 | **S3** – MACD Cross | Incrocio MACD rialzista confermato |
-| **S4** – EMA+RSI+Vol | EMA crossover + RSI favorevole + volume |
+| **S4** – EMA+RSI+Vol | EMA9 sopra EMA21 + RSI momentum + volume |
 | **Comb. S2&S3** | Combinazione S2 e S3 |
 | **S5 – RSI Oversold** | RSI < 30 con incrocio stocastico rialzista |
-| **S6 – Golden Cross** | EMA30 supera EMA50 con ADX > 25 |
-| **S7 – Alligator Bull** | Prezzo > SAR e stato Alligator in Uptrend |
+| **S6 – Golden Cross** | EMA30 incrocia sopra EMA50 nella seduta, con ADX > 25 |
+| **S7 – Alligator Bull** | Ingresso in stato Close > SAR e Alligator Uptrend |
 | **S8 – Volume Breakout** | Candela rialzista con volume > 1.5x MA20 |
 | *Pattern personalizzati* | Definibili dall'utente via YAML |
 

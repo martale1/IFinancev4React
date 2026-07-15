@@ -229,8 +229,12 @@ def chart_backtest_png_bytes(
                 pattern_conditions = []
                 if pattern in ["S2", "Combined", "S2_or_S3"]:
                     pattern_conditions.append(
-                        "(Williams_R > -80) & (Williams_R > Williams_R_shift1) & (Williams_R_shift1 > Williams_R_shift2) & "
-                        "(Stoch_K > 20) & (Stoch_K_shift1 <= 20) & (Stoch_K > Stoch_D) & (Stoch_K > Stoch_K_shift1) & (Stoch_D > Stoch_D_shift1)"
+                        "(Stoch_K > Stoch_D) & (Stoch_K > 20) & "
+                        "(Williams_R > -80) & (Williams_R > Williams_R_shift1) & "
+                        "(((Stoch_K > 20) & (Stoch_K_shift1 <= 20)) | "
+                        "((Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)) | "
+                        "((Williams_R > -80) & (Williams_R_shift1 <= -80))) & "
+                        "(Stoch_K_shift1 < 35)"
                     )
                 if pattern in ["S3", "Combined", "S2_or_S3"]:
                     pattern_conditions.append(
@@ -245,11 +249,15 @@ def chart_backtest_png_bytes(
                         "(Volume > Volume_MA20 * 1.5)"
                     )
                 if pattern == "S5":
-                    pattern_conditions.append("(RSI < 30) & (Stoch_K > Stoch_D)")
+                    pattern_conditions.append(
+                        "(RSI < 30) & (Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)"
+                    )
                 if pattern == "S6":
-                    pattern_conditions.append("(EMA_30 > EMA_50) & (ADX > 25)")
+                    pattern_conditions.append(
+                        "(EMA_30 > EMA_50) & (EMA_30_shift1 <= EMA_50_shift1) & (ADX > 25)"
+                    )
                 if pattern == "S7":
-                    pattern_conditions.append("(Close > SAR) & (Signal6.str.startswith('Uptrend'))")
+                    pattern_conditions.append("(Alligator_Bull_Trigger == True)")
                 if pattern == "S8":
                     pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
 

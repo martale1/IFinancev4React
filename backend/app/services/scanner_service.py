@@ -264,6 +264,8 @@ def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.
     # EMA30 e EMA50 per custom patterns
     df['EMA_30'] = talib.EMA(close, timeperiod=30)
     df['EMA_50'] = talib.EMA(close, timeperiod=50)
+    df['EMA_30_shift1'] = df['EMA_30'].shift(1)
+    df['EMA_50_shift1'] = df['EMA_50'].shift(1)
 
     # Volume MA20 per Pattern S4
     volume = df['Volume'].values.flatten().astype(float)
@@ -305,6 +307,12 @@ def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.
     df.loc[(jaw < close_s) & (close_s <= teeth) & up_struct, 'Signal6'] = 'Uptrend--'
     df.loc[(teeth < close_s) & (close_s <= lips) & up_struct, 'Signal6'] = 'Uptrend-'
     df.loc[(lips < close_s) & up_struct, 'Signal6'] = 'Uptrend'
+
+    # Stato e trigger usati dal pattern S7. Il trigger è vero solo nella prima
+    # seduta in cui Close > SAR e Signal6 entra in uno stato Uptrend.
+    alligator_bull_state = (df['Close'] > df['SAR']) & df['Signal6'].astype(str).str.startswith('Uptrend')
+    df['Alligator_Bull_State'] = alligator_bull_state
+    df['Alligator_Bull_Trigger'] = alligator_bull_state & ~alligator_bull_state.shift(1, fill_value=False)
 
     return df
 
@@ -405,25 +413,34 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
         s4_volume = vol > (vol_ma20 * 1.5)
         s4_active_series = s4_ema & s4_rsi & s4_macd & s4_volume
 
-        # 4. Pattern S5 – RSI Oversold con incrocio stocastico
+        # 4. Pattern S5 – RSI Oversold con evento di incrocio stocastico
         k_s5   = df_calc['Stoch_K'] if 'Stoch_K' in df_calc.columns else pd.Series(50.0, index=df_calc.index)
         d_s5   = df_calc['Stoch_D'] if 'Stoch_D' in df_calc.columns else pd.Series(50.0, index=df_calc.index)
         rsi_s5 = df_calc['RSI']     if 'RSI'     in df_calc.columns else pd.Series(50.0, index=df_calc.index)
-        s5_active_series = (rsi_s5 < 30) & (k_s5 > d_s5)
+        s5_active_series = (
+            (rsi_s5 < 30)
+            & (k_s5 > d_s5)
+            & (k_s5.shift(1) <= d_s5.shift(1))
+        )
 
-        # 5. Pattern S6 – Golden Cross (EMA30 > EMA50 con ADX forte)
+        # 5. Pattern S6 – evento di incrocio EMA30 sopra EMA50 con ADX forte
         ema30_s6 = df_calc['EMA_30'] if 'EMA_30' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
         ema50_s6 = df_calc['EMA_50'] if 'EMA_50' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
         adx_s6   = df_calc['ADX']    if 'ADX'    in df_calc.columns else pd.Series(0.0, index=df_calc.index)
-        s6_active_series = (ema30_s6 > ema50_s6) & (adx_s6 > 25)
+        s6_active_series = (
+            (ema30_s6 > ema50_s6)
+            & (ema30_s6.shift(1) <= ema50_s6.shift(1))
+            & (adx_s6 > 25)
+        )
 
-        # 6. Pattern S7 – Alligator Bull (Close > SAR e Signal6 in Uptrend)
+        # 6. Pattern S7 – ingresso nello stato Alligator Bull
         sar_s7 = df_calc['SAR'] if 'SAR' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
         if 'Signal6' in df_calc.columns:
             sig6_up = df_calc['Signal6'].astype(str).str.startswith('Uptrend')
         else:
             sig6_up = pd.Series(False, index=df_calc.index)
-        s7_active_series = (df_calc['Close'] > sar_s7) & sig6_up
+        s7_bull_state = (df_calc['Close'] > sar_s7) & sig6_up
+        s7_active_series = s7_bull_state & ~s7_bull_state.shift(1, fill_value=False)
 
         # 7. Pattern S8 – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
         open_s8     = df_calc['Open']        if 'Open'        in df_calc.columns else df_calc['Close']
@@ -970,8 +987,12 @@ def run_vectorbt_backtest(
         pattern_conditions = []
         if pattern in ["S2", "Combined", "S2_or_S3"]:
             pattern_conditions.append(
-                "(Williams_R > -80) & (Williams_R > Williams_R_shift1) & (Williams_R_shift1 > Williams_R_shift2) & "
-                "(Stoch_K > 20) & (Stoch_K_shift1 <= 20) & (Stoch_K > Stoch_D) & (Stoch_K > Stoch_K_shift1) & (Stoch_D > Stoch_D_shift1)"
+                "(Stoch_K > Stoch_D) & (Stoch_K > 20) & "
+                "(Williams_R > -80) & (Williams_R > Williams_R_shift1) & "
+                "(((Stoch_K > 20) & (Stoch_K_shift1 <= 20)) | "
+                "((Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)) | "
+                "((Williams_R > -80) & (Williams_R_shift1 <= -80))) & "
+                "(Stoch_K_shift1 < 35)"
             )
         if pattern in ["S3", "Combined", "S2_or_S3"]:
             pattern_conditions.append(
@@ -986,11 +1007,15 @@ def run_vectorbt_backtest(
                 "(Volume > Volume_MA20 * 1.5)"
             )
         if pattern == "S5":
-            pattern_conditions.append("(RSI < 30) & (Stoch_K > Stoch_D)")
+            pattern_conditions.append(
+                "(RSI < 30) & (Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)"
+            )
         if pattern == "S6":
-            pattern_conditions.append("(EMA_30 > EMA_50) & (ADX > 25)")
+            pattern_conditions.append(
+                "(EMA_30 > EMA_50) & (EMA_30_shift1 <= EMA_50_shift1) & (ADX > 25)"
+            )
         if pattern == "S7":
-            pattern_conditions.append("(Close > SAR) & (Signal6.str.startswith('Uptrend'))")
+            pattern_conditions.append("(Alligator_Bull_Trigger == True)")
         if pattern == "S8":
             pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
             
