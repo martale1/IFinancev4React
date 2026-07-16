@@ -19,6 +19,14 @@ function fmt(value: number, digits = 2): string {
   return Number.isFinite(value) ? value.toFixed(digits) : "-";
 }
 
+function compact(value: number): string {
+  if (!Number.isFinite(value)) return "-";
+  return new Intl.NumberFormat("it-IT", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function ageLabel(days: number): string {
   if (days === 0) return "oggi";
   if (days === 1) return "ieri";
@@ -105,6 +113,8 @@ export default function OpportunityRadarPanel({ currentMarket, onChart }: Props)
                   <span>Prezzo <b>{fmt(row.Close, 3)}</b></span><span>1D <b>{fmt(row.PCTV_1D)}%</b></span>
                   <span>5D <b>{fmt(row.PCTV_5D)}%</b></span><span>RSI <b>{fmt(row.RSI, 1)}</b></span>
                   <span>ADX <b>{fmt(row.ADX, 1)}</b></span><span>ATR <b>{fmt(row.ATR_PCT, 1)}%</b></span>
+                  <span title={new Intl.NumberFormat("it-IT").format(row.Volume)}>Volume <b>{compact(row.Volume)}</b></span>
+                  <span title={`€ ${new Intl.NumberFormat("it-IT").format(row.Turnover)}`}>Controvalore <b>€ {compact(row.Turnover)}</b></span>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.65rem", marginTop: "0.75rem" }}>
