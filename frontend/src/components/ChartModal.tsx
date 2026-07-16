@@ -166,6 +166,7 @@ type Props = {
     sl2?: number | null;
     pbStop?: number | null;
     ppLevel?: number | null;
+    recoveryTrigger?: number | null;
   };
   bars: number;
   chartType: "candlestick" | "line";
@@ -381,7 +382,8 @@ export default function ChartModal(props: Props) {
           sl1: props.levels.sl1,
           sl2: props.levels.sl2,
           pbStop: props.levels.pbStop,
-          ppLevel: props.levels.ppLevel
+          ppLevel: props.levels.ppLevel,
+          recovery_trigger: props.levels.recoveryTrigger
         } : null,
         model: aiModel,
         analysis_type: aiAnalysisType
@@ -500,6 +502,9 @@ export default function ChartModal(props: Props) {
           ) : null}
           {props.levels?.ppLevel != null ? (
             <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
+          ) : null}
+          {props.levels?.recoveryTrigger != null ? (
+            <span className="level-chip" style={{ color: "#f0abfc", borderColor: "#d946ef" }}>Conferma Recovery: {fmtPrice(props.levels.recoveryTrigger)} ({fmtPctFromClose(props.levels.recoveryTrigger)})</span>
           ) : null}
         </div>
 

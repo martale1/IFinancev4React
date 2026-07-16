@@ -571,6 +571,8 @@ Close >= trigger Recovery
 
 La regola invia al massimo una notifica al giorno e include nel messaggio trigger, invalidazione, RSI, ADX e volume. L'identificativo `RECOVERY_CONFIRM_<TICKER>` impedisce duplicati: un nuovo click aggiorna il livello già salvato.
 
+Aprendo il grafico da una card Recovery, il trigger viene riportato nel pannello prezzo come linea orizzontale magenta tratteggiata **CONFERMA RECOVERY**, con lo stesso valore mostrato nel piano tecnico. I grafici aperti dalle altre sezioni non mostrano questa linea.
+
 La classifica è uno strumento di screening e non costituisce consulenza finanziaria: il pulsante **Apri grafico** consente di verificare ogni candidato prima di qualsiasi decisione.
 
 ### API

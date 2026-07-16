@@ -187,11 +187,12 @@ def chart(
     sl2: float | None = Query(default=None),
     pb_stop: float | None = Query(default=None),
     pp_level: float | None = Query(default=None),
+    recovery_trigger: float | None = Query(default=None),
 ):
     if chart_type not in ["candlestick", "line"]:
         raise HTTPException(status_code=400, detail="chart_type must be 'candlestick' or 'line'")
     try:
-        levels = {"sl1": sl1, "sl2": sl2, "pb_stop": pb_stop, "pp_level": pp_level}
+        levels = {"sl1": sl1, "sl2": sl2, "pb_stop": pb_stop, "pp_level": pp_level, "recovery_trigger": recovery_trigger}
         data = chart_png_bytes(ticker=ticker, bars=bars, chart_type=chart_type, levels=levels)
         if not data:
             raise HTTPException(status_code=404, detail=f"No chart data for ticker '{ticker}'")

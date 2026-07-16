@@ -106,17 +106,19 @@ def _add_level_lines(fig, levels: dict | None) -> None:
         "sl2": "#3b82f6",      # blue
         "pb_stop": "#f59e0b",  # amber
         "pp_level": "#ef4444", # red
+        "recovery_trigger": "#d946ef", # bright magenta
     }
     label_map = {
         "sl1": "SL1",
         "sl2": "SL2",
         "pb_stop": "PB STOP",
         "pp_level": "PROFIT PROTECT",
+        "recovery_trigger": "CONFERMA RECOVERY",
     }
-    dashed = {"sl1", "pp_level"}
+    dashed = {"sl1", "pp_level", "recovery_trigger"}
     dotted = {"sl2"}
 
-    for k in ["sl1", "sl2", "pb_stop", "pp_level"]:
+    for k in ["sl1", "sl2", "pb_stop", "pp_level", "recovery_trigger"]:
         v = levels.get(k)
         try:
             y = float(v)
@@ -128,10 +130,10 @@ def _add_level_lines(fig, levels: dict | None) -> None:
             y=y,
             color=color_map.get(k, "#93c5fd"),
             linestyle=":" if k in dotted else ("--" if k in dashed else "-."),
-            linewidth=1.6,
-            alpha=0.9,
+            linewidth=2.8 if k == "recovery_trigger" else 1.6,
+            alpha=1.0 if k == "recovery_trigger" else 0.9,
             label=f"{label_map.get(k, k)} {y:.3f}",
-            zorder=2,
+            zorder=8 if k == "recovery_trigger" else 2,
         )
     try:
         ax.legend(loc="upper left", framealpha=0.85)

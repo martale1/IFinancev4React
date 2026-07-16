@@ -137,7 +137,8 @@ export default function App() {
     sl2: number | null;
     pbStop: number | null;
     ppLevel: number | null;
-  }>({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
+    recoveryTrigger: number | null;
+  }>({ sl1: null, sl2: null, pbStop: null, ppLevel: null, recoveryTrigger: null });
   const [chartSnapshot, setChartSnapshot] = useState<{
     date: string | null;
     close: number | null;
@@ -186,7 +187,8 @@ export default function App() {
       sl1: toNum(row.Trend_Stop_Level),
       sl2: toNum(row.CE_Long),
       pbStop: toNum(row.Pullback_Stop_Level),
-      ppLevel: toNum(row.Profit_Protect_Level)
+      ppLevel: toNum(row.Profit_Protect_Level),
+      recoveryTrigger: toNum(row.Entry_Trigger)
     });
     const rawDate = row.Date;
     const dateText =
@@ -239,7 +241,7 @@ export default function App() {
     
     setChartTicker(t);
     setChartRow(dummyRow);
-    setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
+    setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null, recoveryTrigger: null });
     setChartSnapshot({ date: null, close: null });
     setIsQuickChart(true);
   }
@@ -745,7 +747,7 @@ export default function App() {
               : scanRow;
             setChartTicker(scanRow.Ticker ?? "");
             setChartRow(mergedRow);
-            setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
+            setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null, recoveryTrigger: null });
             setChartSnapshot({ date: null, close: scanRow.Close ?? null });
             setIsQuickChart(false);   // mostra sempre la stats bar con le percentuali
           }}
@@ -885,7 +887,7 @@ export default function App() {
         onClose={() => {
           setChartTicker("");
           setChartRow(null);
-          setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
+          setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null, recoveryTrigger: null });
           setChartSnapshot({ date: null, close: null });
           setIsQuickChart(false);
         }}

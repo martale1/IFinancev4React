@@ -170,7 +170,7 @@ export function chartUrl(
   ticker: string,
   bars: number,
   chartType: "candlestick" | "line",
-  levels?: { sl1?: number | null; sl2?: number | null; pbStop?: number | null; ppLevel?: number | null }
+  levels?: { sl1?: number | null; sl2?: number | null; pbStop?: number | null; ppLevel?: number | null; recoveryTrigger?: number | null }
 ): string {
   const q = new URLSearchParams({
     bars: String(bars),
@@ -182,6 +182,7 @@ export function chartUrl(
     if (typeof levels.sl2 === "number") q.set("sl2", String(levels.sl2));
     if (typeof levels.pbStop === "number") q.set("pb_stop", String(levels.pbStop));
     if (typeof levels.ppLevel === "number") q.set("pp_level", String(levels.ppLevel));
+    if (typeof levels.recoveryTrigger === "number") q.set("recovery_trigger", String(levels.recoveryTrigger));
   }
   return `${API_BASE}/charts/${encodeURIComponent(ticker)}?${q.toString()}`;
 }
