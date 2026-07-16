@@ -513,6 +513,8 @@ GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
 
 Per ogni candidato Recovery viene mostrato anche un piano tecnico: superamento del massimo corrente con piccolo buffer ATR come conferma, invalidazione sotto il minimo/SAR, rischio percentuale del setup e obiettivo teorico a 2R. Sono livelli quantitativi sperimentali da verificare sul grafico, non ordini automatici né raccomandazioni di investimento.
 
+Il pulsante **Crea alert sulla conferma** salva nel mercato sorgente una regola attiva `Close >= livello di conferma`, con massimo una notifica al giorno. L'identificativo deterministico `RECOVERY_CONFIRM_<TICKER>` evita duplicati: un nuovo click aggiorna il livello dell'alert esistente.
+
 ---
 
 ## 🔬 Multi-Pattern Lab

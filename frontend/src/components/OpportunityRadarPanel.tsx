@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchOpportunities } from "../api";
-import type { OpportunityRow } from "../types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchOpportunities, upsertAlertRule } from "../api";
+import type { AlertRule, OpportunityRow } from "../types";
 
 type Props = {
   onChart: (row: OpportunityRow) => void;
@@ -35,13 +35,48 @@ function ageLabel(days: number): string {
   return `${days}g fa`;
 }
 
+function recoveryAlertId(ticker: string): string {
+  return `RECOVERY_CONFIRM_${ticker.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "")}`;
+}
+
 export default function OpportunityRadarPanel({ onChart }: Props) {
+  const queryClient = useQueryClient();
   const [scope, setScope] = useState("MIB30");
   const [mode, setMode] = useState("balanced");
   const [window, setWindow] = useState(10);
+  const [alertMessages, setAlertMessages] = useState<Record<string, string>>({});
   const query = useQuery({
     queryKey: ["opportunities", scope, mode, window],
     queryFn: () => fetchOpportunities({ market: scope, mode, limit: 20, window }),
+  });
+  const alertMutation = useMutation({
+    mutationFn: async (row: OpportunityRow) => {
+      if (row.Entry_Trigger == null) throw new Error("Livello di conferma non disponibile");
+      const trigger = Number(row.Entry_Trigger.toFixed(4));
+      const invalidation = row.Invalidation_Level == null ? null : Number(row.Invalidation_Level.toFixed(4));
+      const payload: AlertRule = {
+        id: recoveryAlertId(row.Ticker),
+        enabled: true,
+        scope: { tickers: [row.Ticker] },
+        when: { all: [{ field: "Close", op: ">=", value: trigger }] },
+        cooldown_minutes: 0,
+        max_per_day: 1,
+        min_gap_minutes: 0,
+        message: {
+          title: "Recovery {{Ticker}}: conferma superata",
+          body: `Close: {{Close}}\nConferma Recovery: ${trigger}${invalidation == null ? "" : `\nInvalidazione: ${invalidation}`}\nRSI: {{RSI}}\nADX: {{ADX}}\nVolume: {{Volume}}`,
+        },
+      };
+      await upsertAlertRule(row.Market, payload);
+      return { row, trigger };
+    },
+    onSuccess: async ({ row, trigger }) => {
+      setAlertMessages((current) => ({ ...current, [row.Ticker]: `Alert attivo sopra ${trigger}` }));
+      await queryClient.invalidateQueries({ queryKey: ["alerts", row.Market] });
+    },
+    onError: (error, row) => {
+      setAlertMessages((current) => ({ ...current, [row.Ticker]: `Errore: ${String(error)}` }));
+    },
   });
 
   const cardStyle = {
@@ -145,6 +180,20 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                       <span>Invalidazione sotto <b>{row.Invalidation_Level != null ? fmt(row.Invalidation_Level, 3) : "-"}</b></span>
                       <span>Rischio tecnico <b>{row.Setup_Risk_PCT != null ? `${fmt(row.Setup_Risk_PCT, 1)}%` : "-"}</b></span>
                       <span>Obiettivo teorico 2R <b>{row.Target_2R != null ? fmt(row.Target_2R, 3) : "-"}</b></span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.6rem", marginTop: "0.65rem" }}>
+                      <button
+                        className="btn"
+                        disabled={row.Entry_Trigger == null || (alertMutation.isPending && alertMutation.variables?.Ticker === row.Ticker)}
+                        onClick={() => alertMutation.mutate(row)}
+                      >
+                        {alertMutation.isPending && alertMutation.variables?.Ticker === row.Ticker ? "Creazione alert..." : "🔔 Crea alert sulla conferma"}
+                      </button>
+                      {alertMessages[row.Ticker] ? (
+                        <span style={{ color: alertMessages[row.Ticker].startsWith("Errore") ? "#fca5a5" : "#86efac", fontSize: "0.78rem" }}>
+                          {alertMessages[row.Ticker]}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
