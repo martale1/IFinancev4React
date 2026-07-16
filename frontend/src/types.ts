@@ -173,6 +173,10 @@ export type OpportunityRow = {
   ATR_PCT: number;
   PCTV_1D: number;
   PCTV_5D: number;
+  PCTV_30D: number;
+  PCTV_180D: number;
+  Volume_vs_MA20: number;
+  Recovery_State?: string | null;
   TECH_SCORE: number;
   Action?: string | null;
   Market_Phase?: string | null;

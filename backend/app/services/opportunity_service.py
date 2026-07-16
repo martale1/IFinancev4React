@@ -19,6 +19,7 @@ MODE_WEIGHTS = {
     "reversal": {"S2": 34, "S5": 38, "S3": 8},
     "early_trend": {"S2": 6, "S3": 22, "S6": 28, "S7": 24},
     "momentum": {"S3": 10, "S4": 34, "S7": 8, "S8": 30},
+    "recovery": {"S2": 24, "S3": 18, "S5": 22, "S7": 10, "S8": 12},
 }
 
 
@@ -66,9 +67,29 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     rsi = _number(row, "RSI", 50.0)
     atr_pct = _number(row, "ATR_PCT")
     pct_5d = _number(row, "PCTV_5D")
+    pct_30d = _number(row, "PCTV_30D")
+    pct_180d = _number(row, "PCTV_180D")
+    volume_vs_ma20 = _number(row, "Vol_Perc_vs_MA20")
     tech_score = _number(row, "TECH_SCORE", 50.0)
     sar_ok = int(_number(row, "SAR_Filter_Ok")) == 1
     sma200_ok = int(_number(row, "SMA200_Filter_Ok")) == 1
+
+    if mode == "recovery":
+        # Evita i semplici titoli oversold: serve un ribasso importante alle spalle.
+        if pct_30d > -6.0 and pct_180d > -15.0:
+            return None
+        decline_strength = max(max(0.0, -pct_30d - 6.0), max(0.0, (-pct_180d - 15.0) * 0.5))
+        signal_score += min(18.0, 8.0 + decline_strength)
+        decline_period = "30 giorni" if pct_30d <= -6.0 else "6 mesi"
+        decline_value = pct_30d if pct_30d <= -6.0 else pct_180d
+        reasons.append(f"Ribasso {decline_value:.1f}% in {decline_period}: base di recupero")
+        if not any(signal["id"] in {"S2", "S5"} for signal in signals):
+            risk_penalty = 7.0
+            risks.append("Ripartenza senza un segnale diretto da ipervenduto")
+        else:
+            risk_penalty = 0.0
+    else:
+        risk_penalty = 0.0
 
     if adx >= 20:
         quality_score += min(8.0, (adx - 20.0) / 2.5)
@@ -95,7 +116,6 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         risks.append("Prezzo sotto SMA200")
     quality_score += max(-3.0, min(5.0, (tech_score - 50.0) / 10.0))
 
-    risk_penalty = 0.0
     if rsi >= 75:
         risk_penalty += min(10.0, 3.0 + (rsi - 75.0) * 0.7)
         risks.append(f"RSI {rsi:.1f}: possibile sovraestensione")
@@ -105,16 +125,35 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     if pct_5d >= 12:
         risk_penalty += min(8.0, (pct_5d - 8.0) * 0.5)
         risks.append(f"+{pct_5d:.1f}% in 5 giorni: ingresso esteso")
+    if mode == "recovery":
+        if volume_vs_ma20 >= 25:
+            quality_score += min(8.0, volume_vs_ma20 / 20.0)
+            reasons.append(f"Volume {volume_vs_ma20:+.0f}% rispetto alla media 20g")
+        elif volume_vs_ma20 <= -35:
+            risk_penalty += 4.0
+            risks.append(f"Volume {volume_vs_ma20:.0f}% sotto la media 20g")
 
     close = _number(row, "Close")
     volume = _number(row, "Volume")
+    recovery_state = None
+    if mode == "recovery":
+        has_reversal = any(signal["id"] in {"S2", "S5"} for signal in signals)
+        has_confirmation = any(signal["id"] in {"S3", "S7", "S8"} for signal in signals)
+        if has_reversal and has_confirmation and (sar_ok or plus_di > minus_di):
+            recovery_state = "Ripartenza confermata"
+        elif has_reversal:
+            recovery_state = "Tentativo di recupero"
+        else:
+            recovery_state = "Recupero da confermare"
     signals.sort(key=lambda item: (item["days_ago"], -item["points"]))
     return {
         "Ticker": _text(row, "Ticker") or "", "Name": _text(row, "Name") or "",
         "Market": market, "Markets": [market], "ScoreBase": signal_score + quality_score - risk_penalty,
         "Score": 0.0, "Close": close, "Volume": volume, "Turnover": max(0.0, close * volume),
         "RSI": rsi, "ADX": adx, "ATR_PCT": atr_pct, "PCTV_1D": _number(row, "PCTV_1D"),
-        "PCTV_5D": pct_5d, "TECH_SCORE": tech_score, "Action": _text(row, "Action"),
+        "PCTV_5D": pct_5d, "PCTV_30D": pct_30d, "PCTV_180D": pct_180d,
+        "Volume_vs_MA20": volume_vs_ma20, "TECH_SCORE": tech_score, "Action": _text(row, "Action"),
+        "Recovery_State": recovery_state,
         "Market_Phase": _text(row, "Market_Phase"), "Signal6": _text(row, "Signal6"),
         "signals": signals, "reasons": reasons, "risks": risks,
     }

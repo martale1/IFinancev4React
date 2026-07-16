@@ -97,7 +97,7 @@ L'architettura è **completamente locale**: nessun dato viene inviato a servizi 
 
 ### 🎯 Opportunity Radar
 - Classifica unica **Top 20** dei titoli più interessanti, deduplicata tra i mercati
-- Profili **Bilanciato**, **Reversal**, **Trend iniziale** e **Momentum**
+- Profili **Bilanciato**, **Reversal**, **Trend iniziale**, **Momentum** e **Recovery Setup**
 - Finestra di anzianità configurabile a 5, 10 o 20 sedute
 - Score trasparente basato sui segnali S2–S8, freschezza, forza del trend e liquidità relativa
 - Evidenza separata dei motivi positivi e dei principali rischi tecnici
@@ -509,7 +509,7 @@ La classifica è uno strumento di screening e non costituisce consulenza finanzi
 GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
 ```
 
-`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend` o `momentum`.
+`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`. Recovery Setup richiede un ribasso di almeno il 6% a 30 giorni o del 15% a sei mesi e premia S2/S5, conferme MACD, SAR/Alligator e volumi in recupero.
 
 ---
 

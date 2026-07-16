@@ -14,6 +14,7 @@ const MODES = [
   { id: "reversal", label: "Reversal", desc: "S2 e RSI Oversold" },
   { id: "early_trend", label: "Trend iniziale", desc: "S3, Golden Cross e Alligator" },
   { id: "momentum", label: "Momentum", desc: "S4 e Volume Breakout" },
+  { id: "recovery", label: "Recovery Setup", desc: "Forte ribasso e tentativo di ripartenza" },
 ];
 
 function fmt(value: number, digits = 2): string {
@@ -106,6 +107,11 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginTop: "0.75rem" }}>
+                  {mode === "recovery" && row.Recovery_State ? (
+                    <span style={{ padding: "0.25rem 0.5rem", borderRadius: 999, background: row.Recovery_State === "Ripartenza confermata" ? "rgba(34,197,94,0.2)" : "rgba(245,158,11,0.2)", color: row.Recovery_State === "Ripartenza confermata" ? "#86efac" : "#fde68a", fontSize: "0.76rem", fontWeight: 700 }}>
+                      {row.Recovery_State === "Ripartenza confermata" ? "✓" : "⚠"} {row.Recovery_State}
+                    </span>
+                  ) : null}
                   {row.signals.map((signal) => (
                     <span key={signal.id} style={{ padding: "0.25rem 0.5rem", borderRadius: 999, background: "rgba(59,130,246,0.18)", color: "#bfdbfe", fontSize: "0.76rem" }}>
                       {signal.label} · {ageLabel(signal.days_ago)}
@@ -119,6 +125,9 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                   <span>ADX <b>{fmt(row.ADX, 1)}</b></span><span>ATR <b>{fmt(row.ATR_PCT, 1)}%</b></span>
                   <span title={new Intl.NumberFormat("it-IT").format(row.Volume)}>Volume <b>{compact(row.Volume)}</b></span>
                   <span title={`€ ${new Intl.NumberFormat("it-IT").format(row.Turnover)}`}>Controvalore <b>€ {compact(row.Turnover)}</b></span>
+                  {mode === "recovery" ? <span>30D <b style={{ color: row.PCTV_30D < 0 ? "#fca5a5" : "#86efac" }}>{fmt(row.PCTV_30D)}%</b></span> : null}
+                  {mode === "recovery" ? <span>6 mesi <b style={{ color: row.PCTV_180D < 0 ? "#fca5a5" : "#86efac" }}>{fmt(row.PCTV_180D)}%</b></span> : null}
+                  {mode === "recovery" ? <span>Vol. vs MA20 <b>{fmt(row.Volume_vs_MA20, 0)}%</b></span> : null}
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.65rem", marginTop: "0.75rem" }}>
