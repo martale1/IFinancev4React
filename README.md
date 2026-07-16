@@ -491,7 +491,27 @@ ta.build_macd_signal(
 
 ## 🎯 Opportunity Radar
 
-Il tab **Opportunity Radar** riduce l'intero universo analizzato a una classifica operativa. Usa esclusivamente i dati già calcolati da `main.py` negli Excel di `analyses/`, quindi non effettua nuovi download durante il caricamento.
+Il tab **Opportunity Radar** riduce l'universo analizzato a una Top 20 ordinata per qualità del setup. Usa i dati già calcolati da `main.py` negli Excel di `analyses/`, quindi il cambio di mercato, profilo o finestra non effettua nuovi download.
+
+### Mercati, finestra e dati mostrati
+
+- mercati selezionabili: **MIB30** (predefinito), ETF, ETC, DAX, Preferite oppure Tutti i mercati;
+- anzianità massima del segnale: 5, 10 o 20 sedute;
+- deduplicazione del ticker quando compare in più liste;
+- prezzo, variazioni 1D/5D, RSI, ADX, ATR, volume e controvalore;
+- motivi positivi e rischi che hanno contribuito al risultato.
+
+La freschezza riduce progressivamente il contributo di ciascun pattern: un evento di oggi pesa più dello stesso evento avvenuto diversi giorni fa. Un ticker viene escluso quando non possiede segnali compatibili con il profilo nella finestra selezionata.
+
+### Profili disponibili
+
+| Profilo | Scopo | Pesi principali |
+|---|---|---|
+| **Bilanciato** | Setup con più conferme senza privilegiare un solo stile | S2 10, S3 12, S4 12, S5 10, S6 14, S7 12, S8 10 |
+| **Reversal** | Ripartenze da condizioni depresse | S2 34, S5 38, S3 8 |
+| **Trend iniziale** | Individuazione dell'avvio di un trend | S2 6, S3 22, S6 28, S7 24 |
+| **Momentum** | Accelerazione accompagnata da prezzo e volume | S3 10, S4 34, S7 8, S8 30 |
+| **Recovery Setup** | Titoli molto penalizzati che mostrano una possibile inversione | S2 24, S3 18, S5 22, S7 10, S8 12 |
 
 Il punteggio combina:
 
@@ -501,6 +521,56 @@ Il punteggio combina:
 - liquidità relativa del titolo nel proprio insieme di confronto;
 - penalità esplicite per RSI elevato, volatilità ATR e accelerazioni a 5 giorni eccessive.
 
+Inoltre ADX, DI+, SAR e SMA200 aggiungono o sottraggono qualità; la liquidità è valutata relativamente agli altri candidati della stessa scansione. Lo score è un ordinamento quantitativo, non una probabilità di guadagno.
+
+### Recovery Setup: regole di ammissione
+
+Recovery cerca un'inversione in corso, non semplicemente un titolo che ha perso molto. Un candidato deve rispettare tutte queste condizioni:
+
+1. ribasso di almeno `-6%` a 30 giorni oppure `-15%` a 180 giorni;
+2. presenza recente di un segnale diretto **S2 Reversal** o **S5 RSI Oversold**;
+3. variazione giornaliera superiore a `-3%` e variazione a 5 giorni superiore a `-7%`;
+4. assenza della combinazione nuovamente ribassista: prezzo sotto SAR, DI- sopra DI+, seduta negativa e Stochastic K non superiore a D.
+
+In questo modo un segnale S2 ormai fallito non rimane tra i possibili recuperi.
+
+### Tentativo e ripartenza confermata
+
+- **Tentativo di recupero**: S2/S5 è presente, ma mancano ancora conferme sufficienti.
+- **Ripartenza confermata**: oltre a S2/S5 esiste almeno uno tra S3, S7 o S8, il prezzo è sopra SAR e DI+ è sopra DI-.
+
+La dicitura **Ripartenza confermata** riguarda gli indicatori già attivi. Non significa che il trigger operativo di prezzo sia già stato superato.
+
+### Piano tecnico Recovery
+
+Per ogni candidato vengono calcolati livelli sperimentali:
+
+```text
+buffer = max(ATR × 0,05; prezzo × 0,001)
+trigger = max(chiusura, massimo ultima candela) + buffer
+invalidazione = min(minimo ultima candela, SAR) - max(ATR × 0,20; prezzo × 0,002)
+rischio % = (trigger - invalidazione) / trigger × 100
+target 2R = trigger + 2 × (trigger - invalidazione)
+```
+
+- **Trigger ingresso sopra** (nell'interfaccia: “Conferma sopra”): soglia oltre la quale il prezzo conferma anche il breakout della candela corrente.
+- **Distanza**: rialzo percentuale necessario dal prezzo corrente al trigger.
+- **Invalidazione sotto**: livello oltre il quale il setup tecnico non è più valido.
+- **Rischio tecnico**: ampiezza percentuale tra trigger e invalidazione; oltre l'8% viene segnalato come rischio ampio.
+- **Obiettivo teorico 2R**: riferimento matematico pari a due volte il rischio assunto, non previsione del prezzo futuro.
+
+Se il titolo è già salito almeno del 12% in cinque giorni, viene mostrato **Ingresso esteso: attendere pullback**. Un semplice superamento intraday del trigger può essere un falso breakout: il livello deve essere sempre controllato sul grafico insieme ai volumi.
+
+### Alert automatico sulla conferma
+
+Il pulsante **Crea alert sulla conferma** salva nel mercato sorgente una regola attiva:
+
+```text
+Close >= trigger Recovery
+```
+
+La regola invia al massimo una notifica al giorno e include nel messaggio trigger, invalidazione, RSI, ADX e volume. L'identificativo `RECOVERY_CONFIRM_<TICKER>` impedisce duplicati: un nuovo click aggiorna il livello già salvato.
+
 La classifica è uno strumento di screening e non costituisce consulenza finanziaria: il pulsante **Apri grafico** consente di verificare ogni candidato prima di qualsiasi decisione.
 
 ### API
@@ -509,11 +579,7 @@ La classifica è uno strumento di screening e non costituisce consulenza finanzi
 GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
 ```
 
-`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`. Recovery Setup richiede un ribasso di almeno il 6% a 30 giorni o del 15% a sei mesi, un segnale diretto S2/S5 ancora valido e scarta i titoli con ribasso in accelerazione (`1D <= -3%` oppure `5D <= -7%`) o con conferme tecniche nuovamente ribassiste. La ripartenza è definita confermata solo con un segnale aggiuntivo S3/S7/S8, prezzo sopra SAR e DI+ sopra DI-.
-
-Per ogni candidato Recovery viene mostrato anche un piano tecnico: superamento del massimo corrente con piccolo buffer ATR come conferma, invalidazione sotto il minimo/SAR, rischio percentuale del setup e obiettivo teorico a 2R. Sono livelli quantitativi sperimentali da verificare sul grafico, non ordini automatici né raccomandazioni di investimento.
-
-Il pulsante **Crea alert sulla conferma** salva nel mercato sorgente una regola attiva `Close >= livello di conferma`, con massimo una notifica al giorno. L'identificativo deterministico `RECOVERY_CONFIRM_<TICKER>` evita duplicati: un nuovo click aggiorna il livello dell'alert esistente.
+`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`; `window` accetta da 1 a 30 sedute e `limit` da 5 a 100 risultati.
 
 ---
 
