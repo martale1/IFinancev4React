@@ -4,9 +4,10 @@ import { fetchOpportunities } from "../api";
 import type { OpportunityRow } from "../types";
 
 type Props = {
-  currentMarket: string;
   onChart: (row: OpportunityRow) => void;
 };
+
+const RADAR_MARKETS = ["MIB30", "ETF", "ETC", "DAX", "Preferite"];
 
 const MODES = [
   { id: "balanced", label: "Bilanciato", desc: "Segnali, trend, liquidità e rischio" },
@@ -33,8 +34,8 @@ function ageLabel(days: number): string {
   return `${days}g fa`;
 }
 
-export default function OpportunityRadarPanel({ currentMarket, onChart }: Props) {
-  const [scope, setScope] = useState("ALL");
+export default function OpportunityRadarPanel({ onChart }: Props) {
+  const [scope, setScope] = useState("MIB30");
   const [mode, setMode] = useState("balanced");
   const [window, setWindow] = useState(10);
   const query = useQuery({
@@ -58,8 +59,11 @@ export default function OpportunityRadarPanel({ currentMarket, onChart }: Props)
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem", alignItems: "center" }}>
           <select value={scope} onChange={(event) => setScope(event.target.value)}>
+            <option value="MIB30">★ MIB30 (predefinito)</option>
+            {RADAR_MARKETS.filter((market) => market !== "MIB30").map((market) => (
+              <option key={market} value={market}>{market}</option>
+            ))}
             <option value="ALL">Tutti i mercati</option>
-            <option value={currentMarket}>Mercato corrente: {currentMarket}</option>
           </select>
           <select value={window} onChange={(event) => setWindow(Number(event.target.value))}>
             <option value={5}>Segnali ultimi 5 giorni</option>

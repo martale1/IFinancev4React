@@ -725,7 +725,6 @@ export default function App() {
       {tab === "AI chat" ? <AiChatPanel market={market} /> : null}
       {tab === "🎯 Opportunity Radar" ? (
         <OpportunityRadarPanel
-          currentMarket={market}
           onChart={(row) => openChart(row as WatchlistRow)}
         />
       ) : null}
