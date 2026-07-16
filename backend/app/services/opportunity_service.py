@@ -136,6 +136,12 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     close = _number(row, "Close")
     volume = _number(row, "Volume")
     recovery_state = None
+    entry_trigger = None
+    invalidation_level = None
+    target_2r = None
+    entry_distance_pct = None
+    setup_risk_pct = None
+    entry_status = None
     if mode == "recovery":
         has_reversal = any(signal["id"] in {"S2", "S5"} for signal in signals)
         has_confirmation = any(signal["id"] in {"S3", "S7", "S8"} for signal in signals)
@@ -145,6 +151,25 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
             recovery_state = "Tentativo di recupero"
         else:
             recovery_state = "Recupero da confermare"
+        high = _number(row, "High", close)
+        low = _number(row, "Low", close)
+        atr = _number(row, "ATR")
+        sar = _number(row, "SAR", low)
+        buffer = max(atr * 0.05, close * 0.001)
+        entry_trigger = max(close, high) + buffer
+        invalidation_level = min(low, sar) - max(atr * 0.20, close * 0.002)
+        if entry_trigger > 0 and 0 < invalidation_level < entry_trigger:
+            entry_distance_pct = (entry_trigger / close - 1.0) * 100.0 if close > 0 else None
+            setup_risk_pct = (entry_trigger - invalidation_level) / entry_trigger * 100.0
+            target_2r = entry_trigger + 2.0 * (entry_trigger - invalidation_level)
+        if pct_5d >= 12:
+            entry_status = "Ingresso esteso: attendere pullback"
+        elif recovery_state == "Ripartenza confermata" and setup_risk_pct is not None and setup_risk_pct <= 8:
+            entry_status = "Pronto solo sopra conferma"
+        elif recovery_state == "Ripartenza confermata":
+            entry_status = "Confermato, ma rischio ampio"
+        else:
+            entry_status = "Monitorare: conferme insufficienti"
     signals.sort(key=lambda item: (item["days_ago"], -item["points"]))
     return {
         "Ticker": _text(row, "Ticker") or "", "Name": _text(row, "Name") or "",
@@ -154,6 +179,9 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         "PCTV_5D": pct_5d, "PCTV_30D": pct_30d, "PCTV_180D": pct_180d,
         "Volume_vs_MA20": volume_vs_ma20, "TECH_SCORE": tech_score, "Action": _text(row, "Action"),
         "Recovery_State": recovery_state,
+        "Entry_Status": entry_status, "Entry_Trigger": entry_trigger,
+        "Invalidation_Level": invalidation_level, "Target_2R": target_2r,
+        "Entry_Distance_PCT": entry_distance_pct, "Setup_Risk_PCT": setup_risk_pct,
         "Market_Phase": _text(row, "Market_Phase"), "Signal6": _text(row, "Signal6"),
         "signals": signals, "reasons": reasons, "risks": risks,
     }

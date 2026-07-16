@@ -134,6 +134,20 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                   <div style={{ color: "#86efac", fontSize: "0.78rem" }}>{row.reasons.slice(0, 4).map((reason) => <div key={reason}>+ {reason}</div>)}</div>
                   <div style={{ color: "#fca5a5", fontSize: "0.78rem" }}>{row.risks.slice(0, 4).map((risk) => <div key={risk}>− {risk}</div>)}</div>
                 </div>
+                {mode === "recovery" && row.Entry_Status ? (
+                  <div style={{ marginTop: "0.8rem", padding: "0.65rem 0.75rem", borderRadius: 10, background: "rgba(15, 38, 62, 0.75)", border: "1px solid rgba(125, 211, 252, 0.18)" }}>
+                    <div style={{ color: row.Entry_Status.startsWith("Pronto") ? "#86efac" : row.Entry_Status.startsWith("Ingresso esteso") ? "#fca5a5" : "#fde68a", fontWeight: 800, fontSize: "0.82rem" }}>
+                      Piano tecnico: {row.Entry_Status}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: "0.4rem", marginTop: "0.45rem", color: "#cbd5e1", fontSize: "0.78rem" }}>
+                      <span>Conferma sopra <b>{row.Entry_Trigger != null ? fmt(row.Entry_Trigger, 3) : "-"}</b></span>
+                      <span>Distanza <b>{row.Entry_Distance_PCT != null ? `${fmt(row.Entry_Distance_PCT, 1)}%` : "-"}</b></span>
+                      <span>Invalidazione sotto <b>{row.Invalidation_Level != null ? fmt(row.Invalidation_Level, 3) : "-"}</b></span>
+                      <span>Rischio tecnico <b>{row.Setup_Risk_PCT != null ? `${fmt(row.Setup_Risk_PCT, 1)}%` : "-"}</b></span>
+                      <span>Obiettivo teorico 2R <b>{row.Target_2R != null ? fmt(row.Target_2R, 3) : "-"}</b></span>
+                    </div>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
