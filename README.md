@@ -22,6 +22,7 @@
 - [Mercati supportati](#-mercati-supportati)
 - [API Reference](#-api-reference)
 - [Motore di Analisi Tecnica (TechnicalAnalyzer)](#-motore-di-analisi-tecnica-technicalanalyzer)
+- [Opportunity Radar](#-opportunity-radar)
 - [Multi-Pattern Lab](#-multi-pattern-lab)
 - [Sistema di Alert](#-sistema-di-alert)
 - [AI Integration](#-ai-integration)
@@ -93,6 +94,13 @@ L'architettura è **completamente locale**: nessun dato viene inviato a servizi 
 - Ricerca live per ticker/nome, filtro per volume minimo
 - Paginazione lato server
 - **Rigenerazione analisi** on-demand con un click
+
+### 🎯 Opportunity Radar
+- Classifica unica **Top 20** dei titoli più interessanti, deduplicata tra i mercati
+- Profili **Bilanciato**, **Reversal**, **Trend iniziale** e **Momentum**
+- Finestra di anzianità configurabile a 5, 10 o 20 sedute
+- Score trasparente basato sui segnali S2–S8, freschezza, forza del trend e liquidità relativa
+- Evidenza separata dei motivi positivi e dei principali rischi tecnici
 
 ### 🔬 Multi-Pattern Lab
 Scanner di pattern tecnici con simulazione VectorBT istantanea:
@@ -478,6 +486,30 @@ ta.build_macd_signal(
     breakout_lookback=5,    # Lookback barre per massimo breakout
 )
 ```
+
+---
+
+## 🎯 Opportunity Radar
+
+Il tab **Opportunity Radar** riduce l'intero universo analizzato a una classifica operativa. Usa esclusivamente i dati già calcolati da `main.py` negli Excel di `analyses/`, quindi non effettua nuovi download durante il caricamento.
+
+Il punteggio combina:
+
+- segnali S2–S8, con pesi diversi per il profilo selezionato;
+- anzianità del segnale nella finestra scelta;
+- qualità tecnica (ADX/DI, SAR, SMA200 e score tecnico);
+- liquidità relativa del titolo nel proprio insieme di confronto;
+- penalità esplicite per RSI elevato, volatilità ATR e accelerazioni a 5 giorni eccessive.
+
+La classifica è uno strumento di screening e non costituisce consulenza finanziaria: il pulsante **Apri grafico** consente di verificare ogni candidato prima di qualsiasi decisione.
+
+### API
+
+```http
+GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
+```
+
+`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend` o `momentum`.
 
 ---
 

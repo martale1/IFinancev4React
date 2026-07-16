@@ -151,3 +151,44 @@ export type QuickAlertField =
   | "MINUS_DI"
   | "DI_diff"
   | "Signal6";
+
+export type OpportunitySignal = {
+  id: string;
+  label: string;
+  days_ago: number;
+  points: number;
+};
+
+export type OpportunityRow = {
+  Ticker: string;
+  Name: string;
+  Market: string;
+  Markets: string[];
+  Score: number;
+  Close: number;
+  Volume: number;
+  Turnover: number;
+  RSI: number;
+  ADX: number;
+  ATR_PCT: number;
+  PCTV_1D: number;
+  PCTV_5D: number;
+  TECH_SCORE: number;
+  Action?: string | null;
+  Market_Phase?: string | null;
+  Signal6?: string | null;
+  signals: OpportunitySignal[];
+  reasons: string[];
+  risks: string[];
+};
+
+export type OpportunitiesResponse = {
+  market: string;
+  mode: string;
+  window: number;
+  limit: number;
+  total_candidates: number;
+  skipped_markets: string[];
+  results: OpportunityRow[];
+  disclaimer: string;
+};

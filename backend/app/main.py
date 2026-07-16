@@ -64,6 +64,7 @@ from app.services.custom_watchlists_service import (
     delete_custom_watchlist,
 )
 from app.services.export_service import generate_buy_pdf_for_market
+from app.services.opportunity_service import rank_opportunities
 from app.services.watchlist_service import (
     analysis_source_info_for_market,
     apply_search_and_volume_filters,
@@ -93,6 +94,19 @@ def health() -> dict[str, Any]:
 @app.get("/api/markets")
 def markets() -> dict[str, Any]:
     return {"markets": MARKETS + custom_markets()}
+
+
+@app.get("/api/opportunities")
+def opportunities(
+    market: str = Query(default="ALL"),
+    mode: str = Query(default="balanced"),
+    limit: int = Query(default=20, ge=5, le=100),
+    window: int = Query(default=10, ge=1, le=30),
+):
+    try:
+        return rank_opportunities(market=market, mode=mode, limit=limit, window=window)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/watchlist", response_model=WatchlistResponse)

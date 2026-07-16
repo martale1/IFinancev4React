@@ -7,6 +7,7 @@ import type {
   CustomWatchlistRemoveItemResponse,
   CustomWatchlistsResponse,
   AiChatResponse,
+  OpportunitiesResponse,
   RunAlertsResponse,
   WatchlistResponse
 } from "./types";
@@ -31,6 +32,22 @@ export async function fetchMarkets(): Promise<string[]> {
   const resp = await fetch(`${API_BASE}/markets`);
   const data = await parseJson<{ markets: string[] }>(resp);
   return data.markets;
+}
+
+export async function fetchOpportunities(params: {
+  market: string;
+  mode: string;
+  limit?: number;
+  window?: number;
+}): Promise<OpportunitiesResponse> {
+  const q = new URLSearchParams({
+    market: params.market,
+    mode: params.mode,
+    limit: String(params.limit ?? 20),
+    window: String(params.window ?? 10),
+  });
+  const resp = await fetch(`${API_BASE}/opportunities?${q.toString()}`);
+  return parseJson<OpportunitiesResponse>(resp);
 }
 
 export async function fetchCustomWatchlists(): Promise<CustomWatchlistsResponse> {

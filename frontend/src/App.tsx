@@ -9,6 +9,7 @@ import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
 import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
+import OpportunityRadarPanel from "./components/OpportunityRadarPanel";
 import type { AlertRule, WatchlistRow, QuickAlertField } from "./types";
 
 import {
@@ -28,6 +29,7 @@ const tabs = [
   "All",
   "Alerts",
   "AI chat",
+  "🎯 Opportunity Radar",
   "🧪 Multi-Pattern Lab",
   "📂 Gestione Liste",
   "🔧 Gestione Pattern",
@@ -274,7 +276,7 @@ export default function App() {
       pageSize,
       rankN
     }),
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste"
+    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🎯 Opportunity Radar" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste"
   });
 
   const addToWatchlistMutation = useMutation({
@@ -712,7 +714,7 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🎯 Opportunity Radar" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
           <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
@@ -721,6 +723,12 @@ export default function App() {
 
       {tab === "Alerts" ? <AlertsPanel market={market} /> : null}
       {tab === "AI chat" ? <AiChatPanel market={market} /> : null}
+      {tab === "🎯 Opportunity Radar" ? (
+        <OpportunityRadarPanel
+          currentMarket={market}
+          onChart={(row) => openChart(row as WatchlistRow)}
+        />
+      ) : null}
       {tab === "🧪 Multi-Pattern Lab" ? (
         <MultiPatternLabPanel
           market={market}
@@ -763,10 +771,10 @@ export default function App() {
         <PatternManagerPanel />
       ) : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🎯 Opportunity Radar" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🎯 Opportunity Radar" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🎯 Opportunity Radar" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
