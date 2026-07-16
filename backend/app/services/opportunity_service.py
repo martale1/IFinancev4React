@@ -66,6 +66,7 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     minus_di = _number(row, "MINUS_DI")
     rsi = _number(row, "RSI", 50.0)
     atr_pct = _number(row, "ATR_PCT")
+    pct_1d = _number(row, "PCTV_1D")
     pct_5d = _number(row, "PCTV_5D")
     pct_30d = _number(row, "PCTV_30D")
     pct_180d = _number(row, "PCTV_180D")
@@ -75,19 +76,24 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     sma200_ok = int(_number(row, "SMA200_Filter_Ok")) == 1
 
     if mode == "recovery":
-        # Evita i semplici titoli oversold: serve un ribasso importante alle spalle.
+        # Recovery significa inversione in corso, non solo titolo molto ribassato.
         if pct_30d > -6.0 and pct_180d > -15.0:
+            return None
+        has_reversal = any(signal["id"] in {"S2", "S5"} for signal in signals)
+        if not has_reversal:
+            return None
+        stoch_k = _number(row, "Stoch_K", 50.0)
+        stoch_d = _number(row, "Stoch_D", 50.0)
+        bearish_acceleration = pct_1d <= -3.0 or pct_5d <= -7.0
+        trend_rejected = not sar_ok and minus_di > plus_di and pct_1d < 0 and stoch_k <= stoch_d
+        if bearish_acceleration or trend_rejected:
             return None
         decline_strength = max(max(0.0, -pct_30d - 6.0), max(0.0, (-pct_180d - 15.0) * 0.5))
         signal_score += min(18.0, 8.0 + decline_strength)
         decline_period = "30 giorni" if pct_30d <= -6.0 else "6 mesi"
         decline_value = pct_30d if pct_30d <= -6.0 else pct_180d
         reasons.append(f"Ribasso {decline_value:.1f}% in {decline_period}: base di recupero")
-        if not any(signal["id"] in {"S2", "S5"} for signal in signals):
-            risk_penalty = 7.0
-            risks.append("Ripartenza senza un segnale diretto da ipervenduto")
-        else:
-            risk_penalty = 0.0
+        risk_penalty = 0.0
     else:
         risk_penalty = 0.0
 
@@ -143,14 +149,11 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     setup_risk_pct = None
     entry_status = None
     if mode == "recovery":
-        has_reversal = any(signal["id"] in {"S2", "S5"} for signal in signals)
         has_confirmation = any(signal["id"] in {"S3", "S7", "S8"} for signal in signals)
-        if has_reversal and has_confirmation and (sar_ok or plus_di > minus_di):
+        if has_confirmation and sar_ok and plus_di > minus_di:
             recovery_state = "Ripartenza confermata"
-        elif has_reversal:
-            recovery_state = "Tentativo di recupero"
         else:
-            recovery_state = "Recupero da confermare"
+            recovery_state = "Tentativo di recupero"
         high = _number(row, "High", close)
         low = _number(row, "Low", close)
         atr = _number(row, "ATR")
@@ -175,7 +178,7 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         "Ticker": _text(row, "Ticker") or "", "Name": _text(row, "Name") or "",
         "Market": market, "Markets": [market], "ScoreBase": signal_score + quality_score - risk_penalty,
         "Score": 0.0, "Close": close, "Volume": volume, "Turnover": max(0.0, close * volume),
-        "RSI": rsi, "ADX": adx, "ATR_PCT": atr_pct, "PCTV_1D": _number(row, "PCTV_1D"),
+        "RSI": rsi, "ADX": adx, "ATR_PCT": atr_pct, "PCTV_1D": pct_1d,
         "PCTV_5D": pct_5d, "PCTV_30D": pct_30d, "PCTV_180D": pct_180d,
         "Volume_vs_MA20": volume_vs_ma20, "TECH_SCORE": tech_score, "Action": _text(row, "Action"),
         "Recovery_State": recovery_state,

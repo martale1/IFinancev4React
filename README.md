@@ -509,7 +509,7 @@ La classifica è uno strumento di screening e non costituisce consulenza finanzi
 GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
 ```
 
-`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`. Recovery Setup richiede un ribasso di almeno il 6% a 30 giorni o del 15% a sei mesi e premia S2/S5, conferme MACD, SAR/Alligator e volumi in recupero.
+`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`. Recovery Setup richiede un ribasso di almeno il 6% a 30 giorni o del 15% a sei mesi, un segnale diretto S2/S5 ancora valido e scarta i titoli con ribasso in accelerazione (`1D <= -3%` oppure `5D <= -7%`) o con conferme tecniche nuovamente ribassiste. La ripartenza è definita confermata solo con un segnale aggiuntivo S3/S7/S8, prezzo sopra SAR e DI+ sopra DI-.
 
 Per ogni candidato Recovery viene mostrato anche un piano tecnico: superamento del massimo corrente con piccolo buffer ATR come conferma, invalidazione sotto il minimo/SAR, rischio percentuale del setup e obiettivo teorico a 2R. Sono livelli quantitativi sperimentali da verificare sul grafico, non ordini automatici né raccomandazioni di investimento.
 
