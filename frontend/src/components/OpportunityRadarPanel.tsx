@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchOpportunities, upsertAlertRule } from "../api";
+import { useMemo, useState } from "react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchAlerts, fetchOpportunities, setAlertRuleEnabled, upsertAlertRule } from "../api";
 import type { AlertRule, OpportunityRow } from "../types";
 
 type Props = {
@@ -39,18 +39,48 @@ function recoveryAlertId(ticker: string): string {
   return `RECOVERY_CONFIRM_${ticker.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "")}`;
 }
 
+function recoveryAlertKey(row: OpportunityRow): string {
+  return `${row.Market.toUpperCase()}::${row.Ticker.toUpperCase()}`;
+}
+
 export default function OpportunityRadarPanel({ onChart }: Props) {
   const queryClient = useQueryClient();
   const [scope, setScope] = useState("MIB30");
   const [mode, setMode] = useState("balanced");
   const [window, setWindow] = useState(10);
   const [alertMessages, setAlertMessages] = useState<Record<string, string>>({});
+  const [alertOverrides, setAlertOverrides] = useState<Record<string, boolean>>({});
   const query = useQuery({
     queryKey: ["opportunities", scope, mode, window],
     queryFn: () => fetchOpportunities({ market: scope, mode, limit: 20, window }),
   });
+  const alertMarkets = useMemo(
+    () => Array.from(new Set((query.data?.results ?? []).map((row) => row.Market))),
+    [query.data],
+  );
+  const alertQueries = useQueries({
+    queries: alertMarkets.map((market) => ({
+      queryKey: ["alerts", market],
+      queryFn: () => fetchAlerts(market),
+      enabled: mode === "recovery",
+    })),
+  });
+  const activeAlertKeys = new Set<string>();
+  alertQueries.forEach((alertQuery, index) => {
+    const market = alertMarkets[index];
+    for (const rule of alertQuery.data?.rules ?? []) {
+      if (!rule.enabled || !rule.id.startsWith("RECOVERY_CONFIRM_")) continue;
+      for (const ticker of rule.scope?.tickers ?? []) {
+        activeAlertKeys.add(`${market.toUpperCase()}::${String(ticker).toUpperCase()}`);
+      }
+    }
+  });
   const alertMutation = useMutation({
-    mutationFn: async (row: OpportunityRow) => {
+    mutationFn: async ({ row, disable }: { row: OpportunityRow; disable: boolean }) => {
+      if (disable) {
+        await setAlertRuleEnabled(row.Market, recoveryAlertId(row.Ticker), false);
+        return { row, trigger: null, disabled: true };
+      }
       if (row.Entry_Trigger == null) throw new Error("Livello di conferma non disponibile");
       const trigger = Number(row.Entry_Trigger.toFixed(4));
       const invalidation = row.Invalidation_Level == null ? null : Number(row.Invalidation_Level.toFixed(4));
@@ -68,14 +98,20 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
         },
       };
       await upsertAlertRule(row.Market, payload);
-      return { row, trigger };
+      return { row, trigger, disabled: false };
     },
-    onSuccess: async ({ row, trigger }) => {
-      setAlertMessages((current) => ({ ...current, [row.Ticker]: `Alert attivo sopra ${trigger}` }));
+    onSuccess: async ({ row, trigger, disabled }) => {
+      const key = recoveryAlertKey(row);
+      setAlertOverrides((current) => ({ ...current, [key]: !disabled }));
+      setAlertMessages((current) => ({
+        ...current,
+        [key]: disabled ? "Alert disattivato" : `Alert attivo sopra ${trigger}`,
+      }));
       await queryClient.invalidateQueries({ queryKey: ["alerts", row.Market] });
     },
-    onError: (error, row) => {
-      setAlertMessages((current) => ({ ...current, [row.Ticker]: `Errore: ${String(error)}` }));
+    onError: (error, variables) => {
+      const key = recoveryAlertKey(variables.row);
+      setAlertMessages((current) => ({ ...current, [key]: `Errore: ${String(error)}` }));
     },
   });
 
@@ -165,6 +201,24 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                   {mode === "recovery" ? <span>Vol. vs MA20 <b>{fmt(row.Volume_vs_MA20, 0)}%</b></span> : null}
                 </div>
 
+                <div style={{
+                  marginTop: "0.75rem",
+                  padding: "0.65rem 0.75rem",
+                  borderRadius: 10,
+                  background: row.Guidance_Status === "READY" ? "rgba(22,101,52,0.16)" : row.Guidance_Status === "PULLBACK" ? "rgba(153,27,27,0.15)" : "rgba(161,98,7,0.14)",
+                  border: `1px solid ${row.Guidance_Status === "READY" ? "rgba(74,222,128,0.35)" : row.Guidance_Status === "PULLBACK" ? "rgba(248,113,113,0.35)" : "rgba(250,204,21,0.3)"}`,
+                }}>
+                  <div style={{ color: row.Guidance_Status === "READY" ? "#86efac" : row.Guidance_Status === "PULLBACK" ? "#fca5a5" : "#fde68a", fontWeight: 800, fontSize: "0.82rem" }}>
+                    {row.Guidance_Status === "READY" ? "✓ Setup pronto su conferma" : row.Guidance_Status === "PULLBACK" ? "⚠ Attendere un pullback" : "⏳ Attendere altre conferme"}
+                  </div>
+                  <div style={{ color: "#cbd5e1", fontSize: "0.78rem", marginTop: "0.25rem" }}>{row.Guidance_Text}</div>
+                  {row.Guidance_Trigger != null ? (
+                    <div style={{ color: "#93c5fd", fontSize: "0.78rem", marginTop: "0.25rem" }}>
+                      Trigger tecnico indicativo: <b>{fmt(row.Guidance_Trigger, 3)}</b>
+                    </div>
+                  ) : null}
+                </div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.65rem", marginTop: "0.75rem" }}>
                   <div style={{ color: "#86efac", fontSize: "0.78rem" }}>{row.reasons.slice(0, 4).map((reason) => <div key={reason}>+ {reason}</div>)}</div>
                   <div style={{ color: "#fca5a5", fontSize: "0.78rem" }}>{row.risks.slice(0, 4).map((risk) => <div key={risk}>− {risk}</div>)}</div>
@@ -182,18 +236,30 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                       <span>Obiettivo teorico 2R <b>{row.Target_2R != null ? fmt(row.Target_2R, 3) : "-"}</b></span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.6rem", marginTop: "0.65rem" }}>
+                      {(() => {
+                        const alertKey = recoveryAlertKey(row);
+                        const alertActive = alertOverrides[alertKey] ?? activeAlertKeys.has(alertKey);
+                        const alertPending = alertMutation.isPending && alertMutation.variables?.row.Ticker === row.Ticker;
+                        return (
+                          <>
                       <button
-                        className="btn"
-                        disabled={row.Entry_Trigger == null || (alertMutation.isPending && alertMutation.variables?.Ticker === row.Ticker)}
-                        onClick={() => alertMutation.mutate(row)}
+                        className={alertActive ? "btn ghost" : "btn"}
+                        style={alertActive ? { color: "#fca5a5", borderColor: "#ef4444" } : undefined}
+                        disabled={row.Entry_Trigger == null || alertPending}
+                        onClick={() => alertMutation.mutate({ row, disable: alertActive })}
                       >
-                        {alertMutation.isPending && alertMutation.variables?.Ticker === row.Ticker ? "Creazione alert..." : "🔔 Crea alert sulla conferma"}
+                        {alertPending
+                          ? (alertActive ? "Disattivazione..." : "Creazione alert...")
+                          : (alertActive ? "🔕 Disattiva alert" : "🔔 Crea alert sulla conferma")}
                       </button>
-                      {alertMessages[row.Ticker] ? (
-                        <span style={{ color: alertMessages[row.Ticker].startsWith("Errore") ? "#fca5a5" : "#86efac", fontSize: "0.78rem" }}>
-                          {alertMessages[row.Ticker]}
+                      {alertMessages[alertKey] ? (
+                        <span style={{ color: alertMessages[alertKey].startsWith("Errore") ? "#fca5a5" : "#86efac", fontSize: "0.78rem" }}>
+                          {alertMessages[alertKey]}
                         </span>
                       ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 ) : null}

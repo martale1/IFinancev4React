@@ -523,6 +523,16 @@ Il punteggio combina:
 
 Inoltre ADX, DI+, SAR e SMA200 aggiungono o sottraggono qualità; la liquidità è valutata relativamente agli altri candidati della stessa scansione. Lo score è un ordinamento quantitativo, non una probabilità di guadagno.
 
+### Indicazione “Cosa fare ora”
+
+Ogni card traduce i segnali in una delle seguenti indicazioni tecniche:
+
+- **Setup pronto su conferma**: segnali richiesti dal profilo presenti, ADX almeno 20, DI+ sopra DI- e prezzo sopra SAR. Non è un ordine di acquisto: richiede il superamento del trigger con volume oppure un pullback che mantenga il SAR.
+- **Attendere altre conferme**: la card elenca esplicitamente cosa manca, ad esempio ADX, DI+, SAR o uno dei pattern richiesti dal profilo.
+- **Attendere un pullback**: RSI almeno 75 oppure rialzo di almeno il 12% in cinque giorni; il movimento viene considerato troppo esteso per essere inseguito.
+
+Per i profili diversi da Recovery, il trigger indicativo è il massimo dell'ultima candela più un piccolo buffer `max(ATR × 0,05; prezzo × 0,001)`. È un riferimento di screening da verificare sul grafico, non un invito personalizzato a entrare.
+
 ### Recovery Setup: regole di ammissione
 
 Recovery cerca un'inversione in corso, non semplicemente un titolo che ha perso molto. Un candidato deve rispettare tutte queste condizioni:
@@ -570,6 +580,8 @@ Close >= trigger Recovery
 ```
 
 La regola invia al massimo una notifica al giorno e include nel messaggio trigger, invalidazione, RSI, ADX e volume. L'identificativo `RECOVERY_CONFIRM_<TICKER>` impedisce duplicati: un nuovo click aggiorna il livello già salvato.
+
+Quando la regola è attiva, il Radar la riconosce leggendo il file alert del mercato e il pulsante diventa **Disattiva alert**. La disattivazione conserva la regola con `enabled: false`; il pulsante torna quindi a **Crea alert sulla conferma**, che la riattiva aggiornando anche il trigger.
 
 Aprendo il grafico da una card Recovery, il trigger viene riportato nel pannello prezzo come linea orizzontale magenta tratteggiata **CONFERMA RECOVERY**, con lo stesso valore mostrato nel piano tecnico. I grafici aperti dalle altre sezioni non mostrano questa linea.
 

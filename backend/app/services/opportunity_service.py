@@ -173,6 +173,59 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
             entry_status = "Confermato, ma rischio ampio"
         else:
             entry_status = "Monitorare: conferme insufficienti"
+
+    signal_ids = {signal["id"] for signal in signals}
+    guidance_trigger = entry_trigger
+    if guidance_trigger is None:
+        high = _number(row, "High", close)
+        atr = _number(row, "ATR")
+        guidance_trigger = max(close, high) + max(atr * 0.05, close * 0.001)
+
+    missing_confirmations: list[str] = []
+    if mode == "momentum":
+        if "S4" not in signal_ids:
+            missing_confirmations.append("S4 Momentum")
+        if not ({"S7", "S8"} & signal_ids):
+            missing_confirmations.append("Alligator Bull o Volume Breakout")
+    elif mode == "early_trend":
+        if not ({"S3", "S6", "S7"} & signal_ids):
+            missing_confirmations.append("MACD, Golden Cross o Alligator")
+    elif mode == "reversal":
+        if not ({"S2", "S5"} & signal_ids):
+            missing_confirmations.append("S2 o RSI Oversold")
+        if not ({"S3", "S7", "S8"} & signal_ids):
+            missing_confirmations.append("una conferma di ripartenza")
+    elif mode == "balanced" and len(signal_ids) < 2:
+        missing_confirmations.append("almeno due segnali concordi")
+
+    if mode != "recovery":
+        if adx < 20:
+            missing_confirmations.append("ADX almeno 20")
+        if plus_di <= minus_di:
+            missing_confirmations.append("DI+ sopra DI-")
+        if not sar_ok:
+            missing_confirmations.append("prezzo sopra SAR")
+
+    if pct_5d >= 12 or rsi >= 75:
+        guidance_status = "PULLBACK"
+        guidance_text = "Non inseguire il prezzo: movimento già esteso, attendere pullback e nuova tenuta sopra SAR."
+    elif mode == "recovery":
+        if entry_status == "Pronto solo sopra conferma":
+            guidance_status = "READY"
+            guidance_text = "Setup pronto solo al superamento del trigger con volume; evitare l'ingresso se il breakout rientra."
+        elif entry_status == "Ingresso esteso: attendere pullback":
+            guidance_status = "PULLBACK"
+            guidance_text = "Recupero già esteso: attendere un pullback che non violi l'invalidazione."
+        else:
+            guidance_status = "WAIT"
+            guidance_text = "Attendere: il recupero non offre ancora conferme o un rapporto rischio adeguato."
+    elif not missing_confirmations:
+        guidance_status = "READY"
+        guidance_text = "Setup coerente: valutare solo un breakout confermato dal volume oppure un pullback che mantenga il SAR."
+    else:
+        guidance_status = "WAIT"
+        guidance_text = "Attendere ulteriori conferme: " + ", ".join(missing_confirmations) + "."
+
     signals.sort(key=lambda item: (item["days_ago"], -item["points"]))
     return {
         "Ticker": _text(row, "Ticker") or "", "Name": _text(row, "Name") or "",
@@ -185,6 +238,8 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         "Entry_Status": entry_status, "Entry_Trigger": entry_trigger,
         "Invalidation_Level": invalidation_level, "Target_2R": target_2r,
         "Entry_Distance_PCT": entry_distance_pct, "Setup_Risk_PCT": setup_risk_pct,
+        "Guidance_Status": guidance_status, "Guidance_Text": guidance_text,
+        "Guidance_Trigger": guidance_trigger,
         "Market_Phase": _text(row, "Market_Phase"), "Signal6": _text(row, "Signal6"),
         "signals": signals, "reasons": reasons, "risks": risks,
     }
