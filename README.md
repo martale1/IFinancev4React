@@ -533,6 +533,8 @@ Ogni card traduce i segnali in una delle seguenti indicazioni tecniche:
 
 Per i profili diversi da Recovery, il trigger indicativo è il massimo dell'ultima candela più un piccolo buffer `max(ATR × 0,05; prezzo × 0,001)`. È un riferimento di screening da verificare sul grafico, non un invito personalizzato a entrare.
 
+Sotto lo stato vengono riportati tre passaggi concreti: comportamento immediato, conferme da attendere e alternativa su pullback. La riga **Invalidazione** avverte quando il setup perde qualità, normalmente sotto il SAR o quando DI- torna sopra DI+. Nei profili Bilanciato, Trend iniziale e Momentum viene segnalata anche l'eventuale necessità di recuperare la SMA200.
+
 ### Recovery Setup: regole di ammissione
 
 Recovery cerca un'inversione in corso, non semplicemente un titolo che ha perso molto. Un candidato deve rispettare tutte queste condizioni:

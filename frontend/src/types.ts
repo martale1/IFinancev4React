@@ -186,6 +186,8 @@ export type OpportunityRow = {
   Guidance_Status: "READY" | "WAIT" | "PULLBACK";
   Guidance_Text: string;
   Guidance_Trigger?: number | null;
+  Guidance_Steps: string[];
+  Guidance_Invalidation: string;
   TECH_SCORE: number;
   Action?: string | null;
   Market_Phase?: string | null;

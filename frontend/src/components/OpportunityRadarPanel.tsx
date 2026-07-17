@@ -217,6 +217,14 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                       Trigger tecnico indicativo: <b>{fmt(row.Guidance_Trigger, 3)}</b>
                     </div>
                   ) : null}
+                  <div style={{ display: "grid", gap: "0.2rem", marginTop: "0.4rem", color: "#b8c8d9", fontSize: "0.76rem" }}>
+                    {row.Guidance_Steps.map((step, stepIndex) => (
+                      <div key={`${row.Ticker}-guide-${stepIndex}`}>{stepIndex + 1}. {step}</div>
+                    ))}
+                  </div>
+                  <div style={{ color: "#fca5a5", fontSize: "0.75rem", marginTop: "0.4rem" }}>
+                    Invalidazione: {row.Guidance_Invalidation}
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.65rem", marginTop: "0.75rem" }}>

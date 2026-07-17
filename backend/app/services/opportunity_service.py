@@ -72,6 +72,7 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     pct_180d = _number(row, "PCTV_180D")
     volume_vs_ma20 = _number(row, "Vol_Perc_vs_MA20")
     tech_score = _number(row, "TECH_SCORE", 50.0)
+    sar_value = _number(row, "SAR")
     sar_ok = int(_number(row, "SAR_Filter_Ok")) == 1
     sma200_ok = int(_number(row, "SMA200_Filter_Ok")) == 1
 
@@ -205,6 +206,8 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
             missing_confirmations.append("DI+ sopra DI-")
         if not sar_ok:
             missing_confirmations.append("prezzo sopra SAR")
+        if not sma200_ok and mode in {"balanced", "early_trend", "momentum"}:
+            missing_confirmations.append("recupero SMA200")
 
     if pct_5d >= 12 or rsi >= 75:
         guidance_status = "PULLBACK"
@@ -226,6 +229,31 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         guidance_status = "WAIT"
         guidance_text = "Attendere ulteriori conferme: " + ", ".join(missing_confirmations) + "."
 
+    if guidance_status == "READY":
+        guidance_steps = [
+            f"Attendere una chiusura sopra {guidance_trigger:.3f}, non solo un picco intraday.",
+            "Cercare volume almeno in linea con la media 20 giorni e DI+ ancora sopra DI-.",
+            f"In alternativa attendere un pullback che mantenga il SAR{f' a {sar_value:.3f}' if sar_value > 0 else ''}.",
+        ]
+    elif guidance_status == "PULLBACK":
+        guidance_steps = [
+            "Non inseguire il rialzo corrente.",
+            "Attendere un rientro ordinato verso l'area di breakout o il SAR, preferibilmente con volumi in calo.",
+            "Rivalutare soltanto su una nuova candela rialzista accompagnata dal ritorno dei volumi.",
+        ]
+    else:
+        guidance_steps = [
+            "Non usare lo score da solo come segnale d'ingresso.",
+            "Rivalutare quando saranno presenti: " + ", ".join(missing_confirmations or ["conferme coerenti con il profilo"]) + ".",
+            (f"Prima conferma di prezzo: recupero e tenuta sopra il SAR a {sar_value:.3f}." if not sar_ok and sar_value > 0 else f"Il prezzo deve mantenersi sopra il SAR{f' a {sar_value:.3f}' if sar_value > 0 else ''}."),
+        ]
+
+    guidance_invalidation = (
+        f"Il setup perde qualità sotto il SAR a {sar_value:.3f} o se DI- torna sopra DI+."
+        if sar_value > 0
+        else "Il setup perde qualità con nuovi minimi o se DI- torna sopra DI+."
+    )
+
     signals.sort(key=lambda item: (item["days_ago"], -item["points"]))
     return {
         "Ticker": _text(row, "Ticker") or "", "Name": _text(row, "Name") or "",
@@ -239,7 +267,8 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
         "Invalidation_Level": invalidation_level, "Target_2R": target_2r,
         "Entry_Distance_PCT": entry_distance_pct, "Setup_Risk_PCT": setup_risk_pct,
         "Guidance_Status": guidance_status, "Guidance_Text": guidance_text,
-        "Guidance_Trigger": guidance_trigger,
+        "Guidance_Trigger": guidance_trigger, "Guidance_Steps": guidance_steps,
+        "Guidance_Invalidation": guidance_invalidation,
         "Market_Phase": _text(row, "Market_Phase"), "Signal6": _text(row, "Signal6"),
         "signals": signals, "reasons": reasons, "risks": risks,
     }
