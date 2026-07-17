@@ -39,8 +39,15 @@ function recoveryAlertId(ticker: string): string {
   return `RECOVERY_CONFIRM_${ticker.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "")}`;
 }
 
-function recoveryAlertKey(row: OpportunityRow): string {
-  return `${row.Market.toUpperCase()}::${row.Ticker.toUpperCase()}`;
+function radarAlertId(ticker: string, mode: string): string {
+  if (mode === "recovery") return recoveryAlertId(ticker);
+  const cleanMode = mode.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  const cleanTicker = ticker.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return `RADAR_CONFIRM_${cleanMode}_${cleanTicker}`;
+}
+
+function radarAlertKey(row: OpportunityRow, mode: string): string {
+  return `${row.Market.toUpperCase()}::${radarAlertId(row.Ticker, mode)}`;
 }
 
 export default function OpportunityRadarPanel({ onChart }: Props) {
@@ -62,30 +69,32 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
     queries: alertMarkets.map((market) => ({
       queryKey: ["alerts", market],
       queryFn: () => fetchAlerts(market),
-      enabled: mode === "recovery",
+      enabled: Boolean(query.data),
     })),
   });
   const activeAlertKeys = new Set<string>();
   alertQueries.forEach((alertQuery, index) => {
     const market = alertMarkets[index];
     for (const rule of alertQuery.data?.rules ?? []) {
-      if (!rule.enabled || !rule.id.startsWith("RECOVERY_CONFIRM_")) continue;
-      for (const ticker of rule.scope?.tickers ?? []) {
-        activeAlertKeys.add(`${market.toUpperCase()}::${String(ticker).toUpperCase()}`);
-      }
+      if (!rule.enabled) continue;
+      activeAlertKeys.add(`${market.toUpperCase()}::${rule.id}`);
     }
   });
   const alertMutation = useMutation({
-    mutationFn: async ({ row, disable }: { row: OpportunityRow; disable: boolean }) => {
+    mutationFn: async ({ row, disable, alertMode }: { row: OpportunityRow; disable: boolean; alertMode: string }) => {
+      const ruleId = radarAlertId(row.Ticker, alertMode);
       if (disable) {
-        await setAlertRuleEnabled(row.Market, recoveryAlertId(row.Ticker), false);
-        return { row, trigger: null, disabled: true };
+        await setAlertRuleEnabled(row.Market, ruleId, false);
+        return { row, trigger: null, disabled: true, alertMode };
       }
-      if (row.Entry_Trigger == null) throw new Error("Livello di conferma non disponibile");
-      const trigger = Number(row.Entry_Trigger.toFixed(4));
-      const invalidation = row.Invalidation_Level == null ? null : Number(row.Invalidation_Level.toFixed(4));
+      if (row.Guidance_Trigger == null) throw new Error("Livello di conferma non disponibile");
+      const trigger = Number(row.Guidance_Trigger.toFixed(4));
+      const invalidation = alertMode === "recovery" && row.Invalidation_Level != null
+        ? Number(row.Invalidation_Level.toFixed(4))
+        : null;
+      const modeLabel = MODES.find((item) => item.id === alertMode)?.label ?? alertMode;
       const payload: AlertRule = {
-        id: recoveryAlertId(row.Ticker),
+        id: ruleId,
         enabled: true,
         scope: { tickers: [row.Ticker] },
         when: { all: [{ field: "Close", op: ">=", value: trigger }] },
@@ -93,15 +102,15 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
         max_per_day: 1,
         min_gap_minutes: 0,
         message: {
-          title: "Recovery {{Ticker}}: conferma superata",
-          body: `Close: {{Close}}\nConferma Recovery: ${trigger}${invalidation == null ? "" : `\nInvalidazione: ${invalidation}`}\nRSI: {{RSI}}\nADX: {{ADX}}\nVolume: {{Volume}}`,
+          title: `${modeLabel} {{Ticker}}: chiusura sopra conferma`,
+          body: `Close: {{Close}}\nTrigger ${modeLabel}: ${trigger}${invalidation == null ? "" : `\nInvalidazione: ${invalidation}`}\nRSI: {{RSI}}\nADX: {{ADX}}\nVolume: {{Volume}}`,
         },
       };
       await upsertAlertRule(row.Market, payload);
-      return { row, trigger, disabled: false };
+      return { row, trigger, disabled: false, alertMode };
     },
-    onSuccess: async ({ row, trigger, disabled }) => {
-      const key = recoveryAlertKey(row);
+    onSuccess: async ({ row, trigger, disabled, alertMode }) => {
+      const key = radarAlertKey(row, alertMode);
       setAlertOverrides((current) => ({ ...current, [key]: !disabled }));
       setAlertMessages((current) => ({
         ...current,
@@ -110,7 +119,7 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
       await queryClient.invalidateQueries({ queryKey: ["alerts", row.Market] });
     },
     onError: (error, variables) => {
-      const key = recoveryAlertKey(variables.row);
+      const key = radarAlertKey(variables.row, variables.alertMode);
       setAlertMessages((current) => ({ ...current, [key]: `Errore: ${String(error)}` }));
     },
   });
@@ -225,6 +234,34 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                   <div style={{ color: "#fca5a5", fontSize: "0.75rem", marginTop: "0.4rem" }}>
                     Invalidazione: {row.Guidance_Invalidation}
                   </div>
+                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.6rem", marginTop: "0.65rem" }}>
+                    {(() => {
+                      const alertKey = radarAlertKey(row, mode);
+                      const alertActive = alertOverrides[alertKey] ?? activeAlertKeys.has(alertKey);
+                      const alertPending = alertMutation.isPending
+                        && alertMutation.variables?.row.Ticker === row.Ticker
+                        && alertMutation.variables?.alertMode === mode;
+                      return (
+                        <>
+                          <button
+                            className={alertActive ? "btn ghost" : "btn"}
+                            style={alertActive ? { color: "#fca5a5", borderColor: "#ef4444" } : undefined}
+                            disabled={row.Guidance_Trigger == null || alertPending}
+                            onClick={() => alertMutation.mutate({ row, disable: alertActive, alertMode: mode })}
+                          >
+                            {alertPending
+                              ? (alertActive ? "Disattivazione..." : "Creazione alert...")
+                              : (alertActive ? "🔕 Disattiva alert" : "🔔 Alert: chiusura sopra trigger")}
+                          </button>
+                          {alertMessages[alertKey] ? (
+                            <span style={{ color: alertMessages[alertKey].startsWith("Errore") ? "#fca5a5" : "#86efac", fontSize: "0.78rem" }}>
+                              {alertMessages[alertKey]}
+                            </span>
+                          ) : null}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.65rem", marginTop: "0.75rem" }}>
@@ -242,32 +279,6 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                       <span>Invalidazione sotto <b>{row.Invalidation_Level != null ? fmt(row.Invalidation_Level, 3) : "-"}</b></span>
                       <span>Rischio tecnico <b>{row.Setup_Risk_PCT != null ? `${fmt(row.Setup_Risk_PCT, 1)}%` : "-"}</b></span>
                       <span>Obiettivo teorico 2R <b>{row.Target_2R != null ? fmt(row.Target_2R, 3) : "-"}</b></span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.6rem", marginTop: "0.65rem" }}>
-                      {(() => {
-                        const alertKey = recoveryAlertKey(row);
-                        const alertActive = alertOverrides[alertKey] ?? activeAlertKeys.has(alertKey);
-                        const alertPending = alertMutation.isPending && alertMutation.variables?.row.Ticker === row.Ticker;
-                        return (
-                          <>
-                      <button
-                        className={alertActive ? "btn ghost" : "btn"}
-                        style={alertActive ? { color: "#fca5a5", borderColor: "#ef4444" } : undefined}
-                        disabled={row.Entry_Trigger == null || alertPending}
-                        onClick={() => alertMutation.mutate({ row, disable: alertActive })}
-                      >
-                        {alertPending
-                          ? (alertActive ? "Disattivazione..." : "Creazione alert...")
-                          : (alertActive ? "🔕 Disattiva alert" : "🔔 Crea alert sulla conferma")}
-                      </button>
-                      {alertMessages[alertKey] ? (
-                        <span style={{ color: alertMessages[alertKey].startsWith("Errore") ? "#fca5a5" : "#86efac", fontSize: "0.78rem" }}>
-                          {alertMessages[alertKey]}
-                        </span>
-                      ) : null}
-                          </>
-                        );
-                      })()}
                     </div>
                   </div>
                 ) : null}
