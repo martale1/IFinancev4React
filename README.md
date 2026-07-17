@@ -587,7 +587,7 @@ Quando la regola è attiva, il Radar la riconosce leggendo il file alert del mer
 
 Lo stesso comando è disponibile nei profili Bilanciato, Reversal, Trend iniziale e Momentum. In questi casi salva una regola distinta per profilo con condizione `Close >= trigger tecnico indicativo`; ad esempio `RADAR_CONFIRM_EARLY_TREND_<TICKER>`. La notifica viene valutata quando viene eseguito l'AlertEngine sui dati aggiornati: non è un monitor intraday indipendente.
 
-Aprendo il grafico da una card Recovery, il trigger viene riportato nel pannello prezzo come linea orizzontale magenta tratteggiata **CONFERMA RECOVERY**, con lo stesso valore mostrato nel piano tecnico. I grafici aperti dalle altre sezioni non mostrano questa linea.
+Aprendo il grafico da una card Opportunity Radar, il trigger viene riportato nel pannello prezzo come linea orizzontale magenta tratteggiata **TRIGGER TECNICO**, con lo stesso valore mostrato nella card. La linea è disponibile per Bilanciato, Reversal, Trend iniziale, Momentum e Recovery Setup; i grafici aperti fuori dal Radar non la mostrano.
 
 La classifica è uno strumento di screening e non costituisce consulenza finanziaria: il pulsante **Apri grafico** consente di verificare ogni candidato prima di qualsiasi decisione.
 

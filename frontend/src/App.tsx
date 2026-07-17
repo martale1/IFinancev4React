@@ -188,7 +188,7 @@ export default function App() {
       sl2: toNum(row.CE_Long),
       pbStop: toNum(row.Pullback_Stop_Level),
       ppLevel: toNum(row.Profit_Protect_Level),
-      recoveryTrigger: toNum(row.Entry_Trigger)
+      recoveryTrigger: toNum(row.Entry_Trigger ?? row.Guidance_Trigger)
     });
     const rawDate = row.Date;
     const dateText =

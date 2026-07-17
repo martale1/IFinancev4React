@@ -113,7 +113,7 @@ def _add_level_lines(fig, levels: dict | None) -> None:
         "sl2": "SL2",
         "pb_stop": "PB STOP",
         "pp_level": "PROFIT PROTECT",
-        "recovery_trigger": "CONFERMA RECOVERY",
+        "recovery_trigger": "TRIGGER TECNICO",
     }
     dashed = {"sl1", "pp_level", "recovery_trigger"}
     dotted = {"sl2"}

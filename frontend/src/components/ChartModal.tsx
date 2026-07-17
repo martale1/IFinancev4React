@@ -504,7 +504,7 @@ export default function ChartModal(props: Props) {
             <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
           ) : null}
           {props.levels?.recoveryTrigger != null ? (
-            <span className="level-chip" style={{ color: "#f0abfc", borderColor: "#d946ef" }}>Conferma Recovery: {fmtPrice(props.levels.recoveryTrigger)} ({fmtPctFromClose(props.levels.recoveryTrigger)})</span>
+            <span className="level-chip" style={{ color: "#f0abfc", borderColor: "#d946ef" }}>Trigger tecnico: {fmtPrice(props.levels.recoveryTrigger)} ({fmtPctFromClose(props.levels.recoveryTrigger)})</span>
           ) : null}
         </div>
 
