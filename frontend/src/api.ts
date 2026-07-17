@@ -39,12 +39,14 @@ export async function fetchOpportunities(params: {
   mode: string;
   limit?: number;
   window?: number;
+  order?: string;
 }): Promise<OpportunitiesResponse> {
   const q = new URLSearchParams({
     market: params.market,
     mode: params.mode,
     limit: String(params.limit ?? 20),
     window: String(params.window ?? 10),
+    order: params.order ?? "ready",
   });
   const resp = await fetch(`${API_BASE}/opportunities?${q.toString()}`);
   return parseJson<OpportunitiesResponse>(resp);

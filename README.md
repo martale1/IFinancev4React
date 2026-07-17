@@ -503,6 +503,16 @@ Il tab **Opportunity Radar** riduce l'universo analizzato a una Top 20 ordinata 
 
 La freschezza riduce progressivamente il contributo di ciascun pattern: un evento di oggi pesa più dello stesso evento avvenuto diversi giorni fa. Un ticker viene escluso quando non possiede segnali compatibili con il profilo nella finestra selezionata.
 
+### Ordinamento dei candidati
+
+L'ordinamento predefinito è **Setup pronti prima** ed è applicato prima del limite Top 20: vengono mostrati prima i setup `READY`, poi quelli che richiedono altre conferme (`WAIT`) e infine quelli estesi per cui è preferibile attendere un pullback (`PULLBACK`). All'interno dello stesso stato prevale lo score più alto.
+
+Il menu di ordinamento, disponibile in tutti i profili, permette anche di scegliere:
+
+- **Score più alto**;
+- **Segnale più recente**;
+- **Ticker A-Z**.
+
 ### Profili disponibili
 
 | Profilo | Scopo | Pesi principali |
@@ -594,10 +604,10 @@ La classifica è uno strumento di screening e non costituisce consulenza finanzi
 ### API
 
 ```http
-GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5
+GET /api/opportunities?market=ALL&mode=balanced&limit=20&window=5&order=ready
 ```
 
-`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`; `window` accetta da 1 a 30 sedute e `limit` da 5 a 100 risultati.
+`market` accetta `ALL` oppure un mercato disponibile; `mode` accetta `balanced`, `reversal`, `early_trend`, `momentum` o `recovery`; `window` accetta da 1 a 30 sedute e `limit` da 5 a 100 risultati. `order` accetta `ready` (predefinito), `score`, `recent` o `ticker`.
 
 ---
 

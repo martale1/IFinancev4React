@@ -55,11 +55,12 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
   const [scope, setScope] = useState("MIB30");
   const [mode, setMode] = useState("balanced");
   const [window, setWindow] = useState(10);
+  const [order, setOrder] = useState("ready");
   const [alertMessages, setAlertMessages] = useState<Record<string, string>>({});
   const [alertOverrides, setAlertOverrides] = useState<Record<string, boolean>>({});
   const query = useQuery({
-    queryKey: ["opportunities", scope, mode, window],
-    queryFn: () => fetchOpportunities({ market: scope, mode, limit: 20, window }),
+    queryKey: ["opportunities", scope, mode, window, order],
+    queryFn: () => fetchOpportunities({ market: scope, mode, limit: 20, window, order }),
   });
   const alertMarkets = useMemo(
     () => Array.from(new Set((query.data?.results ?? []).map((row) => row.Market))),
@@ -150,6 +151,12 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
             <option value={5}>Segnali ultimi 5 giorni</option>
             <option value={10}>Segnali ultimi 10 giorni</option>
             <option value={20}>Segnali ultimi 20 giorni</option>
+          </select>
+          <select value={order} onChange={(event) => setOrder(event.target.value)} aria-label="Ordina candidati">
+            <option value="ready">Setup pronti prima</option>
+            <option value="score">Score più alto</option>
+            <option value="recent">Segnale più recente</option>
+            <option value="ticker">Ticker A-Z</option>
           </select>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>

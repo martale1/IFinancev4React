@@ -102,9 +102,10 @@ def opportunities(
     mode: str = Query(default="balanced"),
     limit: int = Query(default=20, ge=5, le=100),
     window: int = Query(default=10, ge=1, le=30),
+    order: str = Query(default="ready"),
 ):
     try:
-        return rank_opportunities(market=market, mode=mode, limit=limit, window=window)
+        return rank_opportunities(market=market, mode=mode, limit=limit, window=window, order=order)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

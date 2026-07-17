@@ -274,10 +274,19 @@ def _score_row(row: pd.Series, market: str, mode: str, window: int) -> dict[str,
     }
 
 
-def rank_opportunities(market: str = "ALL", mode: str = "balanced", limit: int = 20, window: int = 10) -> dict[str, Any]:
+def rank_opportunities(
+    market: str = "ALL",
+    mode: str = "balanced",
+    limit: int = 20,
+    window: int = 10,
+    order: str = "ready",
+) -> dict[str, Any]:
     mode = mode.strip().lower()
     if mode not in MODE_WEIGHTS:
         raise ValueError(f"Modalità non supportata: {mode}")
+    order = order.strip().lower()
+    if order not in {"ready", "score", "recent", "ticker"}:
+        raise ValueError(f"Ordinamento non supportato: {order}")
     markets = STANDARD_MARKETS if market.upper() == "ALL" else [market]
     candidates: list[dict[str, Any]] = []
     skipped_markets: list[str] = []
@@ -302,8 +311,19 @@ def rank_opportunities(market: str = "ALL", mode: str = "balanced", limit: int =
             elif percentile <= 0.2:
                 item["risks"].append("Liquidità relativa bassa")
 
+    def sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+        if order == "ready":
+            status_rank = {"READY": 0, "WAIT": 1, "PULLBACK": 2}
+            return (status_rank.get(item["Guidance_Status"], 3), -item["Score"], item["Ticker"])
+        if order == "recent":
+            most_recent = min((signal["days_ago"] for signal in item["signals"]), default=999)
+            return (most_recent, -item["Score"], item["Ticker"])
+        if order == "ticker":
+            return (item["Ticker"],)
+        return (-item["Score"], item["Ticker"])
+
     deduplicated: dict[str, dict[str, Any]] = {}
-    for item in sorted(candidates, key=lambda value: (-value["Score"], value["Ticker"])):
+    for item in sorted(candidates, key=sort_key):
         key = item["Ticker"].strip().upper()
         existing = deduplicated.get(key)
         if existing is None:
@@ -312,7 +332,7 @@ def rank_opportunities(market: str = "ALL", mode: str = "balanced", limit: int =
             existing["Markets"].append(item["Market"])
     results = list(deduplicated.values())[:limit]
     return {
-        "market": market, "mode": mode, "window": window, "limit": limit,
+        "market": market, "mode": mode, "window": window, "limit": limit, "order": order,
         "total_candidates": len(deduplicated), "skipped_markets": skipped_markets, "results": results,
         "disclaimer": "Ranking quantitativo sperimentale: non costituisce una raccomandazione di investimento.",
     }

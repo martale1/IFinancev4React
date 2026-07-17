@@ -202,6 +202,7 @@ export type OpportunitiesResponse = {
   mode: string;
   window: number;
   limit: number;
+  order: string;
   total_candidates: number;
   skipped_markets: string[];
   results: OpportunityRow[];
