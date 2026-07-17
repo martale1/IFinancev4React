@@ -982,13 +982,10 @@ markets_to_run = ['MIB30','Preferite','DAX','ETC','ETF']
 #,'MIB30','ETC','ETF']
 # ,'US_Others']
 
-# Imposta la validità della cache in ore per la scansione del mercato.
-# - 0.0: scarica sempre l'ultimo aggiornamento in tempo reale da Yahoo Finance.
-# - 0.25: usa la cache se più recente di 15 minuti (utile per test rapidi).
-CACHE_HOURS = 24.0
-# Disabilita completamente la creazione/uso di file di cache durante l'esecuzione di main.py.
-# La cache viene creata/usata solo quando apri i grafici dalla GUI web.
-USE_CACHE = True
+# main.py deve interrogare Yahoo Finance a ogni lancio.
+# I parquet eventualmente già presenti in cache/ vengono ignorati e non aggiornati.
+CACHE_HOURS = 0.0
+USE_CACHE = False
 
 all_results = run_markets(
     markets_to_run,

@@ -606,6 +606,8 @@ Durante l'esecuzione, `main.py` calcola S2–S8 sull'intera serie storica di ogn
 
 I file vengono scritti in `analyses/<MERCATO>_TA_Analyses.xlsx`. Il backend usa queste colonne per S2–S8, **Comb. S2&S3** e **Qualsiasi S2/S3**, evitando nuovi download da Yahoo Finance durante la scansione. Se il file non esiste o proviene da una versione precedente e non contiene le colonne richieste, viene usata automaticamente la scansione realtime.
 
+`main.py` esegue invece sempre un nuovo download da Yahoo Finance per ogni ticker (`USE_CACHE = False`, `CACHE_HOURS = 0`). I file parquet eventualmente presenti nella cartella `cache/` non vengono letti né aggiornati durante la generazione degli Excel, così la data di aggiornamento non può riferirsi a dati storici riutilizzati.
+
 Le voci YAML `RSI Oversold`, `Golden Cross`, `Alligator Bull` e `Volume Breakout` sono mappate rispettivamente su S5, S6, S7 e S8 e sfruttano lo stesso percorso rapido.
 
 ### Pattern personalizzati (YAML)
