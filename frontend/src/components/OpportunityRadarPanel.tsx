@@ -21,6 +21,12 @@ function fmt(value: number, digits = 2): string {
   return Number.isFinite(value) ? value.toFixed(digits) : "-";
 }
 
+function percentColor(value: number): string {
+  if (value > 0) return "#86efac";
+  if (value < 0) return "#fca5a5";
+  return "#cbd5e1";
+}
+
 function compact(value: number): string {
   if (!Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("it-IT", {
@@ -207,14 +213,14 @@ export default function OpportunityRadarPanel({ onChart }: Props) {
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "0.45rem", marginTop: "0.75rem", color: "#cbd5e1", fontSize: "0.8rem" }}>
-                  <span>Prezzo <b>{fmt(row.Close, 3)}</b></span><span>1D <b>{fmt(row.PCTV_1D)}%</b></span>
-                  <span>5D <b>{fmt(row.PCTV_5D)}%</b></span><span>RSI <b>{fmt(row.RSI, 1)}</b></span>
+                  <span>Prezzo <b>{fmt(row.Close, 3)}</b></span><span>1D <b style={{ color: percentColor(row.PCTV_1D) }}>{fmt(row.PCTV_1D)}%</b></span>
+                  <span>5D <b style={{ color: percentColor(row.PCTV_5D) }}>{fmt(row.PCTV_5D)}%</b></span><span>RSI <b>{fmt(row.RSI, 1)}</b></span>
                   <span>ADX <b>{fmt(row.ADX, 1)}</b></span><span>ATR <b>{fmt(row.ATR_PCT, 1)}%</b></span>
                   <span title={new Intl.NumberFormat("it-IT").format(row.Volume)}>Volume <b>{compact(row.Volume)}</b></span>
                   <span title={`€ ${new Intl.NumberFormat("it-IT").format(row.Turnover)}`}>Controvalore <b>€ {compact(row.Turnover)}</b></span>
-                  {mode === "recovery" ? <span>30D <b style={{ color: row.PCTV_30D < 0 ? "#fca5a5" : "#86efac" }}>{fmt(row.PCTV_30D)}%</b></span> : null}
-                  {mode === "recovery" ? <span>6 mesi <b style={{ color: row.PCTV_180D < 0 ? "#fca5a5" : "#86efac" }}>{fmt(row.PCTV_180D)}%</b></span> : null}
-                  {mode === "recovery" ? <span>Vol. vs MA20 <b>{fmt(row.Volume_vs_MA20, 0)}%</b></span> : null}
+                  {mode === "recovery" ? <span>30D <b style={{ color: percentColor(row.PCTV_30D) }}>{fmt(row.PCTV_30D)}%</b></span> : null}
+                  {mode === "recovery" ? <span>6 mesi <b style={{ color: percentColor(row.PCTV_180D) }}>{fmt(row.PCTV_180D)}%</b></span> : null}
+                  {mode === "recovery" ? <span>Vol. vs MA20 <b style={{ color: percentColor(row.Volume_vs_MA20) }}>{fmt(row.Volume_vs_MA20, 0)}%</b></span> : null}
                 </div>
 
                 <div style={{
