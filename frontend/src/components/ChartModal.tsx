@@ -16,6 +16,7 @@ function quickAlertFieldLabel(field: QuickAlertField): string {
   if (field === "PLUS_DI") return "DI+ (forza rialzista)";
   if (field === "MINUS_DI") return "DI− (forza ribassista)";
   if (field === "DI_diff") return "DI+−DI−  (>0 = DI+ sopra DI−, trend rialzista)";
+  if (field === "Signal6") return "Alligator";
   return field;
 }
 
@@ -237,6 +238,11 @@ export default function ChartModal(props: Props) {
   const sarma = props.row ? toNum(props.row.SIG_MA_SAR) : null;
   const willR = props.row ? toNum(props.row.Williams_R) : null;
   const macdHist = props.row ? toNum(props.row.MACD_Hist) : null;
+  const stochK = props.row ? toNum(props.row.Stoch_K) : null;
+  const stochD = props.row ? toNum(props.row.Stoch_D) : null;
+  const adx = props.row ? toNum(props.row.ADX) : null;
+  const plusDI = props.row ? toNum(props.row.PLUS_DI) : null;
+  const minusDI = props.row ? toNum(props.row.MINUS_DI) : null;
   const close = props.snapshotClose ?? (props.row ? toNum(props.row.Close) : null);
 
   // 1. Chart loading state management
@@ -634,6 +640,51 @@ export default function ChartModal(props: Props) {
                 setAlertValue("0");
               }}>
                 Hist ({macdHist !== null ? num(macdHist, 3) : "-"})
+              </button>
+              <button className={alertField === "Stoch_K" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("Stoch_K");
+                if (stochK !== null) setAlertValue(String(Math.round(stochK)));
+              }}>
+                Stoch K ({stochK !== null ? num(stochK, 0) : "-"})
+              </button>
+              <button className={alertField === "Stoch_D" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("Stoch_D");
+                if (stochD !== null) setAlertValue(String(Math.round(stochD)));
+              }}>
+                Stoch D ({stochD !== null ? num(stochD, 0) : "-"})
+              </button>
+              <button className={alertField === "Stoch_KvsD" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("Stoch_KvsD");
+                setAlertOp(">");
+                setAlertValue("0");
+              }}>
+                K−D ({stochK !== null && stochD !== null ? num(stochK - stochD, 1) : "-"})
+              </button>
+              <button className={alertField === "ADX" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("ADX");
+                setAlertOp(">");
+                if (adx !== null) setAlertValue(String(Math.round(adx)));
+              }}>
+                ADX ({adx !== null ? num(adx, 0) : "-"})
+              </button>
+              <button className={alertField === "PLUS_DI" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("PLUS_DI");
+                if (plusDI !== null) setAlertValue(String(Math.round(plusDI)));
+              }}>
+                DI+ ({plusDI !== null ? num(plusDI, 0) : "-"})
+              </button>
+              <button className={alertField === "MINUS_DI" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("MINUS_DI");
+                if (minusDI !== null) setAlertValue(String(Math.round(minusDI)));
+              }}>
+                DI− ({minusDI !== null ? num(minusDI, 0) : "-"})
+              </button>
+              <button className={alertField === "DI_diff" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("DI_diff");
+                setAlertOp(">");
+                setAlertValue("0");
+              }}>
+                DI+−DI− ({plusDI !== null && minusDI !== null ? num(plusDI - minusDI, 1) : "-"})
               </button>
               <button className={alertField === "Signal6" ? "quick-bar active" : "quick-bar"} onClick={() => {
                 setAlertField("Signal6");

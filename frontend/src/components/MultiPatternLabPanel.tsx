@@ -86,9 +86,15 @@ const PATTERN_TABS = [
   { id: "S2",       label: "🟢 S2",        desc: "willR+Stoch",  color: "#4ade80" },
   { id: "S3",       label: "🔵 S3",        desc: "MACD Cross",   color: "#38bdf8" },
   { id: "S4",       label: "🟣 S4",        desc: "EMA+RSI+Vol",  color: "#a78bfa" },
+  { id: "S5",       label: "🌸 S5",        desc: "RSI Oversold", color: "#f472b6" },
+  { id: "S6",       label: "🌟 S6",        desc: "Golden Cross", color: "#fbbf24" },
+  { id: "S7",       label: "🐊 S7",        desc: "Alligator Bull", color: "#34d399" },
+  { id: "S8",       label: "🟪 S8",        desc: "Volume Breakout", color: "#c084fc" },
   { id: "Combined", label: "✨ Comb.",      desc: "S2 & S3",      color: "#fbbf24" },
   { id: "S2_or_S3", label: "🔥 Qualsiasi", desc: "S2 o S3",      color: "#f97316" },
 ] as const;
+
+const SCAN_MARKETS = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"] as const;
 
 export default function MultiPatternLabPanel({
   market,
@@ -109,7 +115,8 @@ export default function MultiPatternLabPanel({
   search = "",
 }: MultiPatternLabPanelProps) {
   const [pattern, setPattern] = useState<string>("S2");
-  const [labMarket, setLabMarket] = useState<string>("ALL");
+  const [labMarkets, setLabMarkets] = useState<string[]>([...SCAN_MARKETS]);
+  const labMarket = labMarkets.length === SCAN_MARKETS.length ? "ALL" : labMarkets.join(",");
   const [useSar, setUseSar] = useState(true);
   const [useSma200, setUseSma200] = useState(false);
   const [lookback, setLookback] = useState<number>(1);
@@ -131,7 +138,11 @@ export default function MultiPatternLabPanel({
   }, []);
 
   const allTabs = useMemo(() => {
-    const customTabs = customPatterns.map((p) => ({
+    const builtinAliases = new Set([
+      "custom_rsi_oversold", "custom_golden_cross",
+      "custom_bullish_alligator", "custom_volume_breakout",
+    ]);
+    const customTabs = customPatterns.filter((p) => !builtinAliases.has(p.id)).map((p) => ({
       id: p.id,
       label: `🔧 ${p.label}`,
       desc: p.desc,
@@ -511,7 +522,7 @@ export default function MultiPatternLabPanel({
 
   // ─── Derived label for active config ─────────────────────────────────────────
   const activePatternLabel = allTabs.find(t => t.id === pattern)?.label ?? pattern;
-  const marketLabel = labMarket === "ALL" ? "Tutti i Mercati" : labMarket;
+  const marketLabel = labMarket === "ALL" ? "Tutti i Mercati" : labMarkets.join(" + ");
   const lookbackLabel = lookback === 1 ? "Solo Oggi" : `Ultimi ${lookback}gg`;
   const filterLabel = [useSar ? "SAR" : null, useSma200 ? "SMA200" : null].filter(Boolean).join(", ") || "Nessuno";
 
@@ -574,16 +585,34 @@ export default function MultiPatternLabPanel({
             {/* Mercato */}
             <div style={cfgBoxStyle}>
               <span style={cfgLabelStyle}>🌐 Ambito Scansione</span>
-              <select value={labMarket} onChange={(e) => setLabMarket(e.target.value)} style={selectStyle}>
-                <option value="ALL">✨ Tutti i Mercati (Ordinati)</option>
-                <option value="MIB30">MIB30</option>
-                <option value="DAX">DAX</option>
-                <option value="ETC">ETC</option>
-                <option value="ETF">ETF</option>
-                <option value="Preferite">Preferite</option>
-                <option value="US_Others">US Others</option>
-                <option value="US_ETF">US ETF</option>
-              </select>
+              <label style={checkboxLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={labMarkets.length === SCAN_MARKETS.length}
+                  onChange={(e) => setLabMarkets(e.target.checked ? [...SCAN_MARKETS] : ["MIB30"])}
+                  style={{ cursor: "pointer", accentColor: "#60a5fa" }}
+                />
+                <strong>✨ Tutti i mercati</strong>
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.35rem" }}>
+                {SCAN_MARKETS.map((marketName) => (
+                  <label key={marketName} style={checkboxLabelStyle}>
+                    <input
+                      type="checkbox"
+                      checked={labMarkets.includes(marketName)}
+                      onChange={(e) => {
+                        setLabMarkets((current) => {
+                          if (e.target.checked) return [...current, marketName];
+                          if (current.length === 1) return current;
+                          return current.filter((item) => item !== marketName);
+                        });
+                      }}
+                      style={{ cursor: "pointer", accentColor: "#60a5fa" }}
+                    />
+                    <span>{marketName}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Lookback */}
@@ -798,7 +827,7 @@ export default function MultiPatternLabPanel({
                   <tr>
                     {([
                       { label: "Ticker",     key: "Ticker"          },
-                      ...(labMarket === "ALL" ? [{ label: "Mercato", key: "Market" }] : []),
+                      ...(labMarkets.length > 1 ? [{ label: "Mercato", key: "Market" }] : []),
                       { label: "Nome",       key: "Name"            },
                       { label: "Prezzo",     key: "Close"           },
                       { label: "Segnale fa", key: "Pattern_Days_Ago" },
@@ -860,7 +889,7 @@ export default function MultiPatternLabPanel({
                           {row.Ticker}
                         </span>
                       </td>
-                      {labMarket === "ALL" && <td style={{ fontWeight: "bold", color: "#38bdf8" }}>{row.Market}</td>}
+                      {labMarkets.length > 1 && <td style={{ fontWeight: "bold", color: "#38bdf8" }}>{row.Market}</td>}
                       <td style={{ color: "#8cb4d9" }}>{row.Name}</td>
                       <td style={{ fontWeight: 800 }}>{row.Close.toFixed(3)}</td>
                       <td style={{ fontWeight: "bold", color: row.Pattern_Days_Ago === 0 ? "#4ade80" : row.Pattern_Days_Ago === 1 ? "#fbbf24" : "#94a3b8" }}>

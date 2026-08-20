@@ -1,3 +1,12 @@
+import os
+
+# I download finanziari devono collegarsi direttamente a Yahoo Finance.
+# Rimuoviamo qualsiasi proxy ereditato prima di importare yfinance/curl_cffi.
+for _proxy_var in (
+    "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+    "http_proxy", "https_proxy", "all_proxy",
+):
+    os.environ.pop(_proxy_var, None)
 
 import talib
 import yfinance as yf
@@ -5,6 +14,7 @@ import numpy as np
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 from typing import Optional, Dict
 from typing import Optional
 
@@ -15,6 +25,13 @@ from utils import (
 )
 
 OUTPUT_FILENAME = "TA_Analyses.xlsx"
+
+# yfinance usa database SQLite per timezone e cookie. Il percorso predefinito
+# può non essere scrivibile quando l'analisi è avviata dal backend; manteniamo
+# quindi questi file nella cache locale del progetto.
+YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / "cache" / "yfinance"
+YFINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
 
 class TechnicalAnalyzer:

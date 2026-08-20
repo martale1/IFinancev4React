@@ -14,13 +14,24 @@ import pandas as pd
 import talib
 import yfinance as yf
 
-try:
-    import vectorbt as vbt
-    VECTORBT_AVAILABLE = True
-except ImportError:
-    vbt = None
-    VECTORBT_AVAILABLE = False
-    print("[WARNING] vectorbt non disponibile su questo sistema. Il backtest Multi-Pattern non sarà operativo.")
+# vectorbt carica numba, plotly, imageio e molti altri moduli. Importarlo qui
+# bloccherebbe l'avvio di tutto il backend anche quando serve solo la scansione.
+# Viene quindi importato soltanto al primo backtest.
+vbt = None
+VECTORBT_AVAILABLE: bool | None = None
+
+
+def _get_vectorbt():
+    global vbt, VECTORBT_AVAILABLE
+    if VECTORBT_AVAILABLE is None:
+        try:
+            import vectorbt as vectorbt_module
+            vbt = vectorbt_module
+            VECTORBT_AVAILABLE = True
+        except ImportError:
+            VECTORBT_AVAILABLE = False
+            print("[WARNING] vectorbt non disponibile su questo sistema. Il backtest Multi-Pattern non sarà operativo.")
+    return vbt
 
 from app.config import PROJECT_ROOT, ANALYSES_DIR
 from filehandling import fileHandling
@@ -970,6 +981,10 @@ def run_vectorbt_backtest(
     """
     Esegue la simulazione storica vectorbt a 2 anni sul ticker e genera metriche e report locale.
     """
+    vectorbt_module = _get_vectorbt()
+    if vectorbt_module is None:
+        raise RuntimeError("vectorbt non è installato: il backtest non è disponibile.")
+
     df_hist = get_historical_data(ticker, period="2y")
     if df_hist.empty or len(df_hist) < 50:
         raise ValueError("Dati storici insufficienti per il backtesting.")
@@ -1054,7 +1069,7 @@ def run_vectorbt_backtest(
             "vectorbt non è installato su questo sistema (es. Raspberry Pi ARM). "
             "Il backtest quantitativo non è disponibile su questo dispositivo."
         )
-    pf = vbt.Portfolio.from_signals(
+    pf = vectorbt_module.Portfolio.from_signals(
         close=df_clean['Close'],
         entries=buy_mask,
         exits=sell_mask,

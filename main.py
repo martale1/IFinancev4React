@@ -978,17 +978,35 @@ liq_keep=('OK','LOW','AVOID')             # Non salva titoli con liquidita` LOW 
 NOTA: viene sempre chiamata la funzione per generare Layer1,2,3 indicazioni: analyzer.add_trading_layers_state_v3
 '''
 
-markets_to_run = ['MIB30','Preferite','DAX','ETC','ETF']
+SUPPORTED_ANALYSIS_MARKETS = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'US_Others']
+_requested_markets = os.getenv("IFINANCE_ANALYSIS_MARKETS", "").strip()
+if _requested_markets:
+    markets_to_run = [
+        market.strip()
+        for market in _requested_markets.split(",")
+        if market.strip() in SUPPORTED_ANALYSIS_MARKETS
+    ]
+    if not markets_to_run:
+        raise ValueError(
+            "IFINANCE_ANALYSIS_MARKETS non contiene mercati validi. "
+            f"Valori ammessi: {', '.join(SUPPORTED_ANALYSIS_MARKETS)}"
+        )
+else:
+    markets_to_run = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF']
+
+print(f"[ANALISI] Mercati selezionati: {', '.join(markets_to_run)}", flush=True)
 #,'MIB30','ETC','ETF']
 # ,'US_Others']
 
 # Imposta la validità della cache in ore per la scansione del mercato.
 # - 0.0: scarica sempre l'ultimo aggiornamento in tempo reale da Yahoo Finance.
 # - 0.25: usa la cache se più recente di 15 minuti (utile per test rapidi).
-CACHE_HOURS = 24.0
+CACHE_HOURS = 0.0
 # Disabilita completamente la creazione/uso di file di cache durante l'esecuzione di main.py.
 # La cache viene creata/usata solo quando apri i grafici dalla GUI web.
-USE_CACHE = True
+USE_CACHE = False
+
+print("[ANALISI] Modalità realtime: download Yahoo Finance obbligatorio, cache storica disabilitata.", flush=True)
 
 all_results = run_markets(
     markets_to_run,
@@ -1043,6 +1061,6 @@ m.send_uptrend_buyadd_summary(
 run_gui_alerts(
     OUTPUT_FOLDER,
     telegram_channel=5,
-    markets=["MIB30", "Preferite", "ETF", "ETC", "DAX"],
+    markets=markets_to_run,
     require_enabled_rules=True,
 )

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+import subprocess
+import threading
 
 # Ensure matplotlib DLLs can be loaded on Windows when running Python directly
 if sys.platform == "win32":
@@ -76,6 +78,44 @@ from app.services.watchlist_service import (
 )
 
 app = FastAPI(title="IFinance v4 React Backend", version="0.1.0")
+
+ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others"]
+_analysis_lock = threading.Lock()
+_analysis_job: dict[str, Any] = {
+    "process": None,
+    "running": False,
+    "status": "idle",
+    "markets": [],
+    "logs": [],
+    "return_code": None,
+    "started_at": None,
+    "finished_at": None,
+}
+
+
+def _analysis_snapshot() -> dict[str, Any]:
+    with _analysis_lock:
+        return {key: value for key, value in _analysis_job.items() if key != "process"}
+
+
+def _capture_analysis_output(process: subprocess.Popen[str]) -> None:
+    assert process.stdout is not None
+    for raw_line in process.stdout:
+        line = raw_line.rstrip("\r\n")
+        with _analysis_lock:
+            _analysis_job["logs"].append(line)
+            _analysis_job["logs"] = _analysis_job["logs"][-2000:]
+
+    return_code = process.wait()
+    with _analysis_lock:
+        was_stopping = _analysis_job["status"] == "stopping"
+        _analysis_job["running"] = False
+        _analysis_job["status"] = "cancelled" if was_stopping else ("completed" if return_code == 0 else "failed")
+        _analysis_job["return_code"] = return_code
+        _analysis_job["finished_at"] = datetime.now().isoformat(timespec="seconds")
+        if was_stopping:
+            _analysis_job["logs"].append("[ANALISI] Elaborazione interrotta dall'utente.")
+        _analysis_job["process"] = None
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS or ["*"],
@@ -431,20 +471,21 @@ def api_scanner_scan(
     lookback: int = Query(default=1, ge=1, le=10),
 ):
     try:
-        if market == "ALL":
-            target_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite"]
-            combined_results = []
-            for mkt in target_markets:
-                mkt_results = scan_market(market=mkt, pattern=pattern, use_sar=use_sar, use_sma200=use_sma200, lookback=lookback)
-                for r in mkt_results:
-                    r["Market"] = mkt
-                combined_results.extend(mkt_results)
-            return {"market": market, "pattern": pattern, "results": combined_results}
-        else:
-            results = scan_market(market=market, pattern=pattern, use_sar=use_sar, use_sma200=use_sma200, lookback=lookback)
-            for r in results:
-                r["Market"] = market
-            return {"market": market, "pattern": pattern, "results": results}
+        available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"]
+        target_markets = available_markets if market == "ALL" else list(dict.fromkeys(m.strip() for m in market.split(",") if m.strip()))
+        invalid = [m for m in target_markets if m not in available_markets]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Mercati non validi: {', '.join(invalid)}")
+
+        combined_results = []
+        for mkt in target_markets:
+            mkt_results = scan_market(market=mkt, pattern=pattern, use_sar=use_sar, use_sma200=use_sma200, lookback=lookback)
+            for result in mkt_results:
+                result["Market"] = mkt
+            combined_results.extend(mkt_results)
+        return {"market": market, "markets": target_markets, "pattern": pattern, "results": combined_results}
+    except HTTPException:
+        raise
     except Exception as exc:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
@@ -469,10 +510,11 @@ def api_scanner_scan_stream(
       data: {"type": "progress", "done": 6, "total": 30, "market": "MIB30"}
       data: {"type": "done"}
     """
-    if market == "ALL":
-        target_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite"]
-    else:
-        target_markets = [market]
+    available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"]
+    target_markets = available_markets if market == "ALL" else list(dict.fromkeys(m.strip() for m in market.split(",") if m.strip()))
+    invalid = [m for m in target_markets if m not in available_markets]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Mercati non validi: {', '.join(invalid)}")
 
     generator = scan_market_realtime_streaming(
         markets_list=target_markets,
@@ -707,14 +749,89 @@ def remove_ticker_from_list(market: str, req: RemoveTickerRequest):
         raise HTTPException(status_code=500, detail=f"Errore durante la rimozione dal file Excel: {e}")
 
 @app.post("/api/watchlist/regenerate")
-def regenerate_watchlist_data():
+def regenerate_watchlist_data(payload: dict | None = None):
+    requested = (payload or {}).get("markets") or ANALYSIS_MARKETS[:5]
+    selected = list(dict.fromkeys(str(market).strip() for market in requested))
+    invalid = [market for market in selected if market not in ANALYSIS_MARKETS]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Mercati non validi: {', '.join(invalid)}")
+    if not selected:
+        raise HTTPException(status_code=400, detail="Seleziona almeno un mercato.")
+
+    with _analysis_lock:
+        if _analysis_job["running"]:
+            raise HTTPException(status_code=409, detail="Un'analisi è già in esecuzione.")
+
     try:
         python_executable = sys.executable or "python"
         script_path = PROJECT_ROOT / "main.py"
-        subprocess.Popen([python_executable, str(script_path)], cwd=str(PROJECT_ROOT))
-        return {"status": "started", "message": "Rigenerazione delle analisi avviata in background."}
+        env = os.environ.copy()
+        # Il backend può essere avviato da ambienti che iniettano un proxy locale
+        # non raggiungibile (per esempio 127.0.0.1:9). L'analisi deve collegarsi
+        # direttamente a Yahoo Finance.
+        for proxy_var in (
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+            "http_proxy", "https_proxy", "all_proxy",
+        ):
+            env.pop(proxy_var, None)
+        env["IFINANCE_ANALYSIS_MARKETS"] = ",".join(selected)
+        process = subprocess.Popen(
+            [python_executable, "-u", str(script_path)],
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        with _analysis_lock:
+            _analysis_job.update({
+                "process": process,
+                "running": True,
+                "status": "running",
+                "markets": selected,
+                "logs": [f"[ANALISI] Avvio mercati: {', '.join(selected)}"],
+                "return_code": None,
+                "started_at": datetime.now().isoformat(timespec="seconds"),
+                "finished_at": None,
+            })
+        threading.Thread(target=_capture_analysis_output, args=(process,), daemon=True).start()
+        return {"status": "started", "markets": selected, "message": "Rigenerazione avviata in background."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Impossibile avviare il processo di rigenerazione: {e}")
+
+
+@app.get("/api/watchlist/regenerate/status")
+def regenerate_watchlist_status():
+    return JSONResponse(
+        content=_analysis_snapshot(),
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@app.post("/api/watchlist/regenerate/stop")
+def stop_watchlist_regeneration():
+    with _analysis_lock:
+        process = _analysis_job.get("process")
+        if not _analysis_job["running"] or process is None:
+            raise HTTPException(status_code=409, detail="Nessuna analisi è in esecuzione.")
+        _analysis_job["status"] = "stopping"
+        _analysis_job["logs"].append("[ANALISI] Richiesta di arresto ricevuta...")
+
+    try:
+        process.terminate()
+        return {"status": "stopping", "message": "Arresto dell'analisi richiesto."}
+    except Exception as exc:
+        with _analysis_lock:
+            _analysis_job["status"] = "running"
+            _analysis_job["logs"].append(f"[ANALISI] Errore durante l'arresto: {exc}")
+        raise HTTPException(status_code=500, detail=f"Impossibile interrompere l'analisi: {exc}")
 
 
 import base64

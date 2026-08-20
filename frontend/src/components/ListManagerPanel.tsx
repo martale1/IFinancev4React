@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 interface ListManagerPanelProps {
   initialMarket: string;
@@ -11,9 +11,22 @@ interface TickerItem {
   Source_Market?: string;
 }
 
+const ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others"];
+
+interface AnalysisJob {
+  running: boolean;
+  status: "idle" | "running" | "stopping" | "cancelled" | "completed" | "failed";
+  markets: string[];
+  logs: string[];
+  return_code: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
 export default function ListManagerPanel({ initialMarket, markets }: ListManagerPanelProps) {
   const [selectedMarket, setSelectedMarket] = useState(initialMarket || "Preferite");
   const [items, setItems] = useState<TickerItem[]>([]);
+  const [sortOrder, setSortOrder] = useState<"ticker_asc" | "ticker_desc" | "name_asc" | "name_desc">("ticker_asc");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +40,26 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
   const [removingTicker, setRemovingTicker] = useState<string | null>(null);
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [regenerating, setRegenerating] = useState(false);
+  const [analysisMarkets, setAnalysisMarkets] = useState<string[]>(["MIB30"]);
+  const [analysisJob, setAnalysisJob] = useState<AnalysisJob | null>(null);
+  const logEndRef = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const orderedItems = useMemo(() => {
+    const byTicker = (a: TickerItem, b: TickerItem) => String(a.Ticker || "").localeCompare(
+      String(b.Ticker || ""), "it", { sensitivity: "base", numeric: true }
+    );
+    const byName = (a: TickerItem, b: TickerItem) => String(a.Name || "").localeCompare(
+      String(b.Name || ""), "it", { sensitivity: "base", numeric: true }
+    );
+
+    return [...items].sort((a, b) => {
+      if (sortOrder === "ticker_asc") return byTicker(a, b) || byName(a, b);
+      if (sortOrder === "ticker_desc") return -(byTicker(a, b) || byName(a, b));
+      if (sortOrder === "name_asc") return byName(a, b) || byTicker(a, b);
+      return -(byName(a, b) || byTicker(a, b));
+    });
+  }, [items, sortOrder]);
 
   // Automatically hide toast
   useEffect(() => {
@@ -36,6 +68,31 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  async function fetchAnalysisStatus() {
+    try {
+      const res = await fetch(`/api/watchlist/regenerate/status?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as AnalysisJob;
+      setAnalysisJob(data);
+      setRegenerating(data.running);
+    } catch {
+      // Il polling riproverà automaticamente al ciclo successivo.
+    }
+  }
+
+  useEffect(() => {
+    fetchAnalysisStatus();
+    const timer = window.setInterval(fetchAnalysisStatus, 1500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [analysisJob?.logs.length]);
 
   // Fetch list items
   async function fetchList(marketName: string) {
@@ -163,21 +220,53 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
 
   // Handle Regenerate Data
   async function handleRegenerate() {
+    if (analysisMarkets.length === 0) {
+      setToast({ message: "Seleziona almeno un mercato da analizzare.", type: "error" });
+      return;
+    }
     setRegenerating(true);
     try {
-      const res = await fetch("/api/watchlist/regenerate", { method: "POST" });
+      const res = await fetch("/api/watchlist/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markets: analysisMarkets }),
+      });
       if (!res.ok) {
-        throw new Error(`Errore nell'avvio: ${res.statusText}`);
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || `Errore nell'avvio: ${res.statusText}`);
       }
       setToast({ 
-        message: "⚡ Calcolo e rigenerazione avviati in background! Le analisi si aggiorneranno automaticamente nei prossimi minuti.", 
+        message: `⚡ Analisi avviata per: ${analysisMarkets.join(", ")}.`,
         type: "success" 
       });
+      await fetchAnalysisStatus();
     } catch (err: any) {
       setToast({ message: err.message || "Errore sconosciuto nell'avvio dei calcoli.", type: "error" });
-    } finally {
       setRegenerating(false);
     }
+  }
+
+  async function handleStopAnalysis() {
+    try {
+      const res = await fetch("/api/watchlist/regenerate/stop", { method: "POST" });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || `Errore durante l'arresto: ${res.statusText}`);
+      }
+      setToast({ message: "⏹ Arresto dell'analisi richiesto.", type: "success" });
+      await fetchAnalysisStatus();
+    } catch (err: any) {
+      setToast({ message: err.message || "Impossibile interrompere l'analisi.", type: "error" });
+    }
+  }
+
+  function toggleAnalysisMarket(marketName: string) {
+    if (regenerating) return;
+    setAnalysisMarkets((current) =>
+      current.includes(marketName)
+        ? current.filter((name) => name !== marketName)
+        : [...current, marketName]
+    );
   }
 
   return (
@@ -213,12 +302,14 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
           </div>
           <button
             className="btn"
-            disabled={regenerating}
-            onClick={handleRegenerate}
+            disabled={analysisJob?.status === "stopping"}
+            onClick={regenerating ? handleStopAnalysis : handleRegenerate}
             style={{ 
               height: "40px", 
-              background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)", 
-              border: "1px solid rgba(251,191,36,0.3)",
+              background: regenerating
+                ? "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)"
+                : "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
+              border: regenerating ? "1px solid rgba(248,113,113,0.5)" : "1px solid rgba(251,191,36,0.3)",
               fontWeight: "bold",
               color: "#050b14",
               display: "flex",
@@ -227,8 +318,68 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
               cursor: "pointer"
             }}
           >
-            {regenerating ? "⏳ AVVIO..." : "⚡ RIGENERA ANALISI DATABASE (main.py)"}
+            {analysisJob?.status === "stopping"
+              ? "⏳ ARRESTO IN CORSO..."
+              : regenerating
+                ? "⏹ INTERROMPI ANALISI"
+                : "⚡ RIGENERA ANALISI DATABASE (main.py)"}
           </button>
+        </div>
+
+        <div style={{
+          display: "grid", gridTemplateColumns: "minmax(260px, 0.8fr) minmax(420px, 1.7fr)",
+          gap: "1rem", alignItems: "stretch"
+        }}>
+          <div style={{ background: "rgba(8,18,34,0.55)", padding: "0.9rem", borderRadius: "12px", border: "1px solid rgba(184,216,246,0.15)" }}>
+            <div style={{ fontWeight: 700, color: "#cfe5fa", marginBottom: "0.65rem" }}>Mercati da analizzare</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem" }}>
+              {ANALYSIS_MARKETS.map((marketName) => (
+                <label key={marketName} style={{
+                  display: "flex", alignItems: "center", gap: "0.45rem", cursor: regenerating ? "not-allowed" : "pointer",
+                  padding: "0.4rem 0.55rem", borderRadius: "8px",
+                  background: analysisMarkets.includes(marketName) ? "rgba(56,189,248,0.14)" : "rgba(255,255,255,0.025)",
+                  border: analysisMarkets.includes(marketName) ? "1px solid rgba(56,189,248,0.45)" : "1px solid rgba(184,216,246,0.12)"
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={analysisMarkets.includes(marketName)}
+                    disabled={regenerating}
+                    onChange={() => toggleAnalysisMarket(marketName)}
+                  />
+                  <span>{marketName}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#8cb4d9", marginTop: "0.65rem" }}>
+              Puoi selezionare uno o più mercati prima di avviare il calcolo.
+            </div>
+          </div>
+
+          <div style={{ background: "#050b14", borderRadius: "12px", border: "1px solid rgba(74,222,128,0.25)", overflow: "hidden" }}>
+            <div style={{
+              display: "flex", justifyContent: "space-between", gap: "1rem", padding: "0.55rem 0.75rem",
+              background: "rgba(15,34,55,0.95)", borderBottom: "1px solid rgba(184,216,246,0.12)", fontSize: "0.8rem"
+            }}>
+              <strong style={{ color: "#cfe5fa" }}>Log analisi</strong>
+              <span style={{ color: analysisJob?.status === "failed" ? "#f87171" : analysisJob?.running ? "#fbbf24" : "#4ade80" }}>
+                {analysisJob?.status === "stopping" ? "◌ ARRESTO IN CORSO"
+                  : analysisJob?.running ? "● IN ESECUZIONE"
+                  : analysisJob?.status === "completed" ? "✓ COMPLETATA"
+                  : analysisJob?.status === "cancelled" ? "■ INTERROTTA"
+                  : analysisJob?.status === "failed" ? "✕ ERRORE"
+                  : "IN ATTESA"}
+              </span>
+            </div>
+            <div style={{
+              height: "190px", overflowY: "auto", padding: "0.75rem", whiteSpace: "pre-wrap",
+              fontFamily: "Consolas, 'Courier New', monospace", fontSize: "0.75rem", lineHeight: 1.45, color: "#b8d8f6"
+            }}>
+              {analysisJob?.logs.length
+                ? analysisJob.logs.map((line, index) => <div key={`${index}-${line}`}>{line || " "}</div>)
+                : <span style={{ color: "#64748b" }}>Seleziona i mercati e premi “Rigenera analisi”.</span>}
+              <div ref={logEndRef} />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "0.5rem" }}>
@@ -360,9 +511,25 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
               </button>
             )}
           </div>
-          <span style={{ fontSize: "0.78rem", color: "#8cb4d9", fontWeight: "normal" }}>
-            Lista: <code>{selectedMarket}</code>
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontSize: "0.78rem", color: "#8cb4d9", fontWeight: "normal" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              Ordina:
+              <select
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}
+                style={{
+                  padding: "0.28rem 0.45rem", borderRadius: "7px", color: "#dbeafe",
+                  background: "#0c1c30", border: "1px solid rgba(184,216,246,0.25)"
+                }}
+              >
+                <option value="ticker_asc">Ticker A → Z</option>
+                <option value="ticker_desc">Ticker Z → A</option>
+                <option value="name_asc">Nome A → Z</option>
+                <option value="name_desc">Nome Z → A</option>
+              </select>
+            </label>
+            <span>Lista: <code>{selectedMarket}</code></span>
+          </div>
         </h3>
 
         {isLoading ? (
@@ -403,7 +570,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
+                {orderedItems.map((row) => (
                   <tr key={row.Ticker} style={{ transition: "background-color 0.2s" }}>
                     <td style={{ textAlign: "center" }}>
                       <input
