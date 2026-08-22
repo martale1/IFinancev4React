@@ -5,7 +5,6 @@ import re
 import sys
 import time
 import concurrent.futures
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -36,142 +35,10 @@ def _get_vectorbt():
 from app.config import PROJECT_ROOT, ANALYSES_DIR
 from filehandling import fileHandling
 
-CACHE_DIR = PROJECT_ROOT / "cache"
-
-# ─── Cache in-memory degli Excel pre-calcolati ───────────────────────────────
-# Evita di rileggere dal disco a ogni scansione. La cache viene caricata al
-# primo accesso e invalidata esplicitamente quando main.py aggiorna i file.
-_excel_cache: Dict[str, pd.DataFrame] = {}      # market -> DataFrame
-_excel_cache_mtime: Dict[str, float] = {}        # market -> mtime al momento del caricamento
-
-def _load_excel_cached(market: str) -> pd.DataFrame:
-    """
-    Carica l'Excel di analisi per il mercato dalla cache in-memory.
-    Rilegge da disco solo se il file è stato modificato (mtime cambiato).
-    """
-    from app.services.watchlist_service import load_market_dataframe, prepare_dataframe, analysis_path_for_market
-    try:
-        fp = analysis_path_for_market(market)
-        current_mtime = fp.stat().st_mtime
-        # Se già in cache e non modificato, restituisce subito
-        if market in _excel_cache and _excel_cache_mtime.get(market) == current_mtime:
-            return _excel_cache[market]
-        # Altrimenti rilegge e aggiorna la cache
-        print(f"[SCANNER CACHE] Caricamento Excel per mercato '{market}' dal disco...")
-        df = load_market_dataframe(market)
-        df = prepare_dataframe(df)
-        _excel_cache[market] = df
-        _excel_cache_mtime[market] = current_mtime
-        return df
-    except Exception as exc:
-        raise exc
-
-def invalidate_excel_cache(market: str | None = None) -> None:
-    """Invalida la cache per un mercato specifico (o tutti se market=None)."""
-    global _excel_cache, _excel_cache_mtime
-    if market:
-        _excel_cache.pop(market, None)
-        _excel_cache_mtime.pop(market, None)
-    else:
-        _excel_cache.clear()
-        _excel_cache_mtime.clear()
-    print(f"[SCANNER CACHE] Cache invalidata per: {market or 'tutti i mercati'}")
-
-def ensure_cache_dir() -> None:
-    if not CACHE_DIR.exists():
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-def _get_cache_path(ticker: str, period: str = "2y", interval: str = "1d") -> Path:
-    """Ritorna il percorso del file di cache parquet per un ticker."""
-    clean_ticker = str(ticker).strip().upper().replace("/", "_")
-    base_part = clean_ticker.split(".")[0]
-    if base_part in ["CON", "PRN", "AUX", "NUL"] or any(
-        base_part.startswith(x) for x in ["COM", "LPT"] if len(base_part) == 4 and base_part[3].isdigit()
-    ):
-        clean_ticker = f"W_{clean_ticker}"
-    if interval == "1d":
-        return CACHE_DIR / f"{clean_ticker}_{period}_history.parquet"
-    return CACHE_DIR / f"{clean_ticker}_{period}_{interval}.parquet"
-
-def bulk_download_and_cache(tickers: List[str], period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> None:
-    """
-    Scarica i dati storici per tutti i ticker in blocco (bulk) per massimizzare la velocità
-    e popola la cache parquet locale.
-    """
-    ensure_cache_dir()
-    
-    tickers_to_download = []
-    for ticker in tickers:
-        if not ticker or not isinstance(ticker, str):
-            continue
-        cache_path = _get_cache_path(ticker, period, interval)
-        use_cache = False
-        if cache_path.exists() and not force_refresh:
-            file_mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
-            if datetime.now() - file_mtime < timedelta(hours=4):
-                use_cache = True
-        if not use_cache:
-            tickers_to_download.append(ticker)
-            
-    if not tickers_to_download:
-        return
-        
-    print(f"[SCANNER BULK] Download in blocco di {len(tickers_to_download)} ticker da Yahoo Finance...")
-    try:
-        data = yf.download(tickers_to_download, period=period, interval=interval, group_by="ticker", progress=False, auto_adjust=False, threads=True)
-        if data.empty:
-            print("[SCANNER BULK] Risposta vuota dal download in blocco.")
-            return
-            
-        if len(tickers_to_download) == 1:
-            ticker = tickers_to_download[0]
-            cache_path = _get_cache_path(ticker, period, interval)
-            df = data.copy()
-            if isinstance(df.columns, pd.MultiIndex):
-                if ticker in df.columns.levels[0]:
-                    df = df[ticker].copy()
-            df.dropna(how="all").to_parquet(cache_path)
-            return
-
-        for ticker in tickers_to_download:
-            cache_path = _get_cache_path(ticker, period, interval)
-            try:
-                if isinstance(data.columns, pd.MultiIndex) and ticker in data.columns.levels[0]:
-                    df_ticker = data[ticker].dropna(how="all").copy()
-                    if not df_ticker.empty:
-                        if not isinstance(df_ticker.index, pd.DatetimeIndex):
-                            df_ticker.index = pd.to_datetime(df_ticker.index)
-                        df_ticker.to_parquet(cache_path)
-            except Exception as e:
-                print(f"[SCANNER BULK] Errore nel salvataggio della cache per {ticker}: {e}")
-    except Exception as e:
-        print(f"[SCANNER BULK] Errore durante il download in blocco: {e}")
-
 def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> pd.DataFrame:
     """
-    Scarica i dati storici per un ticker da Yahoo Finance.
-    Usa la cache locale parquet se disponibile e aggiornata (meno di 12 ore fa).
+    Scarica sempre i dati storici aggiornati per un ticker da Yahoo Finance.
     """
-    ensure_cache_dir()
-    cache_path = _get_cache_path(ticker, period, interval)
-    
-    # Verifica validità cache (4 ore per allineamento intraday)
-    use_cache = False
-    if cache_path.exists() and not force_refresh:
-        file_mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
-        if datetime.now() - file_mtime < timedelta(hours=4):
-            use_cache = True
-            
-    if use_cache:
-        try:
-            df = pd.read_parquet(cache_path)
-            if not isinstance(df.index, pd.DatetimeIndex):
-                df.index = pd.to_datetime(df.index)
-            return df
-        except Exception as e:
-            print(f"Errore nel caricamento della cache per {ticker}: {e}. Scaricamento dati in corso...")
-            
-    # Scarica i dati storici
     try:
         yf_ticker = str(ticker).strip()
         data = yf.download(yf_ticker, period=period, interval=interval, progress=False, auto_adjust=False)
@@ -200,19 +67,9 @@ def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", f
         if not isinstance(data.index, pd.DatetimeIndex):
             data.index = pd.to_datetime(data.index)
             
-        data.to_parquet(cache_path)
         return data
     except Exception as e:
-        print(f"Errore nello scaricamento dei dati per {ticker}: {e}. Tentativo di fallback alla cache esistente...")
-        if cache_path.exists():
-            try:
-                df = pd.read_parquet(cache_path)
-                if not isinstance(df.index, pd.DatetimeIndex):
-                    df.index = pd.to_datetime(df.index)
-                print(f"Fallback riuscito: usati dati di cache scaduti per {ticker}")
-                return df
-            except Exception as e_fallback:
-                print(f"Impossibile leggere la cache di fallback per {ticker}: {e_fallback}")
+        print(f"Errore nello scaricamento dei dati per {ticker}: {e}")
         return pd.DataFrame()
 
 

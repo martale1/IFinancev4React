@@ -31,17 +31,17 @@ const tabs = [
   "🧪 Multi-Pattern Lab",
   "📂 Gestione Liste",
   "🔧 Gestione Pattern",
-  "Early Trend",
-  "Expansion",
-  "Buy",
-  "Pullback",
+  "Opportunità",
+  "Da osservare",
+  "Attendi",
+  "Da evitare",
   "Migliori (1D)",
   "Migliori (5D)",
   "Peggiori (1D)",
   "Peggiori (5D)"
 ];
 
-const actionOptions = ["BUY", "SELL", "ADD", "REDUCE", "HOLD", "WAIT", "AVOID", "EXIT"];
+const entrySignalOptions = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"];
 const marketPhaseOptions = ["BREAKOUT", "UPTREND", "PULLBACK", "RANGE", "DOWNTREND", "REVERSAL_RISK"];
 const trendPhaseDetailOptions = [
   "EARLY_TREND",
@@ -116,7 +116,7 @@ export default function App() {
   const [tab, setTab] = useState("All");
   const [search, setSearch] = useState("");
   const [minVolume, setMinVolume] = useState(2000);
-  const [actionFilter, setActionFilter] = useState("");
+  const [entrySignalFilter, setEntrySignalFilter] = useState("");
   const [marketPhaseFilter, setMarketPhaseFilter] = useState("");
   const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState("");
   const [showStateFilters, setShowStateFilters] = useState(false);
@@ -258,16 +258,16 @@ export default function App() {
   const quickTrendDetail = trendDetailForTab(tab);
   const effectiveTrendPhaseDetailFilter = quickTrendDetail || trendPhaseDetailFilter;
   const tabForApi = quickTrendDetail ? "All" : tab;
-  const activeFilterCount = [actionFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter].filter(Boolean).length;
+  const activeFilterCount = [entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter].filter(Boolean).length;
 
   const watchlistQuery = useQuery({
-    queryKey: ["watchlist", market, tabForApi, search, minVolume, actionFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN],
+    queryKey: ["watchlist", market, tabForApi, search, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN],
     queryFn: () => fetchWatchlist({
       market,
       tab: tabForApi,
       search,
       minVolume,
-      action: actionFilter,
+      entrySignal: entrySignalFilter,
       marketPhase: marketPhaseFilter,
       trendPhaseDetail: effectiveTrendPhaseDetailFilter,
       page,
@@ -304,8 +304,12 @@ export default function App() {
 
   const chartImage = useMemo(() => {
     if (!chartTicker) return "";
-    return chartUrl(chartTicker, chartBars, chartType, chartLevels);
-  }, [chartTicker, chartBars, chartType, chartLevels]);
+    return chartUrl(chartTicker, chartBars, chartType, chartLevels, {
+      close: toNum(chartRow?.Close) ?? chartSnapshot.close,
+      pct1d: toNum(chartRow?.PCTV_1D),
+      date: chartSnapshot.date,
+    });
+  }, [chartTicker, chartBars, chartType, chartLevels, chartRow, chartSnapshot]);
 
   function fmtSourceTs(v?: string | null): string {
     if (!v) return "-";
@@ -633,16 +637,16 @@ export default function App() {
       {showStateFilters ? (
         <section className="state-filters" aria-label="Filtri stato card">
           <label>
-            Action
+            Segnale ingresso
             <select
-              value={actionFilter}
+              value={entrySignalFilter}
               onChange={(e) => {
-                setActionFilter(e.target.value);
+                setEntrySignalFilter(e.target.value);
                 setPage(1);
               }}
             >
               <option value="">Tutte</option>
-              {actionOptions.map((v) => (
+              {entrySignalOptions.map((v) => (
                 <option key={v} value={v}>{filterLabel(v)}</option>
               ))}
             </select>
@@ -680,9 +684,9 @@ export default function App() {
           </label>
           <button
             className="btn ghost"
-            disabled={!actionFilter && !marketPhaseFilter && !effectiveTrendPhaseDetailFilter}
+            disabled={!entrySignalFilter && !marketPhaseFilter && !effectiveTrendPhaseDetailFilter}
             onClick={() => {
-              setActionFilter("");
+              setEntrySignalFilter("");
               setMarketPhaseFilter("");
               setTrendPhaseDetailFilter("");
               if (quickTrendDetail) setTab("All");
@@ -725,7 +729,6 @@ export default function App() {
         <MultiPatternLabPanel
           market={market}
           minVolume={minVolume}
-          search={search}
           onOpenInteractiveChart={(scanRow) => {
             // Cerca la riga nella watchlist per avere i dati completi (PCTV, SL, ecc.)
             // Se non la trova, usa comunque i dati del scan result (che ha già PCTV_1D, ecc.)

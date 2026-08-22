@@ -20,12 +20,64 @@ def _set_headless_matplotlib() -> None:
     except Exception:
         pass
 
-def build_alligator_figure(ticker: str, bars: int, chart_type: str = "candlestick"):
+def _merge_latest_snapshot(ta, latest_close: float | None, latest_pct_1d: float | None, latest_date: str | None) -> None:
+    """Integra la quotazione della watchlist quando la serie daily di Yahoo è indietro."""
+    if latest_close is None or ta.dataframe is None or ta.dataframe.empty:
+        return
+
+    import pandas as pd
+
+    df = ta.dataframe.copy()
+    close = float(latest_close)
+    last_close = float(df["Close"].dropna().iloc[-1])
+    if abs(close - last_close) < 1e-9:
+        return
+
+    recent_closes = df["Close"].dropna().tail(5).astype(float)
+    if any(abs(close - value) < 1e-9 for value in recent_closes):
+        return
+
+    previous_close = last_close
+    if latest_pct_1d is not None and abs(100.0 + float(latest_pct_1d)) > 1e-9:
+        previous_close = close / (1.0 + float(latest_pct_1d) / 100.0)
+
+    last_index = pd.Timestamp(df.index[-1])
+    if latest_date:
+        target_index = pd.Timestamp(latest_date)
+        if last_index.tzinfo is not None and target_index.tzinfo is None:
+            target_index = target_index.tz_localize(last_index.tzinfo)
+        if target_index.normalize() <= last_index.normalize():
+            return
+    else:
+        target_index = last_index + pd.offsets.BDay(1)
+
+    new_row = {column: float("nan") for column in df.columns}
+    new_row.update({
+        "Open": previous_close,
+        "High": max(previous_close, close),
+        "Low": min(previous_close, close),
+        "Close": close,
+        "Adj Close": close,
+        "Volume": 0.0,
+    })
+    df.loc[target_index] = new_row
+    ta.dataframe = df.sort_index()
+
+
+def build_alligator_figure(
+    ticker: str,
+    bars: int,
+    chart_type: str = "candlestick",
+    latest_close: float | None = None,
+    latest_pct_1d: float | None = None,
+    latest_date: str | None = None,
+):
     _set_headless_matplotlib()
     from ChartManager import AlligatorChartManager
     from TechnicalAnalyzer import TechnicalAnalyzer
 
     ta = TechnicalAnalyzer(ticker=ticker, period="2y")
+    _merge_latest_snapshot(ta, latest_close, latest_pct_1d, latest_date)
     try:
         ta.calculate_TA_Indicators("ALLIGATOR,SAR,EMA_30,EMA_50")
     except Exception:
@@ -139,7 +191,15 @@ def _add_level_lines(fig, levels: dict | None) -> None:
         pass
 
 
-def chart_png_bytes(ticker: str, bars: int = 70, chart_type: str = "candlestick", levels: dict | None = None) -> bytes:
+def chart_png_bytes(
+    ticker: str,
+    bars: int = 70,
+    chart_type: str = "candlestick",
+    levels: dict | None = None,
+    latest_close: float | None = None,
+    latest_pct_1d: float | None = None,
+    latest_date: str | None = None,
+) -> bytes:
     _set_headless_matplotlib()
     import matplotlib.pyplot as plt
 
@@ -152,7 +212,14 @@ def chart_png_bytes(ticker: str, bars: int = 70, chart_type: str = "candlestick"
             last_exc = None
             for _ in range(2):
                 try:
-                    fig = build_alligator_figure(ticker=ticker, bars=bars, chart_type=chart_type)
+                    fig = build_alligator_figure(
+                        ticker=ticker,
+                        bars=bars,
+                        chart_type=chart_type,
+                        latest_close=latest_close,
+                        latest_pct_1d=latest_pct_1d,
+                        latest_date=latest_date,
+                    )
                     break
                 except Exception as exc:
                     last_exc = exc
@@ -162,7 +229,14 @@ def chart_png_bytes(ticker: str, bars: int = 70, chart_type: str = "candlestick"
             if fig is None and str(chart_type).lower() == "candlestick":
                 for _ in range(2):
                     try:
-                        fig = build_alligator_figure(ticker=ticker, bars=bars, chart_type="line")
+                        fig = build_alligator_figure(
+                            ticker=ticker,
+                            bars=bars,
+                            chart_type="line",
+                            latest_close=latest_close,
+                            latest_pct_1d=latest_pct_1d,
+                            latest_date=latest_date,
+                        )
                         break
                     except Exception as exc:
                         last_exc = exc

@@ -260,7 +260,7 @@ def ordina_df_finale(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateScoring=False,
-                     generateCategory=False, liq_keep=('OK','LOW','AVOID'), cache_hours: float = 0.25, use_cache: bool = False):
+                     generateCategory=False, liq_keep=('OK','LOW','AVOID')):
     """
     Esegue l'analisi tecnica sui ticker di un mercato specifico.
 
@@ -269,8 +269,6 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
         numItems (int): Numero massimo di ticker da analizzare. Se 0 → tutti.
         generateSignal (bool): Se True genera i segnali.
         generateScoring (bool): Se True calcola lo scoring con pesi custom.
-        cache_hours (float): Validità della cache dei dati storici in ore (es. 0.25 = 15 min).
-        use_cache (bool): Se True abilita il caricamento/salvataggio cache su disco.
 
     Returns:
         pd.DataFrame: DataFrame con l'ultima riga di analisi per ciascun ticker.
@@ -308,7 +306,7 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
 
         # Inizializza TechnicalAnalyzer
 
-        analyzer = TechnicalAnalyzer(ticker, period="1y", cache_hours=cache_hours, use_cache=use_cache)
+        analyzer = TechnicalAnalyzer(ticker, period="1y")
 
         if analyzer.dataframe.empty:
             print(f"Ticker {ticker} scartato (no dati)")
@@ -619,7 +617,7 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
 
 
 def run_markets(markets, numItems=0, generateSignalSAR_MA_S6_SK=1, generateScoring=1, generateCategory=1,
-                liq_keep=('OK','LOW','AVOID'), print_results=False, cache_hours: float = 0.25, use_cache: bool = False):
+                liq_keep=('OK','LOW','AVOID'), print_results=False):
     """
     Esegue runTA_indicators per una lista di mercati.
 
@@ -628,8 +626,6 @@ def run_markets(markets, numItems=0, generateSignalSAR_MA_S6_SK=1, generateScori
     :param generateSignalSAR_MA_S6_SK: 0/1 → se generare segnali
     :param generateScoring: 0/1 → se generare scoring
     :param print_results: True per stampare i risultati a schermo
-    :param cache_hours: tempo di validità della cache in ore. Default 0.25 (15 min).
-    :param use_cache: se True abilita l'uso/scrittura della cache.
     :return: dizionario con {mercato: DataFrame}
     """
     results = {}
@@ -640,9 +636,7 @@ def run_markets(markets, numItems=0, generateSignalSAR_MA_S6_SK=1, generateScori
             generateSignal=generateSignalSAR_MA_S6_SK, #Genera colonna: SIG_MA_SAR
             generateScoring=generateScoring,     #Genera colonna: TECH_SCORE
             generateCategory=generateCategory,    #Genera colonne: Category, EntryTrigger,StopHint,Notes
-            liq_keep=liq_keep,
-            cache_hours=cache_hours,
-            use_cache=use_cache
+            liq_keep=liq_keep
         )
         results[market] = df_result #Crea un dizionario
         if print_results:
@@ -998,15 +992,7 @@ print(f"[ANALISI] Mercati selezionati: {', '.join(markets_to_run)}", flush=True)
 #,'MIB30','ETC','ETF']
 # ,'US_Others']
 
-# Imposta la validità della cache in ore per la scansione del mercato.
-# - 0.0: scarica sempre l'ultimo aggiornamento in tempo reale da Yahoo Finance.
-# - 0.25: usa la cache se più recente di 15 minuti (utile per test rapidi).
-CACHE_HOURS = 0.0
-# Disabilita completamente la creazione/uso di file di cache durante l'esecuzione di main.py.
-# La cache viene creata/usata solo quando apri i grafici dalla GUI web.
-USE_CACHE = False
-
-print("[ANALISI] Modalità realtime: download Yahoo Finance obbligatorio, cache storica disabilitata.", flush=True)
+print("[ANALISI] Modalità realtime: download Yahoo Finance obbligatorio.", flush=True)
 
 all_results = run_markets(
     markets_to_run,
@@ -1015,9 +1001,7 @@ all_results = run_markets(
     generateScoring=1,
     generateCategory=0,
     liq_keep=('OK','LOW','AVOID'),
-    print_results=True,
-    cache_hours=CACHE_HOURS,
-    use_cache=USE_CACHE
+    print_results=True
 )
 
 #print(v4_legenda())

@@ -14,7 +14,6 @@ import numpy as np
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 from typing import Optional, Dict
 from typing import Optional
 
@@ -26,31 +25,19 @@ from utils import (
 
 OUTPUT_FILENAME = "TA_Analyses.xlsx"
 
-# yfinance usa database SQLite per timezone e cookie. Il percorso predefinito
-# può non essere scrivibile quando l'analisi è avviata dal backend; manteniamo
-# quindi questi file nella cache locale del progetto.
-YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / "cache" / "yfinance"
-YFINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
-
-
 class TechnicalAnalyzer:
 
-    def __init__(self, ticker, period="2y", cache_hours: float = 0.25, use_cache: bool = True):
+    def __init__(self, ticker, period="2y"):
         """
         Inizializza l'analizzatore tecnico con un ticker e un periodo storico
 
         Args:
             ticker (str): Simbolo del ticker (es. "AAPL")
             period (str): Periodo storico (formato yfinance, es. "1y", "6mo", "max")
-            cache_hours (float): Tempo di validità della cache in ore. Default 0.25 (15 minuti).
-            use_cache (bool): Se True, abilita il salvataggio e caricamento della cache su disco.
         """
         self.ticker = ticker
         self.tickerName=None
         self.period = period
-        self.cache_hours = cache_hours
-        self.use_cache = use_cache
         self.dataframe = None
         self.macd_params = {'fastperiod': 12, 'slowperiod': 26, 'signalperiod': 9}
         self.ma_params = {'timeperiod': 20, 'matype': 0}
@@ -2189,60 +2176,13 @@ class TechnicalAnalyzer:
 
     @property
     def display_name(self) -> str:
-        """Ritorna un nome pronto per i grafici, usando cache se già presente."""
+        """Ritorna il nome già risolto oppure lo richiede a Yahoo Finance."""
         return self.tickerName or self.fetch_ticker_name()
 
     def download_data(self):
         """
-        Scarica i dati OHLC dal servizio Yahoo Finance escludendo dividendi e split,
-        utilizzando una cache locale parquet per evitare scaricamenti ripetuti.
+        Scarica sempre i dati OHLC aggiornati da Yahoo Finance, senza cache locale.
         """
-        import os
-        from pathlib import Path
-        from datetime import datetime, timedelta
-
-        # Determina la cartella cache
-        project_root = Path(__file__).resolve().parent
-        cache_dir = project_root / "cache"
-        if not cache_dir.exists():
-            try:
-                cache_dir.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                print(f"[TechnicalAnalyzer] Errore creazione cartella cache: {e}")
-
-        # Sanitizzazione del ticker per Windows
-        clean_ticker = str(self.ticker).strip().upper().replace("/", "_")
-        base_part = clean_ticker.split(".")[0]
-        if base_part in ["CON", "PRN", "AUX", "NUL"] or any(
-            base_part.startswith(x) for x in ["COM", "LPT"] if len(base_part) == 4 and base_part[3].isdigit()
-        ):
-            clean_ticker = f"W_{clean_ticker}"
-
-        cache_file = cache_dir / f"{clean_ticker}_{self.period}_history.parquet"
-
-        # Controlla validità cache (usando self.cache_hours)
-        use_cache = False
-        if self.use_cache and cache_file.exists() and self.cache_hours > 0:
-            try:
-                file_mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
-                if datetime.now() - file_mtime < timedelta(hours=self.cache_hours):
-                    use_cache = True
-            except Exception as e:
-                print(f"[TechnicalAnalyzer] Errore lettura mtime cache per {self.ticker}: {e}")
-
-        if use_cache:
-            try:
-                df = pd.read_parquet(cache_file)
-                if df is not None and not df.empty:
-                    if not isinstance(df.index, pd.DatetimeIndex):
-                        df.index = pd.to_datetime(df.index)
-                    self.dataframe = df
-                    print(f"[TechnicalAnalyzer] Dati storici caricati da cache per {self.ticker} ({len(df)} righe)")
-                    return
-            except Exception as e:
-                print(f"[TechnicalAnalyzer] Errore caricamento cache per {self.ticker}: {e}. Scaricamento in corso...")
-
-        # Scarica i dati storici
         try:
             print(f"[TechnicalAnalyzer] Scaricamento dati da Yahoo Finance per {self.ticker}...")
             df = yf.Ticker(self.ticker).history(
@@ -2250,30 +2190,24 @@ class TechnicalAnalyzer:
                 actions=False,
                 auto_adjust=False  # evita warning e mantiene i prezzi non aggiustati
             )
-            df.dropna(inplace=True)
+            # Yahoo può pubblicare l'ultima seduta con OHLC parziali e Close/Adj Close
+            # ancora vuoti. In quel caso il prezzo ufficiale è già disponibile nella
+            # quote: completiamo la candela anziché eliminare l'intera giornata.
+            if df is not None and not df.empty and pd.isna(df["Close"].iloc[-1]):
+                quote = yf.Ticker(self.ticker).info or {}
+                official_close = quote.get("regularMarketPrice") or quote.get("currentPrice")
+                if official_close is not None:
+                    last_idx = df.index[-1]
+                    df.loc[last_idx, "Close"] = float(official_close)
+                    if "Adj Close" in df.columns:
+                        df.loc[last_idx, "Adj Close"] = float(official_close)
+            df.dropna(subset=["Close"], inplace=True)
             if df is not None and not df.empty:
                 self.dataframe = df
-                if self.use_cache:
-                    try:
-                        df.to_parquet(cache_file)
-                        print(f"[TechnicalAnalyzer] Salvata cache dati storici per {self.ticker}")
-                    except Exception as e:
-                        print(f"[TechnicalAnalyzer] Errore scrittura cache per {self.ticker}: {e}")
             else:
                 raise ValueError("DataFrame scaricato vuoto")
         except Exception as e:
             print(f"[TechnicalAnalyzer] Errore nello scaricamento dei dati per {self.ticker}: {e}.")
-            if self.use_cache and cache_file.exists():
-                try:
-                    print(f"[TechnicalAnalyzer] Fallback: caricamento cache scaduta per {self.ticker}...")
-                    df = pd.read_parquet(cache_file)
-                    if df is not None and not df.empty:
-                        if not isinstance(df.index, pd.DatetimeIndex):
-                            df.index = pd.to_datetime(df.index)
-                        self.dataframe = df
-                        return
-                except Exception as e_fallback:
-                    print(f"[TechnicalAnalyzer] Errore fallback cache per {self.ticker}: {e_fallback}")
             self.dataframe = pd.DataFrame()
 
     ### Funzione per calcolare category: BUY, BUY ON PULLBACK etc CHIAMATA da WEBGUI soltanto!

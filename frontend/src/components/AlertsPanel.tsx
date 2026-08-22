@@ -22,6 +22,7 @@ const FIELD_OPTIONS = [
   "PCTV_180D",
   "RSI",
   "SIG_MA_SAR",
+  "SAR_Above_Price",
   "ADX",
   "Close",
   "Volume",
@@ -243,7 +244,7 @@ export default function AlertsPanel({ market }: Props) {
       min_gap_minutes: Math.max(0, Number(minGapMinutes) || 0),
       message: {
         title: "🔔 Alert {{Ticker}}",
-        body: "Close: {{Close}}\nRSI: {{RSI}}\nSARMA: {{SIG_MA_SAR}}\nMACD: {{MACD}}\nS3: {{MACD_vs_Signal}}\nAction: {{Action}}\nTECH: {{TECH_SCORE}}",
+        body: "Close: {{Close}}\nSAR: {{SAR}}\nSAR sopra prezzo: {{SAR_Above_Price}}\nRSI: {{RSI}}\nSARMA: {{SIG_MA_SAR}}\nMACD: {{MACD}}\nS3: {{MACD_vs_Signal}}\nAction: {{Action}}\nTECH: {{TECH_SCORE}}",
       },
     };
 
@@ -328,12 +329,16 @@ export default function AlertsPanel({ market }: Props) {
                 onChange={(e) => {
                   const copy = [...conditions];
                   copy[idx].field = e.target.value;
+                  if (e.target.value === "SAR_Above_Price") {
+                    copy[idx].op = "==";
+                    copy[idx].value = 0;
+                  }
                   setConditions(copy);
                 }}
               >
                 {FIELD_OPTIONS.map((f) => (
                   <option key={f} value={f}>
-                    {f}
+                    {f === "SAR_Above_Price" ? "Parabolic SAR sopra/sotto prezzo" : f}
                   </option>
                 ))}
               </select>
@@ -345,21 +350,35 @@ export default function AlertsPanel({ market }: Props) {
                   setConditions(copy);
                 }}
               >
-                {OP_OPTIONS.map((o) => (
+                {(cond.field === "SAR_Above_Price" ? ["=="] : OP_OPTIONS).map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
                 ))}
               </select>
-              <input
-                value={cond.value}
-                placeholder="es. BUY, 65, -1"
-                onChange={(e) => {
-                  const copy = [...conditions];
-                  copy[idx].value = e.target.value;
-                  setConditions(copy);
-                }}
-              />
+              {cond.field === "SAR_Above_Price" ? (
+                <select
+                  value={String(cond.value)}
+                  onChange={(e) => {
+                    const copy = [...conditions];
+                    copy[idx].value = Number(e.target.value);
+                    setConditions(copy);
+                  }}
+                >
+                  <option value="0">SAR sotto il prezzo</option>
+                  <option value="1">SAR sopra il prezzo</option>
+                </select>
+              ) : (
+                <input
+                  value={cond.value}
+                  placeholder="es. BUY, 65, -1"
+                  onChange={(e) => {
+                    const copy = [...conditions];
+                    copy[idx].value = e.target.value;
+                    setConditions(copy);
+                  }}
+                />
+              )}
               <button
                 type="button"
                 className="btn ghost remove-btn"

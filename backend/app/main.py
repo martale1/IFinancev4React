@@ -144,6 +144,7 @@ def watchlist(
     action: str = Query(default=""),
     market_phase: str = Query(default=""),
     trend_phase_detail: str = Query(default=""),
+    entry_signal: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     rank_n: int = Query(default=15, ge=5, le=100),
@@ -161,7 +162,13 @@ def watchlist(
             df_raw = load_market_dataframe(market)
             df = prepare_dataframe(df_raw)
         df = apply_search_and_volume_filters(df, search=search, min_volume=min_volume)
-        df = apply_state_filters(df, action=action, market_phase=market_phase, trend_phase_detail=trend_phase_detail)
+        df = apply_state_filters(
+            df,
+            action=action,
+            market_phase=market_phase,
+            trend_phase_detail=trend_phase_detail,
+            entry_signal=entry_signal,
+        )
         dft = filter_by_tab(df, tab, rank_n, only_neg_in_worst=only_neg_in_worst)
         dft_page, total_rows, total_pages = paginate(dft, page, page_size)
         return WatchlistResponse(
@@ -213,12 +220,23 @@ def chart(
     sl2: float | None = Query(default=None),
     pb_stop: float | None = Query(default=None),
     pp_level: float | None = Query(default=None),
+    latest_close: float | None = Query(default=None),
+    latest_pct_1d: float | None = Query(default=None),
+    latest_date: str | None = Query(default=None),
 ):
     if chart_type not in ["candlestick", "line"]:
         raise HTTPException(status_code=400, detail="chart_type must be 'candlestick' or 'line'")
     try:
         levels = {"sl1": sl1, "sl2": sl2, "pb_stop": pb_stop, "pp_level": pp_level}
-        data = chart_png_bytes(ticker=ticker, bars=bars, chart_type=chart_type, levels=levels)
+        data = chart_png_bytes(
+            ticker=ticker,
+            bars=bars,
+            chart_type=chart_type,
+            levels=levels,
+            latest_close=latest_close,
+            latest_pct_1d=latest_pct_1d,
+            latest_date=latest_date,
+        )
         if not data:
             raise HTTPException(status_code=404, detail=f"No chart data for ticker '{ticker}'")
         return StreamingResponse(BytesIO(data), media_type="image/png")

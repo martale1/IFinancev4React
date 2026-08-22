@@ -30,7 +30,6 @@ interface MultiPatternLabPanelProps {
   currentWatchlistName: string | null;
   onRemoveFromWatchlist: (input: { name: string; ticker: string; source_market?: string }) => Promise<string>;
   minVolume?: number;
-  search?: string;
 }
 
 type ScanResult = WatchlistRow & {
@@ -95,6 +94,7 @@ const PATTERN_TABS = [
 ] as const;
 
 const SCAN_MARKETS = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"] as const;
+const DEFAULT_SCAN_MARKETS = ["MIB30", "DAX", "ETC", "Preferite"];
 
 export default function MultiPatternLabPanel({
   market,
@@ -112,10 +112,9 @@ export default function MultiPatternLabPanel({
   currentWatchlistName,
   onRemoveFromWatchlist,
   minVolume = 2000,
-  search = "",
 }: MultiPatternLabPanelProps) {
   const [pattern, setPattern] = useState<string>("S2");
-  const [labMarkets, setLabMarkets] = useState<string[]>([...SCAN_MARKETS]);
+  const [labMarkets, setLabMarkets] = useState<string[]>(DEFAULT_SCAN_MARKETS);
   const labMarket = labMarkets.length === SCAN_MARKETS.length ? "ALL" : labMarkets.join(",");
   const [useSar, setUseSar] = useState(true);
   const [useSma200, setUseSma200] = useState(false);
@@ -181,16 +180,9 @@ export default function MultiPatternLabPanel({
         const vol = typeof row.Volume === "number" ? row.Volume : (Number(row.Volume) || 0);
         if (vol < minVolume) return false;
       }
-      // 2. Search filter
-      if (search) {
-        const s = search.trim().toLowerCase();
-        const ticker = String(row.Ticker ?? "").toLowerCase();
-        const name = String(row.Name ?? "").toLowerCase();
-        if (!ticker.includes(s) && !name.includes(s)) return false;
-      }
       return true;
     });
-  }, [scanResults, minVolume, search]);
+  }, [scanResults, minVolume]);
 
   const sortedResults: ScanResult[] = useMemo(() => {
     if (!sortKey || !sortDir) return filteredResults;
@@ -1011,7 +1003,7 @@ export default function MultiPatternLabPanel({
               Nessun titolo corrisponde ai criteri di filtraggio.
             </p>
             <p style={{ margin: "0.4rem 0 0 0", fontSize: "0.8rem", color: "#8cb4d9" }}>
-              Prova ad abbassare il volume minimo (attualmente {minVolume}) o cancella la ricerca (attualmente "{search}").
+              Prova ad abbassare il volume minimo (attualmente {minVolume}).
             </p>
           </div>
         )

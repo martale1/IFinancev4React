@@ -97,17 +97,43 @@ L'architettura è **completamente locale**: nessun dato viene inviato a servizi 
 ### 🔬 Multi-Pattern Lab
 Scanner di pattern tecnici con simulazione VectorBT istantanea:
 
-| Pattern | Descrizione |
+#### Indicatori e convenzioni
+
+- `t` indica la seduta esaminata; `t-1` indica la seduta precedente.
+- Le medie `EMA9`, `EMA21`, `EMA30` ed `EMA50` sono medie mobili esponenziali calcolate sulla chiusura.
+- `MACD` usa i parametri standard **12, 26, 9**.
+- Lo Stocastico usa i parametri **5, 3, 3** e valori compresi tra 0 e 100.
+- Williams %R usa un periodo di **14 sedute**; la soglia `-80` identifica l'uscita dalla zona di ipervenduto.
+- RSI e ADX usano un periodo di **14 sedute**.
+- `Volume_MA20` è la media semplice dei volumi delle ultime **20 sedute**.
+- Un **incrocio rialzista** richiede che la relazione sia falsa o uguale in `t-1` e vera in `t`: non basta che una linea sia già sopra l'altra.
+- Una **candela rialzista** significa esclusivamente `Close(t) > Open(t)`: la chiusura è superiore all'apertura della stessa seduta. Non implica, da sola, che la chiusura sia superiore a quella del giorno precedente.
+
+#### Regole esatte
+
+| Pattern | La regola è vera nella seduta `t` quando tutte le condizioni indicate sono soddisfatte |
 |---------|-------------|
-| **S2** – willR+Stoch | Williams %R + Stocastico in zona oversold |
-| **S3** – MACD Cross | Incrocio MACD rialzista confermato |
-| **S4** – EMA+RSI+Vol | EMA9 sopra EMA21 + RSI momentum + volume |
-| **Comb. S2&S3** | Combinazione S2 e S3 |
-| **S5 – RSI Oversold** | RSI < 30 con incrocio stocastico rialzista |
-| **S6 – Golden Cross** | EMA30 incrocia sopra EMA50 nella seduta, con ADX > 25 |
-| **S7 – Alligator Bull** | Ingresso in stato Close > SAR e Alligator Uptrend |
-| **S8 – Volume Breakout** | Candela rialzista con volume > 1.5x MA20 |
-| *Pattern personalizzati* | Definibili dall'utente via YAML |
+| **S2 – willR+Stoch** | `%K(t) > %D(t)`; `%K(t) > 20`; `%K(t-1) < 35`; `Williams %R(t) > -80` ed è crescente rispetto a `t-1`; inoltre si verifica almeno un trigger: **(a)** `%K` supera 20, **(b)** `%K` incrocia sopra `%D`, oppure **(c)** Williams %R supera `-80`. |
+| **S3 – MACD Cross** | `MACD(t) > Signal(t)` e `MACD(t-1) <= Signal(t-1)`; inoltre `MACD(t) > MACD(t-1)`, l'istogramma è positivo e crescente: `Hist(t) > 0` e `Hist(t) > Hist(t-1)`. |
+| **S4 – EMA+RSI+Vol** | `EMA9(t) > EMA21(t)`; RSI compreso tra **55 e 70**, estremi inclusi, e crescente; `MACD(t) > Signal(t)`; `Volume(t) > 1,5 × Volume_MA20(t)`. |
+| **S5 – RSI Oversold** | `RSI(t) < 30` e incrocio rialzista dello Stocastico: `%K(t) > %D(t)` con `%K(t-1) <= %D(t-1)`. |
+| **S6 – Golden Cross** | Incrocio rialzista `EMA30/EMA50`: `EMA30(t) > EMA50(t)` con `EMA30(t-1) <= EMA50(t-1)`; inoltre `ADX(t) > 25`. |
+| **S7 – Alligator Bull** | Il titolo **entra** nello stato rialzista composto da `Close(t) > SAR(t)` e `Signal6` che inizia con `Uptrend`. Lo stato deve essere nuovo: nella seduta precedente la condizione composta era falsa. |
+| **S8 – Volume Breakout** | Candela rialzista `Close(t) > Open(t)` e `Volume(t) > 1,5 × Volume_MA20(t)`. Non sono richiesti un breakout del massimo precedente o una soglia minima del corpo della candela. |
+| **Comb. S2 & S3** | S2 **e** S3 devono essere entrambi veri nella stessa seduta (`S2 AND S3`). |
+| **Qualsiasi S2 o S3** | È sufficiente che S2 oppure S3 sia vero nella seduta (`S2 OR S3`); se entrambi sono veri, il risultato viene indicato come `S2 & S3`. |
+| *Pattern personalizzati* | Sono definiti dall'utente in `custom_patterns.yaml`; la formula effettiva è il campo `rule` del pattern. |
+
+#### Lookback e filtri ausiliari
+
+L'opzione **Anzianità segnale** controlla quante sedute vengono esaminate all'indietro, includendo quella corrente. Per esempio, **Ultimi 10 giorni** cerca un evento nelle posizioni da `t` a `t-9`; non significa che il pattern debba restare vero per dieci giorni. Lo scanner restituisce l'evento più recente trovato nell'intervallo.
+
+I filtri nella configurazione sono aggiuntivi e vengono verificati **nella stessa seduta del pattern**:
+
+- **Richiedi Close > SAR**: accetta il segnale solo se la chiusura è sopra il Parabolic SAR.
+- **Richiedi Close > SMA200**: accetta il segnale solo se la chiusura è sopra la media mobile semplice a 200 sedute.
+
+Il filtro volume minimo e la scelta dei mercati vengono applicati alla visualizzazione dei risultati. La ricerca testuale globale della watchlist non filtra il Multi-Pattern Lab.
 
 Per ogni scansione si ottengono:
 - Lista titoli con segnale attivo

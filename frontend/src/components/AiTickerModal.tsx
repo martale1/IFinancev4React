@@ -72,8 +72,9 @@ function buildPrompt(row: WatchlistRow, market: string, question: string, showOb
       : "I dati osservati della card sono gia' stati forniti nella conversazione: usali come contesto, ma non ripeterli nella risposta.",
     "",
     showObservedData ? "Dati card da mostrare se utili:" : "Dati card solo per contesto interno, da NON ristampare:",
-    `- Action: ${field(row, "Action")}`,
-    `- Market_Phase: ${field(row, "Market_Phase")}`,
+    `- Segnale ingresso: ${field(row, "Entry_Signal")}`,
+    `- Motivo ingresso: ${field(row, "Entry_Reason")}`,
+    `- Contesto tecnico: ${field(row, "Market_Phase")}`,
     `- Trend_Phase_Detail: ${field(row, "Trend_Phase_Detail")}`,
     `- Close: ${field(row, "Close")}`,
     `- TECH_SCORE: ${field(row, "TECH_SCORE")}`,
@@ -281,7 +282,7 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
 
   const subtitle = useMemo(() => {
     if (!row) return "";
-    const parts = [field(row, "Action"), field(row, "Market_Phase"), field(row, "Trend_Phase_Detail")].filter((v) => v && v !== "-");
+    const parts = [field(row, "Entry_Signal"), field(row, "Market_Phase"), field(row, "Trend_Phase_Detail")].filter((v) => v && v !== "-");
     return parts.join(" - ");
   }, [row]);
 

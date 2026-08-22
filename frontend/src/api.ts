@@ -80,7 +80,7 @@ export async function fetchWatchlist(params: {
   pageSize: number;
   search: string;
   minVolume: number;
-  action: string;
+  entrySignal: string;
   marketPhase: string;
   trendPhaseDetail: string;
   rankN: number;
@@ -92,7 +92,7 @@ export async function fetchWatchlist(params: {
     page_size: String(params.pageSize),
     search: params.search,
     min_volume: String(params.minVolume),
-    action: params.action,
+    entry_signal: params.entrySignal,
     market_phase: params.marketPhase,
     trend_phase_detail: params.trendPhaseDetail,
     rank_n: String(params.rankN)
@@ -153,7 +153,8 @@ export function chartUrl(
   ticker: string,
   bars: number,
   chartType: "candlestick" | "line",
-  levels?: { sl1?: number | null; sl2?: number | null; pbStop?: number | null; ppLevel?: number | null }
+  levels?: { sl1?: number | null; sl2?: number | null; pbStop?: number | null; ppLevel?: number | null },
+  latest?: { close?: number | null; pct1d?: number | null; date?: string | null }
 ): string {
   const q = new URLSearchParams({
     bars: String(bars),
@@ -165,6 +166,11 @@ export function chartUrl(
     if (typeof levels.sl2 === "number") q.set("sl2", String(levels.sl2));
     if (typeof levels.pbStop === "number") q.set("pb_stop", String(levels.pbStop));
     if (typeof levels.ppLevel === "number") q.set("pp_level", String(levels.ppLevel));
+  }
+  if (latest) {
+    if (typeof latest.close === "number") q.set("latest_close", String(latest.close));
+    if (typeof latest.pct1d === "number") q.set("latest_pct_1d", String(latest.pct1d));
+    if (latest.date) q.set("latest_date", latest.date);
   }
   return `${API_BASE}/charts/${encodeURIComponent(ticker)}?${q.toString()}`;
 }

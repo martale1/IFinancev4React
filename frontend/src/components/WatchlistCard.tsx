@@ -162,15 +162,39 @@ function toBool(v: unknown): boolean | null {
   return null;
 }
 
-function actionClass(action: string): string {
-  const a = action.trim().toUpperCase();
-  if (a === "BUY") return "action-buy";
-  if (a === "ADD") return "action-add";
-  if (a === "REDUCE") return "action-reduce";
-  if (a === "SELL" || a === "EXIT") return "action-sell";
-  if (a === "WAIT" || a === "HOLD") return "action-wait";
-  if (a === "AVOID") return "action-avoid";
-  return "action-default";
+function entrySignalClass(signal: string): string {
+  const value = signal.trim().toUpperCase();
+  if (value === "ENTRA") return "action-buy";
+  if (value === "OSSERVA") return "action-add";
+  if (value === "EVITA") return "action-sell";
+  return "action-wait";
+}
+
+function deriveEntrySignal(row: WatchlistRow): "ENTRA" | "OSSERVA" | "ATTENDI" | "EVITA" {
+  const supplied = String(row.Entry_Signal ?? "").trim().toUpperCase();
+  if (["ENTRA", "OSSERVA", "ATTENDI", "EVITA"].includes(supplied)) {
+    return supplied as "ENTRA" | "OSSERVA" | "ATTENDI" | "EVITA";
+  }
+
+  const action = String(row.Action ?? "").trim().toUpperCase();
+  const phase = String(row.Market_Phase ?? "").trim().toUpperCase();
+  const detail = String(row.Trend_Phase_Detail ?? "").trim().toUpperCase();
+  const liquidity = String(row.Liquidity ?? "").trim().toUpperCase();
+  const invalidated = toBool(row.Pullback_Invalidation) === true;
+  const risk =
+    ["SELL", "EXIT", "AVOID"].includes(action) ||
+    ["DOWNTREND", "REVERSAL_RISK"].includes(phase) ||
+    ["PULLBACK_RISKY", "REVERSAL_RISK", "DOWNTREND"].includes(detail) ||
+    invalidated ||
+    liquidity === "AVOID";
+
+  if (risk) return "EVITA";
+  if (action === "BUY" && liquidity === "OK") return "ENTRA";
+  if (
+    liquidity === "OK" &&
+    (action === "ADD" || ["EARLY_TREND", "EXPANSION", "BREAKOUT_FRESH", "PULLBACK_HEALTHY", "PULLBACK_NORMAL"].includes(detail))
+  ) return "OSSERVA";
+  return "ATTENDI";
 }
 
 function phaseClass(phase: string): string {
@@ -376,6 +400,8 @@ export default function WatchlistCard({
   const action = String(row.Action ?? "-");
   const phase = String(row.Market_Phase ?? "-");
   const trendPhaseDetail = String(row.Trend_Phase_Detail ?? "").trim();
+  const entrySignal = deriveEntrySignal(row);
+  const entryReason = String(row.Entry_Reason ?? "").trim();
 
   const buyChecks = buyChecklist(row);
   const sellChecks = sellChecklist(row);
@@ -592,14 +618,19 @@ export default function WatchlistCard({
         )}
       </div>
       <div className="pill-row">
-        <span className={`pill ${actionClass(action)}`}>{action}</span>
-        <span className={`pill ${phaseClass(phase)}`}>{phase}</span>
-        {showTrendPhaseDetail ? <span className="pill phase-detail">{detailLabel(trendPhaseDetail)}</span> : null}
+        <span className={`pill ${entrySignalClass(entrySignal)}`} title={entryReason}>
+          {entrySignal === "ENTRA" ? "✓ ENTRA" : entrySignal === "OSSERVA" ? "◉ OSSERVA" : entrySignal === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}
+        </span>
         {row.Pattern_Type && (
           <span className="pill" style={{ backgroundColor: "rgba(167, 139, 250, 0.2)", color: "#c084fc", border: "1px solid rgba(167, 139, 250, 0.4)", fontWeight: "bold" }}>
             🧪 {String(row.Pattern_Type)} ({row.Pattern_Days_Ago === 0 ? "Oggi" : row.Pattern_Days_Ago === 1 ? "Ieri" : `${row.Pattern_Days_Ago}d fa`})
           </span>
         )}
+      </div>
+      <div className="row muted">
+        Contesto tecnico: <b className={phaseClass(phase)}>{phase}</b>
+        {showTrendPhaseDetail ? <> · {detailLabel(trendPhaseDetail)}</> : null}
+        {entryReason ? <> · {entryReason}</> : null}
       </div>
       <div className="row muted">VOL: {fmtVol(row.Volume)}</div>
 

@@ -5,6 +5,8 @@ export type WatchlistRow = Record<string, unknown> & {
   Action?: string;
   Market_Phase?: string;
   Trend_Phase_Detail?: string;
+  Entry_Signal?: "ENTRA" | "OSSERVA" | "ATTENDI" | "EVITA";
+  Entry_Reason?: string;
   Close?: number;
   PCTV_1D?: number;
   PCTV_5D?: number;

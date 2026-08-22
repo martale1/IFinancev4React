@@ -11,7 +11,7 @@ from app.config import ANALYSES_DIR
 NEED_COLUMNS_START = 1
 NEEDED_COLUMNS = [
     "Ticker", "Name", "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE", "Liquidity",
-    "Action", "Market_Phase", "Action_Reason", "Layer3_Warning",
+    "Action", "Market_Phase", "Trend_Phase_Detail", "Action_Reason", "Layer3_Warning",
     "MACD", "MACD_Signal", "MACD_Hist", "MACDH_Trend", "MACDH_Trend_Days",
     "RSI", "RSI_Trend", "RSI_Trend_Days",
     "Stoch_K", "Stoch_D", "Williams_R",
@@ -50,24 +50,9 @@ def analysis_source_info_for_market(market: str) -> dict[str, str]:
     return {"source_file": fp.name, "source_path": str(fp.resolve()), "source_updated_at": updated}
 
 
-_EXCEL_CACHE: dict[str, tuple[pd.DataFrame, float]] = {}
-
-
 def load_market_dataframe(market: str) -> pd.DataFrame:
     fp = analysis_path_for_market(market)
-    try:
-        mtime = fp.stat().st_mtime
-    except Exception:
-        mtime = 0.0
-
-    if market in _EXCEL_CACHE:
-        cached_df, cached_mtime = _EXCEL_CACHE[market]
-        if cached_mtime == mtime:
-            return cached_df.copy()
-
-    df = pd.read_excel(fp)
-    _EXCEL_CACHE[market] = (df, mtime)
-    return df.copy()
+    return pd.read_excel(fp)
 
 
 def _to_num_series(s: pd.Series) -> pd.Series:
@@ -120,6 +105,43 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
         df.loc[ts == "HOLD", "Action"] = "HOLD"
         df.loc[ts.isin(["PREPARE", "ENTER"]), "Action"] = "WATCH"
 
+    # Indicazione unica per chi sta valutando un nuovo ingresso. Le vecchie
+    # Action restano disponibili internamente, ma HOLD/ADD/REDUCE/EXIT non
+    # vengono presentate come istruzioni senza conoscere il portafoglio.
+    action_u = df["Action"].astype(str).str.strip().str.upper()
+    phase_u = df["Market_Phase"].astype(str).str.strip().str.upper()
+    detail_u = df["Trend_Phase_Detail"].astype(str).str.strip().str.upper()
+    liquidity_u = df["Liquidity"].astype(str).str.strip().str.upper()
+    invalidated = df["Pullback_Invalidation"].astype(str).str.strip().str.upper().isin(["TRUE", "1", "YES"])
+
+    risk = (
+        action_u.isin(["SELL", "EXIT", "AVOID"])
+        | phase_u.isin(["DOWNTREND", "REVERSAL_RISK"])
+        | detail_u.isin(["PULLBACK_RISKY", "REVERSAL_RISK", "DOWNTREND"])
+        | invalidated
+        | liquidity_u.eq("AVOID")
+    )
+    enter = action_u.eq("BUY") & ~risk & liquidity_u.eq("OK")
+    observe = (
+        ~risk
+        & ~enter
+        & liquidity_u.eq("OK")
+        & (
+            action_u.eq("ADD")
+            | detail_u.isin(["EARLY_TREND", "EXPANSION", "BREAKOUT_FRESH", "PULLBACK_HEALTHY", "PULLBACK_NORMAL"])
+        )
+    )
+
+    df["Entry_Signal"] = "ATTENDI"
+    df.loc[observe, "Entry_Signal"] = "OSSERVA"
+    df.loc[enter, "Entry_Signal"] = "ENTRA"
+    df.loc[risk, "Entry_Signal"] = "EVITA"
+
+    df["Entry_Reason"] = "Condizioni di ingresso non ancora complete"
+    df.loc[observe, "Entry_Reason"] = "Setup interessante: attendere conferma operativa"
+    df.loc[enter, "Entry_Reason"] = "Trigger rialzista completo"
+    df.loc[risk, "Entry_Reason"] = "Struttura fragile, rischio o liquidità non idonea"
+
     return df
 
 
@@ -148,6 +170,7 @@ def apply_state_filters(
     action: str = "",
     market_phase: str = "",
     trend_phase_detail: str = "",
+    entry_signal: str = "",
 ) -> pd.DataFrame:
     out = df.copy()
 
@@ -155,6 +178,7 @@ def apply_state_filters(
         ("Action", action),
         ("Market_Phase", market_phase),
         ("Trend_Phase_Detail", trend_phase_detail),
+        ("Entry_Signal", entry_signal),
     ]
     for col, value in filters:
         v = str(value or "").strip().upper()
@@ -182,6 +206,14 @@ def filter_by_tab(df_in: pd.DataFrame, tab_name: str, n: int, only_neg_in_worst:
 
     if t == "buy":
         return sort_plain(d[d["Action"] == "BUY"].copy(), ["Market_Phase", "TECH_SCORE", "PCTV_1D"], [True, False, False])
+    if t in {"opportunità", "opportunita", "entra"}:
+        return sort_plain(d[d["Entry_Signal"] == "ENTRA"].copy(), ["TECH_SCORE", "PCTV_1D"], [False, False])
+    if t in {"da osservare", "osserva"}:
+        return sort_plain(d[d["Entry_Signal"] == "OSSERVA"].copy(), ["TECH_SCORE", "PCTV_1D"], [False, False])
+    if t in {"attendi", "da attendere"}:
+        return sort_plain(d[d["Entry_Signal"] == "ATTENDI"].copy(), ["TECH_SCORE", "PCTV_1D"], [False, False])
+    if t in {"da evitare", "evita"}:
+        return sort_plain(d[d["Entry_Signal"] == "EVITA"].copy(), ["TECH_SCORE", "PCTV_1D"], [False, False])
     if t == "sell":
         return sort_plain(d[d["Action"] == "SELL"].copy(), ["Market_Phase", "TECH_SCORE", "PCTV_1D"], [True, False, False])
     if t == "pullback":
