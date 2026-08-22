@@ -7,6 +7,7 @@ function quickAlertFieldLabel(field: QuickAlertField): string {
   if (field === "MACD_vs_Signal") return "S3 (MACD-Signal)";
   if (field === "MACD_Hist") return "Istogramma MACD";
   if (field === "SIG_MA_SAR") return "SARMA";
+  if (field === "SAR_Above_Price") return "Parabolic SAR rispetto al prezzo";
   if (field === "Williams_R") return "willR";
   if (field === "Stoch_K") return "Stocastico %K";
   if (field === "Stoch_D") return "Stocastico %D";
@@ -423,10 +424,12 @@ export default function WatchlistCard({
   const adx    = toNum(row.ADX);
   const plusDI  = toNum(row.PLUS_DI);
   const minusDI = toNum(row.MINUS_DI);
+  const macdVsSignal = toNum(row.MACD_vs_Signal);
   const willR = toNum(row.Williams_R);
   const willRColor = willR !== null && willR >= -80 ? "#22c55e" : "#ef4444";
   const sl1 = toNum(row.Trend_Stop_Level);
   const sl2 = toNum(row.CE_Long);
+  const sar = toNum(row.SAR);
   const sl1Risk = toNum(row.SL1_RiskPct) ?? (close !== null && sl1 !== null ? ((sl1 / close - 1) * 100) : null);
   const sl2Risk = toNum(row.SL2_RiskPct) ?? (close !== null && sl2 !== null ? ((sl2 / close - 1) * 100) : null);
   const ppLevel = toNum(row.Profit_Protect_Level);
@@ -443,6 +446,13 @@ export default function WatchlistCard({
   const showProfitProtect = actionU === "REDUCE" && phaseU === "UPTREND" && ppLevel !== null;
   const hasLevels = showPullback || showTrendStops || showProfitProtect;
   const checkData = close !== null && ((sl1 !== null && sl1 > close) || (sl2 !== null && sl2 > close));
+  const showOperationalConfirmation = entrySignal === "OSSERVA" || entrySignal === "ATTENDI";
+  const sarAbovePrice = toBool(row.SAR_Above_Price);
+  const sarBelowPrice = sarAbovePrice === false || (sarAbovePrice === null && sar !== null && close !== null && sar < close);
+  const alligatorBullish = String(row.Signal6 ?? "").trim().toLowerCase().startsWith("uptrend");
+  const trendConfirmed = sarBelowPrice && alligatorBullish;
+  const momentumConfirmed = macdVsSignal !== null && macdVsSignal > 0 && stochK !== null && stochD !== null && stochK > stochD;
+  const strengthConfirmed = adx !== null && adx >= 20 && plusDI !== null && minusDI !== null && plusDI > minusDI;
 
   useEffect(() => {
     setShowAlertTools(false);
@@ -632,6 +642,38 @@ export default function WatchlistCard({
         {showTrendPhaseDetail ? <> · {detailLabel(trendPhaseDetail)}</> : null}
         {entryReason ? <> · {entryReason}</> : null}
       </div>
+      {showOperationalConfirmation ? (
+        <details
+          style={{
+            marginTop: "0.35rem",
+            border: "1px solid rgba(96,165,250,0.25)",
+            borderRadius: "8px",
+            background: "rgba(30,64,175,0.08)",
+            fontSize: "0.78rem",
+            lineHeight: 1.45,
+          }}
+        >
+          <summary style={{ padding: "0.4rem 0.55rem", color: "#93c5fd", fontWeight: 700, cursor: "pointer" }}>
+            Conferma operativa
+          </summary>
+          <div style={{ padding: "0 0.55rem 0.5rem" }}>
+            <div style={{ color: trendConfirmed ? "#4ade80" : "#fbbf24" }}>
+              {trendConfirmed ? "✓" : "○"} Trend: SAR &lt; prezzo + Alligator rialzista
+            </div>
+            <div style={{ color: momentumConfirmed ? "#4ade80" : "#fbbf24" }}>
+              {momentumConfirmed ? "✓" : "○"} Momentum: MACD &gt; segnale + Sk &gt; Sd
+            </div>
+            <div style={{ color: strengthConfirmed ? "#4ade80" : "#fbbf24" }}>
+              {strengthConfirmed ? "✓" : "○"} Forza: ADX ≥ 20 + DI+ &gt; DI−
+            </div>
+            <div className="muted" style={{ marginTop: "0.2rem" }}>
+              {trendConfirmed && momentumConfirmed && strengthConfirmed
+                ? "Conferme tecniche complete: valutare ingresso, livelli e rischio."
+                : "Attendere che le condizioni mancanti diventino verdi."}
+            </div>
+          </div>
+        </details>
+      ) : null}
       <div className="row muted">VOL: {fmtVol(row.Volume)}</div>
 
       {hasLevels && showLevels && showPullback ? (
@@ -706,11 +748,11 @@ export default function WatchlistCard({
           {alertBusy ? "..." : alertSet ? "Alert ON" : "Alert"}
         </button>
         <button
-          className="btn ghost icon-btn"
+          className={showWatchlistTools ? "btn active" : "btn ghost"}
           onClick={() => setShowWatchlistTools((v) => !v)}
           title="Aggiungi a preferite/watchlist"
         >
-          {showWatchlistTools ? "♥" : "♡"}
+          {showWatchlistTools ? "Chiudi Watchlist" : "＋ Watchlist"}
         </button>
         {currentWatchlistName ? (
           <button className="btn ghost icon-btn remove-btn" disabled={wlBusy} onClick={removeFromCurrentWatchlist} title={`Rimuovi da ${currentWatchlistName}`}>
@@ -788,6 +830,13 @@ export default function WatchlistCard({
             }}>
               SARMA
             </button>
+            <button className={alertField === "SAR_Above_Price" ? "quick-bar active" : "quick-bar"} onClick={() => {
+              setAlertField("SAR_Above_Price");
+              setAlertOp("==");
+              setAlertValue("0");
+            }}>
+              SAR vs Prezzo
+            </button>
             <button className={alertField === "Williams_R" ? "quick-bar active" : "quick-bar"} onClick={() => {
               setAlertField("Williams_R");
               if (willR !== null) setAlertValue(String(willR));
@@ -854,7 +903,7 @@ export default function WatchlistCard({
               Alligator
             </button>
           </div>
-          {alertField === "Signal6" ? (
+          {alertField === "SAR_Above_Price" ? null : alertField === "Signal6" ? (
             <div className="watchlist-mode">
               <button className={alertOp === "==" ? "quick-bar active" : "quick-bar"} onClick={() => setAlertOp("==")}> 
                 Uguale (==)
@@ -873,7 +922,15 @@ export default function WatchlistCard({
               </button>
             </div>
           )}
-          {alertField === "Signal6" ? (
+          {alertField === "SAR_Above_Price" ? (
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+              Posizione Parabolic SAR
+              <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)}>
+                <option value="0">SAR &lt; Prezzo (segnale rialzista)</option>
+                <option value="1">SAR &gt; Prezzo (segnale ribassista)</option>
+              </select>
+            </label>
+          ) : alertField === "Signal6" ? (
             <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
               Stato Alligator
               <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)} style={{
@@ -924,6 +981,21 @@ export default function WatchlistCard({
         </div>
       ) : null}
       {alertMsg ? <div className="muted">{alertMsg}</div> : null}
+      {alertSet ? (
+        <div
+          style={{
+            marginTop: "0.35rem",
+            color: "#4ade80",
+            fontSize: "0.82rem",
+            fontWeight: 700,
+          }}
+        >
+          🔔 Alert attivo
+          {alertConfig
+            ? `: ${quickAlertFieldLabel(alertConfig.field)} ${alertConfig.op} ${String(alertConfig.value ?? "-")}`
+            : ""}
+        </div>
+      ) : null}
       {showDetails ? (
         <div className="tech-details-wrap">
           <div className="tech-tabs">

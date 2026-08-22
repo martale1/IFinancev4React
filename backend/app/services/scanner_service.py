@@ -544,7 +544,7 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
                 "RSI_Trend": "Up" if tech_score > 50 else "Down",
                 "EMA_30": float(row_t['SMA200']) if has_sma200 else p_current, # fallback simple
                 "EMA_50": float(row_t['SMA200']) if has_sma200 else p_current,
-                "SAR_Above_Price": not above_sma,
+                "SAR_Above_Price": sar_val > p_current,
                 "Trend_Stop_Level": sar_val,
                 "CE_Long": sar_val,
                 "Pullback_Stop_Level": None,

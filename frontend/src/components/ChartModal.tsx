@@ -8,6 +8,7 @@ function quickAlertFieldLabel(field: QuickAlertField): string {
   if (field === "MACD_vs_Signal") return "S3 (MACD-Signal)";
   if (field === "MACD_Hist") return "Istogramma MACD";
   if (field === "SIG_MA_SAR") return "SARMA";
+  if (field === "SAR_Above_Price") return "Parabolic SAR rispetto al prezzo";
   if (field === "Williams_R") return "willR";
   if (field === "Stoch_K") return "Stocastico %K";
   if (field === "Stoch_D") return "Stocastico %D";
@@ -215,7 +216,7 @@ export default function ChartModal(props: Props) {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState(() => window.localStorage.getItem("ifinance-openai-vision-model") || "gpt-4o");
-  const [aiAnalysisType, setAiAnalysisType] = useState<"detailed" | "concise">("detailed");
+  const [aiAnalysisType, setAiAnalysisType] = useState<"detailed" | "concise">("concise");
 
   // Local state for bars input/slider to prevent backend request storms during dragging
   const [localBars, setLocalBars] = useState(props.bars);
@@ -628,6 +629,13 @@ export default function ChartModal(props: Props) {
               }}>
                 SARMA ({sarma !== null && sarma > 0 ? num(sarma, 0) : "<0"})
               </button>
+              <button className={alertField === "SAR_Above_Price" ? "quick-bar active" : "quick-bar"} onClick={() => {
+                setAlertField("SAR_Above_Price");
+                setAlertOp("==");
+                setAlertValue("0");
+              }}>
+                SAR vs Prezzo
+              </button>
               <button className={alertField === "Williams_R" ? "quick-bar active" : "quick-bar"} onClick={() => {
                 setAlertField("Williams_R");
                 if (willR !== null) setAlertValue(String(willR));
@@ -694,7 +702,7 @@ export default function ChartModal(props: Props) {
                 Alligator ({props.row && props.row.Signal6 !== undefined ? String(props.row.Signal6) : "-"})
               </button>
             </div>
-            {alertField === "Signal6" ? (
+            {alertField === "SAR_Above_Price" ? null : alertField === "Signal6" ? (
               <div className="watchlist-mode">
                 <button className={alertOp === "==" ? "quick-bar active" : "quick-bar"} onClick={() => setAlertOp("==")}> 
                   Uguale (==)
@@ -713,7 +721,15 @@ export default function ChartModal(props: Props) {
                 </button>
               </div>
             )}
-            {alertField === "Signal6" ? (
+            {alertField === "SAR_Above_Price" ? (
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                Posizione Parabolic SAR
+                <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)}>
+                  <option value="0">SAR &lt; Prezzo (segnale rialzista)</option>
+                  <option value="1">SAR &gt; Prezzo (segnale ribassista)</option>
+                </select>
+              </label>
+            ) : alertField === "Signal6" ? (
               <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                 Stato Alligator
                 <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)} style={{

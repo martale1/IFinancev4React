@@ -84,6 +84,7 @@ function quickAlertFieldLabel(field: QuickAlertField): string {
   if (field === "MACD_vs_Signal") return "S3";
   if (field === "MACD_Hist") return "Hist";
   if (field === "SIG_MA_SAR") return "SARMA";
+  if (field === "SAR_Above_Price") return "SAR rispetto al prezzo";
   if (field === "Williams_R") return "willR";
   if (field === "Stoch_KvsD") return "Sk-Sd";
   if (field === "DI_diff") return "DI+-DI-";

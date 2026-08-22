@@ -1120,16 +1120,17 @@ export default function MultiPatternLabPanel({
                     { field: "MACD", label: "MACD", val: alertRow.MACD },
                     { field: "RSI", label: "RSI", val: alertRow.RSI },
                     { field: "SIG_MA_SAR", label: "SARMA", val: alertRow.SIG_MA_SAR },
+                    { field: "SAR_Above_Price", label: "SAR vs Prezzo", val: 0 },
                     { field: "Williams_R", label: "willR", val: alertRow.Williams_R },
                     { field: "Signal6", label: "Alligator", val: alertRow.Signal6 }
                   ].map((preset) => (
-                    <button key={preset.field} onClick={() => { setAlertField(preset.field as QuickAlertField); setAlertOp(preset.field === "Signal6" ? "==" : ">"); if (preset.val !== undefined && preset.val !== null) setAlertValue(String(preset.val)); }} style={{ padding: "0.3rem 0.6rem", borderRadius: "6px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", background: alertField === preset.field ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.05)", border: `1px solid ${alertField === preset.field ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)"}`, color: alertField === preset.field ? "#60a5fa" : "#cfe5fa" }}>
+                    <button key={preset.field} onClick={() => { setAlertField(preset.field as QuickAlertField); setAlertOp(preset.field === "Signal6" || preset.field === "SAR_Above_Price" ? "==" : ">"); if (preset.val !== undefined && preset.val !== null) setAlertValue(String(preset.val)); }} style={{ padding: "0.3rem 0.6rem", borderRadius: "6px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", background: alertField === preset.field ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.05)", border: `1px solid ${alertField === preset.field ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)"}`, color: alertField === preset.field ? "#60a5fa" : "#cfe5fa" }}>
                       {preset.label}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem" }}>
-                  {alertField === "Signal6" ? (
+                  {alertField === "SAR_Above_Price" ? null : alertField === "Signal6" ? (
                     (["==", "!="] as const).map((o) => (
                       <button key={o} onClick={() => setAlertOp(o)} style={{ padding: "0.25rem 0.6rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: "bold", cursor: "pointer", width: "36px", background: alertOp === o ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.05)", border: `1px solid ${alertOp === o ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.15)"}`, color: alertOp === o ? "#60a5fa" : "#cfe5fa" }}>{o}</button>
                     ))
@@ -1140,7 +1141,15 @@ export default function MultiPatternLabPanel({
                   )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", alignItems: "end", marginTop: "0.3rem" }}>
-                  {alertField === "Signal6" ? (
+                  {alertField === "SAR_Above_Price" ? (
+                    <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem", flex: 1 }}>
+                      Posizione Parabolic SAR
+                      <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)}>
+                        <option value="0">SAR &lt; Prezzo (rialzista)</option>
+                        <option value="1">SAR &gt; Prezzo (ribassista)</option>
+                      </select>
+                    </label>
+                  ) : alertField === "Signal6" ? (
                     <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem", fontSize: "0.82rem", color: "#cfe5fa" }}>
                       Stato Alligator
                       <select value={alertValue} onChange={(e) => setAlertValue(e.target.value)} style={{ padding: "0.4rem 0.6rem", borderRadius: "8px", backgroundColor: "rgba(12,28,48,0.8)", border: "1px solid rgba(184,216,246,0.2)", color: "#fff", fontSize: "0.85rem", outline: "none", width: "100%", minWidth: "160px" }}>

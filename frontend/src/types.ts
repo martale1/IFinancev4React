@@ -144,6 +144,7 @@ export type QuickAlertField =
   | "MACD_Hist"
   | "RSI"
   | "SIG_MA_SAR"
+  | "SAR_Above_Price"
   | "Williams_R"
   | "Stoch_K"
   | "Stoch_D"
