@@ -125,7 +125,7 @@ def _build_basic_price_figure(ticker: str, bars: int):
     Uses only Close series from yfinance.
     """
     _set_headless_matplotlib()
-    import yfinance as yf
+    from yfinance_runtime import yf
     import matplotlib.pyplot as plt
 
     df = yf.Ticker(ticker).history(period="2y", actions=False, auto_adjust=False)
@@ -277,7 +277,10 @@ def chart_backtest_png_bytes(
     import matplotlib.pyplot as plt
     from ChartManager import AlligatorChartManager
     from TechnicalAnalyzer import TechnicalAnalyzer
-    from app.services.scanner_service import get_historical_data, calculate_all_indicators, get_pattern_rule
+    from app.services.scanner_service import (
+        get_historical_data, calculate_all_indicators, get_pattern_rule,
+        get_builtin_pattern_rule,
+    )
     import vectorbt as vbt
     import numpy as np
 
@@ -330,10 +333,9 @@ def chart_backtest_png_bytes(
                     pattern_conditions.append(
                         "(EMA_30 > EMA_50) & (EMA_30_shift1 <= EMA_50_shift1) & (ADX > 25)"
                     )
-                if pattern == "S7":
-                    pattern_conditions.append("(Alligator_Bull_Trigger == True)")
-                if pattern == "S8":
-                    pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
+                builtin_rule = get_builtin_pattern_rule(pattern)
+                if builtin_rule:
+                    pattern_conditions.append(builtin_rule)
 
                 if not pattern_conditions:
                     pattern_rule = "(Close > 0)"
@@ -351,11 +353,19 @@ def chart_backtest_png_bytes(
                 buy_conditions.append("(Close > SMA200)")
                 
             buy_rule = " & ".join(buy_conditions)
-            sell_rule = "(Close < SAR)"
+            is_s7 = pattern in ("S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG")
+            sell_rule = "SAR 2 sedute o Close < Alligator Teeth" if is_s7 else "(Close < SAR)"
             
             try:
                 buy_mask = df_clean.eval(buy_rule).astype(bool)
-                sell_mask = df_clean.eval(sell_rule).astype(bool)
+                if is_s7:
+                    below_sar = df_clean['Close'] < df_clean['SAR']
+                    sell_mask = (
+                        (below_sar & below_sar.shift(1, fill_value=False))
+                        | (df_clean['Close'] < df_clean['Alligator_Teeth'])
+                    ).fillna(False)
+                else:
+                    sell_mask = df_clean.eval(sell_rule).astype(bool)
             except Exception:
                 return b""
                 
@@ -365,6 +375,7 @@ def chart_backtest_png_bytes(
                 exits=sell_mask,
                 init_cash=10000.0,
                 fees=0.001,
+                slippage=0.0005,
                 freq="1d"
             )
             

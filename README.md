@@ -79,7 +79,7 @@ L'architettura è **completamente locale**: nessun dato viene inviato a servizi 
                         ▼
               ┌─────────────────┐
               │  analyses/ dir  │
-              │  (JSON cache)   │
+              │ (JSON analyses) │
               └─────────────────┘
 ```
 
@@ -118,11 +118,15 @@ Scanner di pattern tecnici con simulazione VectorBT istantanea:
 | **S4 – EMA+RSI+Vol** | `EMA9(t) > EMA21(t)`; RSI compreso tra **55 e 70**, estremi inclusi, e crescente; `MACD(t) > Signal(t)`; `Volume(t) > 1,5 × Volume_MA20(t)`. |
 | **S5 – RSI Oversold** | `RSI(t) < 30` e incrocio rialzista dello Stocastico: `%K(t) > %D(t)` con `%K(t-1) <= %D(t-1)`. |
 | **S6 – Golden Cross** | Incrocio rialzista `EMA30/EMA50`: `EMA30(t) > EMA50(t)` con `EMA30(t-1) <= EMA50(t-1)`; inoltre `ADX(t) > 25`. |
-| **S7 – Alligator Bull** | Il titolo **entra** nello stato rialzista composto da `Close(t) > SAR(t)` e `Signal6` che inizia con `Uptrend`. Lo stato deve essere nuovo: nella seduta precedente la condizione composta era falsa. |
+| **S7 Early** | Il titolo entra nello stato composto da `Close(t) > SAR(t)`, `Signal6` uguale a `Uptrend` oppure `Uptrend-`, e `DI+(t) > DI-(t)`. L'ID storico `S7` è mantenuto come alias di questo livello. |
+| **S7 Confirmed** | Tutte le condizioni Early, inoltre `Signal6 = Uptrend` (prezzo sopra Lips e struttura `Jaw < Teeth < Lips`), `EMA30(t) > EMA50(t)` e `ADX(t) >= 20`. |
+| **S7 Strong** | Tutte le condizioni Confirmed, inoltre `ADX(t) >= 25`, `Close(t) > SMA200(t)` e `Volume(t) >= Volume_MA20(t)`. |
 | **S8 – Volume Breakout** | Candela rialzista `Close(t) > Open(t)` e `Volume(t) > 1,5 × Volume_MA20(t)`. Non sono richiesti un breakout del massimo precedente o una soglia minima del corpo della candela. |
 | **Comb. S2 & S3** | S2 **e** S3 devono essere entrambi veri nella stessa seduta (`S2 AND S3`). |
 | **Qualsiasi S2 o S3** | È sufficiente che S2 oppure S3 sia vero nella seduta (`S2 OR S3`); se entrambi sono veri, il risultato viene indicato come `S2 & S3`. |
 | *Pattern personalizzati* | Sono definiti dall'utente in `custom_patterns.yaml`; la formula effettiva è il campo `rule` del pattern. |
+
+Per tutti i livelli S7 il segnale è un **evento d'ingresso**: è vero soltanto nella prima seduta in cui tutte le condizioni del livello diventano vere. Nel backtest S7 l'uscita avviene quando `Close < Alligator Teeth`, oppure dopo due chiusure consecutive sotto il SAR. La simulazione applica commissioni dello **0,10%** e slippage dello **0,05%** per operazione.
 
 #### Lookback e filtri ausiliari
 
@@ -230,7 +234,7 @@ IFinancev4React/
 ├── TechnicalAnalyzer.py        # Core engine di analisi tecnica
 ├── ChartManager.py             # Generazione grafici matplotlib
 ├── AlertEngine.py              # Motore di alert standalone
-├── analyses/                   # Cache JSON delle analisi per mercato
+├── analyses/                   # Database Excel/JSON delle analisi per mercato
 ├── custom_patterns.yaml        # Pattern personalizzati utente
 ├── .env                        # Variabili d'ambiente (non in git)
 └── .env.example                # Template variabili d'ambiente
@@ -380,7 +384,7 @@ Copia `.env.example` in `.env` e configura:
 | `TELEGRAM_RECEIVER_ID` | Chat ID Telegram destinatario alert | ⚠️ Per alert |
 | `TELEGRAM_BOT_TOKEN_CH0..5` | Token bot Telegram (uno per canale) | ⚠️ Per alert |
 | `TELEGRAM_BOT_TOKEN_DEFAULT` | Token fallback per canali sconosciuti | No |
-| `ANALYSES_DIR` | Path directory cache analisi JSON | No (default: `analyses/`) |
+| `ANALYSES_DIR` | Path directory database analisi Excel/JSON | No (default: `analyses/`) |
 | `LOGS_DIR` | Path directory log | No (default: `logs/`) |
 | `FRONTEND_DIST_DIR` | Path build frontend (per produzione) | No |
 | `CORS_ORIGINS` | Origini CORS aggiuntive (comma-separated) | No |

@@ -87,7 +87,9 @@ const PATTERN_TABS = [
   { id: "S4",       label: "🟣 S4",        desc: "EMA+RSI+Vol",  color: "#a78bfa" },
   { id: "S5",       label: "🌸 S5",        desc: "RSI Oversold", color: "#f472b6" },
   { id: "S6",       label: "🌟 S6",        desc: "Golden Cross", color: "#fbbf24" },
-  { id: "S7",       label: "🐊 S7",        desc: "Alligator Bull", color: "#34d399" },
+  { id: "S7_EARLY", label: "🟡 S7 Early", desc: "SAR+Alligator+DI", color: "#fbbf24" },
+  { id: "S7_CONFIRMED", label: "🟢 S7 Conf.", desc: "ADX≥20+EMA", color: "#34d399" },
+  { id: "S7_STRONG", label: "🟢🟢 S7 Strong", desc: "ADX≥25+Trend+Vol", color: "#22c55e" },
   { id: "S8",       label: "🟪 S8",        desc: "Volume Breakout", color: "#c084fc" },
   { id: "Combined", label: "✨ Comb.",      desc: "S2 & S3",      color: "#fbbf24" },
   { id: "S2_or_S3", label: "🔥 Qualsiasi", desc: "S2 o S3",      color: "#f97316" },
@@ -118,7 +120,7 @@ export default function MultiPatternLabPanel({
   const labMarket = labMarkets.length === SCAN_MARKETS.length ? "ALL" : labMarkets.join(",");
   const [useSar, setUseSar] = useState(true);
   const [useSma200, setUseSma200] = useState(false);
-  const [lookback, setLookback] = useState<number>(1);
+  const [lookback, setLookback] = useState<number>(3);
   const [configOpen, setConfigOpen] = useState(false);
   const [customPatterns, setCustomPatterns] = useState<any[]>([]);
 
@@ -153,8 +155,9 @@ export default function MultiPatternLabPanel({
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<ScanResult[] | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [fallbackWarnings, setFallbackWarnings] = useState<string[]>([]);
   // Progress tracking for SSE streaming scans (custom patterns)
-  const [, setScanProgress] = useState<{ done: number; total: number; market: string } | null>(null);
+  const [scanProgress, setScanProgress] = useState<{ done: number; total: number; market: string } | null>(null);
   // AbortController ref to cancel in-flight SSE streams when user changes params
   const abortRef = useRef<AbortController | null>(null);
 
@@ -232,9 +235,31 @@ export default function MultiPatternLabPanel({
   const [alertValue, setAlertValue] = useState("");
   const [alertBusy, setAlertBusy] = useState(false);
 
+  function closeAlertModal() {
+    setActiveAlertTicker(null);
+    setActiveAlertMarket(null);
+    setAlertRow(null);
+    setAlertError(null);
+    setAlertMsg(null);
+  }
+
+  useEffect(() => {
+    if (!activeAlertTicker) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeAlertModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeAlertTicker]);
+
   // Set of built-in pattern IDs that use the fast pre-calculated Excel path
   const BUILTIN_PATTERNS = new Set([
-    "S2", "S3", "S4", "S5", "S6", "S7", "S8", "Combined", "S2_or_S3",
+    "S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "Combined", "S2_or_S3",
     "custom_rsi_oversold", "custom_golden_cross", "custom_bullish_alligator", "custom_volume_breakout"
   ]);
 
@@ -248,6 +273,7 @@ export default function MultiPatternLabPanel({
 
     setIsScanning(true);
     setScanError(null);
+    setFallbackWarnings([]);
     setScanResults(null);
     setScanProgress(null);
     setSelectedTicker(null);
@@ -326,6 +352,7 @@ export default function MultiPatternLabPanel({
         if (!res.ok) throw new Error(`Scansione fallita con status: ${res.status}`);
         const data = await res.json();
         setScanResults(data.results ?? []);
+        setFallbackWarnings(data.fallback_warnings ?? []);
         if ((data.results ?? []).length === 0) {
           setScanError("Nessun titolo corrisponde al pattern e ai filtri selezionati.");
         }
@@ -339,16 +366,21 @@ export default function MultiPatternLabPanel({
     }
   }
 
+  // La scansione parte soltanto dal pulsante. Quando cambia un parametro,
+  // annulla l'eventuale richiesta precedente e torna al prompt iniziale.
   useEffect(() => {
-    handleScan();
-    // Cleanup: abort any in-flight scan when dependencies change or component unmounts
-    return () => {
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsScanning(false);
+    setScanProgress(null);
+    setScanResults(null);
+    setScanError(null);
+    setFallbackWarnings([]);
+    setSelectedTicker(null);
+    setBacktestResults(null);
   }, [pattern, labMarket, useSar, useSma200, lookback]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Cambia pattern e cancella immediatamente i risultati vecchi
   function handlePatternChange(newPattern: string) {
@@ -669,6 +701,13 @@ export default function MultiPatternLabPanel({
                       <li>MACD &gt; Signal</li>
                       <li>Volume &gt; Media(20) × 1.5</li>
                     </ul>
+                    <h4 style={{ color: "#34d399", margin: "0.6rem 0 0.3rem 0", fontSize: "0.82rem" }}>🐊 S7 (Alligator Bull)</h4>
+                    <ul style={{ paddingLeft: "1rem", margin: 0 }}>
+                      <li>Early: Close &gt; SAR, Uptrend/Uptrend-, DI+ &gt; DI-</li>
+                      <li>Confirmed: Uptrend pieno, EMA30 &gt; EMA50, ADX ≥ 20</li>
+                      <li>Strong: ADX ≥ 25, sopra SMA200, volume ≥ MA20</li>
+                      <li>Il segnale scatta solo all'ingresso nel livello</li>
+                    </ul>
                   </div>
                 </div>
               </details>
@@ -743,13 +782,26 @@ export default function MultiPatternLabPanel({
                 animation: "spin 0.75s linear infinite",
                 display: "inline-block", flexShrink: 0,
               }} />
-              Analisi in corso...
+              {scanProgress
+                ? `${scanProgress.market}: ${scanProgress.done}/${scanProgress.total}`
+                : "Analisi in corso..."}
             </>
           ) : (
             <>🔍 Avvia Scansione</>
           )}
         </button>
       </div>
+
+      {fallbackWarnings.length > 0 && (
+        <div role="alert" style={{
+          padding: "0.75rem 1rem", borderRadius: "10px",
+          background: "rgba(245,158,11,0.14)", border: "1px solid rgba(245,158,11,0.45)",
+          color: "#fbbf24", fontSize: "0.82rem", lineHeight: 1.45,
+        }}>
+          <strong>⚠️ Fallback Yahoo Finance attivato.</strong>
+          {fallbackWarnings.map((warning) => <div key={warning}>{warning}</div>)}
+        </div>
+      )}
 
       {/* ── Prompt iniziale / dopo cambio pattern ── */}
       {!isScanning && !scanResults && !scanError && (
@@ -1009,12 +1061,32 @@ export default function MultiPatternLabPanel({
         )
       )}
 
-      {/* ══════════════ QUICK ALERT DRAWER ══════════════ */}
+      {/* ══════════════ QUICK ALERT MODAL ══════════════ */}
       {activeAlertTicker && (
-        <section className="card" style={{ padding: "1.2rem", border: "1px solid rgba(96,165,250,0.3)", background: "rgba(10,25,47,0.6)" }}>
+        <div
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) closeAlertModal(); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1200,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "1.25rem", background: "rgba(2,8,18,0.78)",
+            backdropFilter: "blur(5px)",
+          }}
+        >
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Alert rapido ${activeAlertTicker}`}
+          className="card"
+          style={{
+            padding: "1.2rem", width: "min(920px, 96vw)", maxHeight: "88vh",
+            overflowY: "auto", border: "1px solid rgba(96,165,250,0.45)",
+            background: "#0a192f", boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+          }}
+        >
           <h3 style={{ margin: "0 0 0.8rem 0", fontSize: "1rem", color: "#cfe5fa", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>🔔 Alert Rapido: <strong style={{ color: "#ffffff" }}>{activeAlertTicker}</strong></span>
-            <button onClick={() => { setActiveAlertTicker(null); setAlertRow(null); }} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.78rem", cursor: "pointer" }}>Chiudi</button>
+            <button onClick={closeAlertModal} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.78rem", cursor: "pointer" }}>Chiudi</button>
           </h3>
 
           {isLoadingAlertRow ? (
@@ -1113,6 +1185,7 @@ export default function MultiPatternLabPanel({
             </div>
           ) : null}
         </section>
+        </div>
       )}
 
       {/* ══════════════ BACKTEST ══════════════ */}

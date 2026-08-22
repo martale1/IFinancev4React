@@ -495,13 +495,30 @@ def api_scanner_scan(
         if invalid:
             raise HTTPException(status_code=400, detail=f"Mercati non validi: {', '.join(invalid)}")
 
+        # I workbook sono indipendenti: leggili in parallelo. Non viene usata
+        # alcuna cache; ogni richiesta apre gli Excel aggiornati su disco.
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _scan_one(mkt: str):
+            diagnostic = {}
+            rows = scan_market(
+                market=mkt, pattern=pattern, use_sar=use_sar,
+                use_sma200=use_sma200, lookback=lookback, diagnostics=diagnostic,
+            )
+            for row in rows:
+                row["Market"] = mkt
+            return rows, diagnostic
+
         combined_results = []
-        for mkt in target_markets:
-            mkt_results = scan_market(market=mkt, pattern=pattern, use_sar=use_sar, use_sma200=use_sma200, lookback=lookback)
-            for result in mkt_results:
-                result["Market"] = mkt
-            combined_results.extend(mkt_results)
-        return {"market": market, "markets": target_markets, "pattern": pattern, "results": combined_results}
+        scan_sources = []
+        with ThreadPoolExecutor(max_workers=min(4, len(target_markets))) as executor:
+            for rows, diagnostic in executor.map(_scan_one, target_markets):
+                combined_results.extend(rows)
+                scan_sources.append(diagnostic)
+        fallback_warnings = [f"{item['market']}: {item['reason']}" for item in scan_sources if item.get("fallback")]
+        return {"market": market, "markets": target_markets, "pattern": pattern,
+                "results": combined_results, "scan_sources": scan_sources,
+                "fallback_warnings": fallback_warnings}
     except HTTPException:
         raise
     except Exception as exc:

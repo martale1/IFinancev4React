@@ -416,7 +416,7 @@ def get_price_sequence_data(ticker: str, period: str = "6mo", bars: int = 30) ->
         df = ta.dataframe.copy()
         source = "TechnicalAnalyzer/yfinance"
     except Exception:
-        import yfinance as yf
+        from yfinance_runtime import yf
 
         df = yf.Ticker(ticker).history(period=period, actions=False, auto_adjust=False)
         source = "yfinance"

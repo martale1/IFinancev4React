@@ -474,14 +474,39 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
                 & (adx_s6 > 25)
             )
 
-            # S7 Pattern – ingresso nello stato Alligator Bull
+            # SMA200 serve sia ai filtri sia al livello S7 Strong.
+            close_vals = df_tmp['Close'].values.flatten().astype(float)
+            df_tmp['SMA200'] = talib.SMA(close_vals, timeperiod=200)
+            df_tmp['SMA200_Filter_Ok'] = (df_tmp['Close'] > df_tmp['SMA200']).astype(int)
+
+            # S7 a tre livelli: Early, Confirmed e Strong.
             sar_s7 = df_tmp['SAR'] if 'SAR' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
-            if 'Signal6' in df_tmp.columns:
-                sig6_uptrend = df_tmp['Signal6'].astype(str).str.startswith('Uptrend')
-            else:
-                sig6_uptrend = pd.Series(False, index=df_tmp.index)
-            s7_bull_state = (df_tmp['Close'] > sar_s7) & sig6_uptrend
-            s7_active = s7_bull_state & ~s7_bull_state.shift(1, fill_value=False)
+            signal6_s7 = df_tmp['Signal6'].astype(str) if 'Signal6' in df_tmp.columns else pd.Series('', index=df_tmp.index)
+            plus_di_s7 = df_tmp['PLUS_DI'] if 'PLUS_DI' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            minus_di_s7 = df_tmp['MINUS_DI'] if 'MINUS_DI' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            vol_ma20_s7 = df_tmp['Volume_MA20'] if 'Volume_MA20' in df_tmp.columns else pd.Series(np.nan, index=df_tmp.index)
+
+            s7_early_state = (
+                (df_tmp['Close'] > sar_s7)
+                & signal6_s7.isin(['Uptrend', 'Uptrend-'])
+                & (plus_di_s7 > minus_di_s7)
+            )
+            s7_confirmed_state = (
+                s7_early_state
+                & signal6_s7.eq('Uptrend')
+                & (ema30_s6 > ema50_s6)
+                & (adx_s6 >= 20)
+            )
+            s7_strong_state = (
+                s7_confirmed_state
+                & (adx_s6 >= 25)
+                & (df_tmp['Close'] > df_tmp['SMA200'])
+                & (df_tmp['Volume'] >= vol_ma20_s7)
+            )
+            s7_early = s7_early_state & ~s7_early_state.shift(1, fill_value=False)
+            s7_confirmed = s7_confirmed_state & ~s7_confirmed_state.shift(1, fill_value=False)
+            s7_strong = s7_strong_state & ~s7_strong_state.shift(1, fill_value=False)
+            s7_active = s7_early  # alias storico S7
 
             # S8 Pattern – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
             open_s8     = df_tmp['Open']        if 'Open'        in df_tmp.columns else df_tmp['Close']
@@ -503,6 +528,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S5_Days_Ago'] = _days_since(s5_active)
             df_tmp['Pattern_S6_Days_Ago'] = _days_since(s6_active)
             df_tmp['Pattern_S7_Days_Ago'] = _days_since(s7_active)
+            df_tmp['Pattern_S7_EARLY_Days_Ago'] = _days_since(s7_early)
+            df_tmp['Pattern_S7_CONFIRMED_Days_Ago'] = _days_since(s7_confirmed)
+            df_tmp['Pattern_S7_STRONG_Days_Ago'] = _days_since(s7_strong)
             df_tmp['Pattern_S8_Days_Ago'] = _days_since(s8_active)
 
             df_tmp['Pattern_S2_Match'] = s2_active.astype(int)
@@ -512,6 +540,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S5_Match'] = s5_active.astype(int)
             df_tmp['Pattern_S6_Match'] = s6_active.astype(int)
             df_tmp['Pattern_S7_Match'] = s7_active.astype(int)
+            df_tmp['Pattern_S7_EARLY_Match'] = s7_early.astype(int)
+            df_tmp['Pattern_S7_CONFIRMED_Match'] = s7_confirmed.astype(int)
+            df_tmp['Pattern_S7_STRONG_Match'] = s7_strong.astype(int)
             df_tmp['Pattern_S8_Match'] = s8_active.astype(int)
             
             # Filtri di Sicurezza
@@ -520,10 +551,6 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             else:
                 df_tmp['SAR_Filter_Ok'] = 0
                 
-            # Calcoliamo SMA200 (200gg)
-            close_vals = df_tmp['Close'].values.flatten().astype(float)
-            df_tmp['SMA200'] = talib.SMA(close_vals, timeperiod=200)
-            df_tmp['SMA200_Filter_Ok'] = (df_tmp['Close'] > df_tmp['SMA200']).astype(int)
         else:
             df_tmp['Pattern_S2_Match'] = 0
             df_tmp['Pattern_S3_Match'] = 0
@@ -532,6 +559,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S5_Match'] = 0
             df_tmp['Pattern_S6_Match'] = 0
             df_tmp['Pattern_S7_Match'] = 0
+            df_tmp['Pattern_S7_EARLY_Match'] = 0
+            df_tmp['Pattern_S7_CONFIRMED_Match'] = 0
+            df_tmp['Pattern_S7_STRONG_Match'] = 0
             df_tmp['Pattern_S8_Match'] = 0
             df_tmp['Pattern_S2_Days_Ago'] = 999
             df_tmp['Pattern_S3_Days_Ago'] = 999
@@ -540,6 +570,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S5_Days_Ago'] = 999
             df_tmp['Pattern_S6_Days_Ago'] = 999
             df_tmp['Pattern_S7_Days_Ago'] = 999
+            df_tmp['Pattern_S7_EARLY_Days_Ago'] = 999
+            df_tmp['Pattern_S7_CONFIRMED_Days_Ago'] = 999
+            df_tmp['Pattern_S7_STRONG_Days_Ago'] = 999
             df_tmp['Pattern_S8_Days_Ago'] = 999
             df_tmp['SAR_Filter_Ok'] = 0
             df_tmp['SMA200'] = df_tmp['Close']
@@ -600,7 +633,20 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
         df_to_save = df_to_save[df_to_save['Liquidity'].isin(liq_keep)]
 
     df_summary_excel = strip_timezones_for_excel(df_to_save)
-    df_summary_excel.to_excel(output_file, index=False, engine='openpyxl')
+    if df_summary_excel.empty:
+        raise RuntimeError(
+            f"Nessun dato valido per {market}: il workbook esistente non viene sovrascritto."
+        )
+
+    # Scrittura atomica: il file corrente resta intatto se Excel o il download
+    # falliscono. Solo un workbook completo sostituisce quello pubblicato.
+    temp_output_file = f"{output_file}.tmp.xlsx"
+    try:
+        df_summary_excel.to_excel(temp_output_file, index=False, engine='openpyxl')
+        os.replace(temp_output_file, output_file)
+    finally:
+        if os.path.exists(temp_output_file):
+            os.remove(temp_output_file)
 
     # 4) Crea anche un workbook “multi-sheet” con viste per categoria
     #summary_file = os.path.join(OUTPUT_FOLDER, f"{market}_TA_Summary.xlsx")

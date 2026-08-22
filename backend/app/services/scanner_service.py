@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import talib
-import yfinance as yf
+from yfinance_runtime import yf
 
 # vectorbt carica numba, plotly, imageio e molti altri moduli. Importarlo qui
 # bloccherebbe l'avvio di tutto il backend anche quando serve solo la scansione.
@@ -176,11 +176,37 @@ def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.
     df.loc[(teeth < close_s) & (close_s <= lips) & up_struct, 'Signal6'] = 'Uptrend-'
     df.loc[(lips < close_s) & up_struct, 'Signal6'] = 'Uptrend'
 
-    # Stato e trigger usati dal pattern S7. Il trigger è vero solo nella prima
-    # seduta in cui Close > SAR e Signal6 entra in uno stato Uptrend.
-    alligator_bull_state = (df['Close'] > df['SAR']) & df['Signal6'].astype(str).str.startswith('Uptrend')
-    df['Alligator_Bull_State'] = alligator_bull_state
-    df['Alligator_Bull_Trigger'] = alligator_bull_state & ~alligator_bull_state.shift(1, fill_value=False)
+    # S7 a tre livelli. Ogni trigger vale solo nella prima seduta in cui il
+    # relativo stato diventa valido: lo scanner cerca eventi, non stati vecchi.
+    signal6 = df['Signal6'].astype(str)
+    s7_early_state = (
+        (df['Close'] > df['SAR'])
+        & signal6.isin(['Uptrend', 'Uptrend-'])
+        & (df['PLUS_DI'] > df['MINUS_DI'])
+    )
+    s7_confirmed_state = (
+        s7_early_state
+        & signal6.eq('Uptrend')
+        & (df['EMA_30'] > df['EMA_50'])
+        & (df['ADX'] >= 20)
+    )
+    s7_strong_state = (
+        s7_confirmed_state
+        & (df['ADX'] >= 25)
+        & (df['Close'] > df['SMA200'])
+        & (df['Volume'] >= df['Volume_MA20'])
+    )
+    for level, state in (
+        ('Early', s7_early_state),
+        ('Confirmed', s7_confirmed_state),
+        ('Strong', s7_strong_state),
+    ):
+        df[f'Alligator_Bull_{level}_State'] = state
+        df[f'Alligator_Bull_{level}_Trigger'] = state & ~state.shift(1, fill_value=False)
+
+    # Alias storico: l'ID S7 continua a funzionare e rappresenta S7 Early.
+    df['Alligator_Bull_State'] = df['Alligator_Bull_Early_State']
+    df['Alligator_Bull_Trigger'] = df['Alligator_Bull_Early_Trigger']
 
     return df
 
@@ -218,7 +244,23 @@ def get_pattern_label(pattern: str) -> str:
                         return p.get("label", pattern)
         except Exception:
             pass
-    return pattern
+    return {
+        "S7": "S7 Early",
+        "S7_EARLY": "S7 Early",
+        "S7_CONFIRMED": "S7 Confirmed",
+        "S7_STRONG": "S7 Strong",
+    }.get(pattern, pattern)
+
+
+def get_builtin_pattern_rule(pattern: str) -> str | None:
+    """Regola unica condivisa da backtest e grafico."""
+    return {
+        "S7": "(Alligator_Bull_Early_Trigger == True)",
+        "S7_EARLY": "(Alligator_Bull_Early_Trigger == True)",
+        "S7_CONFIRMED": "(Alligator_Bull_Confirmed_Trigger == True)",
+        "S7_STRONG": "(Alligator_Bull_Strong_Trigger == True)",
+        "S8": "(Close > Open) & (Volume > Volume_MA20 * 1.5)",
+    }.get(pattern)
 
 
 def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: bool, lookback: int = 1) -> dict | None:
@@ -301,14 +343,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
             & (adx_s6 > 25)
         )
 
-        # 6. Pattern S7 – ingresso nello stato Alligator Bull
-        sar_s7 = df_calc['SAR'] if 'SAR' in df_calc.columns else pd.Series(0.0, index=df_calc.index)
-        if 'Signal6' in df_calc.columns:
-            sig6_up = df_calc['Signal6'].astype(str).str.startswith('Uptrend')
-        else:
-            sig6_up = pd.Series(False, index=df_calc.index)
-        s7_bull_state = (df_calc['Close'] > sar_s7) & sig6_up
-        s7_active_series = s7_bull_state & ~s7_bull_state.shift(1, fill_value=False)
+        # 6. Pattern S7 – livelli calcolati centralmente con gli indicatori.
+        s7_active_series = df_calc['Alligator_Bull_Early_Trigger']
+        s7_confirmed_series = df_calc['Alligator_Bull_Confirmed_Trigger']
+        s7_strong_series = df_calc['Alligator_Bull_Strong_Trigger']
 
         # 7. Pattern S8 – Volume Breakout (candela rialzista + volume > MA20 × 1.5)
         open_s8     = df_calc['Open']        if 'Open'        in df_calc.columns else df_calc['Close']
@@ -334,8 +372,12 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
             active_series = s5_active_series
         elif pattern == "S6":
             active_series = s6_active_series
-        elif pattern == "S7":
+        elif pattern in ("S7", "S7_EARLY"):
             active_series = s7_active_series
+        elif pattern == "S7_CONFIRMED":
+            active_series = s7_confirmed_series
+        elif pattern == "S7_STRONG":
+            active_series = s7_strong_series
         elif pattern == "S8":
             active_series = s8_active_series
         elif pattern == "Combined":
@@ -443,10 +485,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
             rng = high_1y - low_1y
             range_pct = ((p_current - low_1y) / rng * 100.0) if rng > 0 else 50.0
 
-            # Calcolo segnale Alligator e Trend fittizi ma sensati
+            # Valori tecnici correnti restituiti alla UI.
             has_sma200 = 'SMA200' in row_t and not pd.isna(row_t['SMA200'])
             above_sma = p_current > float(row_t['SMA200']) if has_sma200 else True
-            alligator_sig = "Uptrend" if above_sma else "Downtrend"
+            alligator_sig = str(row_t['Signal6']) if 'Signal6' in row_t else "-"
 
             macd_val = float(row_t['MACD']) if 'MACD' in row_t and not pd.isna(row_t['MACD']) else 0.0
             macd_sig = float(df_calc['MACD_Signal'].iloc[-1]) if 'MACD_Signal' in df_calc.columns else 0.0
@@ -468,6 +510,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
                 "Williams_R": float(row_t['Williams_R']) if 'Williams_R' in row_t and not pd.isna(row_t['Williams_R']) else None,
                 "MACD": float(row_t['MACD']) if 'MACD' in row_t and not pd.isna(row_t['MACD']) else None,
                 "ADX": float(row_t['ADX']) if 'ADX' in row_t and not pd.isna(row_t['ADX']) else None,
+                "PLUS_DI": float(row_t['PLUS_DI']) if 'PLUS_DI' in row_t and not pd.isna(row_t['PLUS_DI']) else None,
+                "MINUS_DI": float(row_t['MINUS_DI']) if 'MINUS_DI' in row_t and not pd.isna(row_t['MINUS_DI']) else None,
+                "EMA_30": float(row_t['EMA_30']) if 'EMA_30' in row_t and not pd.isna(row_t['EMA_30']) else None,
+                "EMA_50": float(row_t['EMA_50']) if 'EMA_50' in row_t and not pd.isna(row_t['EMA_50']) else None,
                 "SAR": float(row_t['SAR']) if 'SAR' in row_t and not pd.isna(row_t['SAR']) else None,
                 "SMA200": float(row_t['SMA200']) if 'SMA200' in row_t and not pd.isna(row_t['SMA200']) else None,
                 "Pattern_Days_Ago": int(days_ago),
@@ -643,7 +689,11 @@ def scan_market_realtime_streaming(
     yield f"data: {_json.dumps({'type': 'done'})}\n\n"
 
 
-def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma200: bool = False, lookback: int = 1) -> List[Dict[str, Any]]:
+def scan_market(
+    market: str, pattern: str = "S2", use_sar: bool = True,
+    use_sma200: bool = False, lookback: int = 1,
+    diagnostics: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
     """
     Scansiona il mercato caricando i dati pre-calcolati dall'Excel salvato ogni 20 minuti da main.py.
     Se l'Excel non è disponibile o mancano le colonne dei pattern, esegue il fallback in tempo reale.
@@ -656,8 +706,11 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
     }
     mapped_pattern = pattern_mapping.get(pattern, pattern)
 
-    if mapped_pattern not in ["S2", "S3", "S4", "S5", "S6", "S7", "S8", "Combined", "S2_or_S3"]:
+    if mapped_pattern not in ["S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "Combined", "S2_or_S3"]:
         # È un pattern personalizzato reale, esegui direttamente la scansione in tempo reale
+        if diagnostics is not None:
+            diagnostics.update({"market": market, "source": "yahoo_finance", "fallback": True,
+                                "reason": "Pattern personalizzato non disponibile nell'Excel precalcolato."})
         return scan_market_realtime(market, pattern, use_sar, use_sma200, lookback)
 
     from app.services.watchlist_service import load_market_dataframe, prepare_dataframe
@@ -675,9 +728,14 @@ def scan_market(market: str, pattern: str = "S2", use_sar: bool = True, use_sma2
             
         if not all(col in df.columns for col in required):
             raise KeyError(f"Colonne pre-calcolate dei pattern sperimentali non trovate nell'Excel.")
+        if diagnostics is not None:
+            diagnostics.update({"market": market, "source": "excel", "fallback": False, "reason": None})
             
     except Exception as exc:
         print(f"[SCANNER] Impossibile usare l'Excel precalcolato per {market} ({exc}). Eseguo scansione in tempo reale...")
+        if diagnostics is not None:
+            diagnostics.update({"market": market, "source": "yahoo_finance", "fallback": True,
+                                "reason": f"{type(exc).__name__}: {exc}"})
         return scan_market_realtime(market, pattern, use_sar, use_sma200, lookback)
 
     # Filtra il DataFrame locale in base al pattern selezionato e al lookback
@@ -886,10 +944,9 @@ def run_vectorbt_backtest(
             pattern_conditions.append(
                 "(EMA_30 > EMA_50) & (EMA_30_shift1 <= EMA_50_shift1) & (ADX > 25)"
             )
-        if pattern == "S7":
-            pattern_conditions.append("(Alligator_Bull_Trigger == True)")
-        if pattern == "S8":
-            pattern_conditions.append("(Close > Open) & (Volume > Volume_MA20 * 1.5)")
+        builtin_rule = get_builtin_pattern_rule(pattern)
+        if builtin_rule:
+            pattern_conditions.append(builtin_rule)
             
         if not pattern_conditions:
             pattern_rule = "(Close > 0)"
@@ -907,7 +964,13 @@ def run_vectorbt_backtest(
         buy_conditions.append("(Close > SMA200)")
         
     buy_rule = " & ".join(buy_conditions)
-    sell_rule = "(Close < SAR)"  # standard exit su inversione Parabolic SAR
+    is_s7 = pattern in ("S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG")
+    if is_s7:
+        # Conferma il flip del SAR per due chiusure, ma esce subito se il prezzo
+        # rompe i Teeth dell'Alligator. Riduce i whipsaw da singola seduta.
+        sell_rule = "((Close < SAR) & (Close.shift(1) < SAR.shift(1))) | (Close < Alligator_Teeth)"
+    else:
+        sell_rule = "(Close < SAR)"
     
     # Valuta espressioni
     try:
@@ -916,7 +979,14 @@ def run_vectorbt_backtest(
         raise ValueError(f"Errore nella valutazione delle regole di BUY: {e}")
         
     try:
-        sell_mask = df_clean.eval(sell_rule).astype(bool)
+        if is_s7:
+            below_sar = df_clean['Close'] < df_clean['SAR']
+            sell_mask = (
+                (below_sar & below_sar.shift(1, fill_value=False))
+                | (df_clean['Close'] < df_clean['Alligator_Teeth'])
+            ).fillna(False)
+        else:
+            sell_mask = df_clean.eval(sell_rule).astype(bool)
     except Exception as e:
         raise ValueError(f"Errore nella valutazione delle regole di SELL: {e}")
         
@@ -932,6 +1002,7 @@ def run_vectorbt_backtest(
         exits=sell_mask,
         init_cash=init_cash,
         fees=fees,
+        slippage=0.0005,
         freq="1d"
     )
     

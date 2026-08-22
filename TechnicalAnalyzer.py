@@ -9,7 +9,7 @@ for _proxy_var in (
     os.environ.pop(_proxy_var, None)
 
 import talib
-import yfinance as yf
+from yfinance_runtime import yf
 import numpy as np
 import re
 import pandas as pd
