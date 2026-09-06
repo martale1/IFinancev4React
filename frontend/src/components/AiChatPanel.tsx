@@ -189,7 +189,6 @@ export default function AiChatPanel({ market }: Props) {
             }}
             className="model-select"
             style={{
-              marginRight: "10px",
               padding: "4px 8px",
               borderRadius: "4px",
               border: "1px solid #ccc",
