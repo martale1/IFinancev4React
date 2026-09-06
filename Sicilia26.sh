@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${IFINANCE_PYTHON:-/home/pi/finance-sicilia26/bin/python}"
+PYTHON_BIN="${IFINANCE_PYTHON:-/home/pi/finance/bin/python}"
 ACTION="${1:-start}"
 
 export IFINANCE_PYTHON="$PYTHON_BIN"
