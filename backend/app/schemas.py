@@ -22,6 +22,17 @@ class AlertUpsertRequest(BaseModel):
     payload: dict[str, Any]
 
 
+class AiAlertCreateRequest(BaseModel):
+    ticker: str
+    conditions: list[dict[str, Any]]
+    title: str | None = None
+
+
+class AiLevelAlertCreateRequest(BaseModel):
+    ticker: str
+    level: dict[str, Any]
+
+
 class AlertToggleRequest(BaseModel):
     enabled: bool
 

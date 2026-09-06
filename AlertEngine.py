@@ -161,6 +161,12 @@ class AlertEngine:
         df.columns = df.columns.astype(str).str.strip()
         if "Ticker" in df.columns:
             df["Ticker"] = df["Ticker"].astype(str).str.strip()
+        if {"Stoch_K", "Stoch_D"}.issubset(df.columns):
+            df["Stoch_KvsD"] = pd.to_numeric(df["Stoch_K"], errors="coerce") - pd.to_numeric(df["Stoch_D"], errors="coerce")
+        if {"PLUS_DI", "MINUS_DI"}.issubset(df.columns):
+            df["DI_diff"] = pd.to_numeric(df["PLUS_DI"], errors="coerce") - pd.to_numeric(df["MINUS_DI"], errors="coerce")
+        if "EMA_30" in df.columns:
+            df["EMA30"] = pd.to_numeric(df["EMA_30"], errors="coerce")
         return df
 
     # ============================

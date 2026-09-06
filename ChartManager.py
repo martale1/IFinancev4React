@@ -1043,9 +1043,11 @@ class AlligatorChartManager:
 
     def _add_signal6_state_labels_positions(self, ax, df_pos, min_gap: int = 10):
         """
-        Disegna etichette testuali di Signal6 (Uptrend, Downtrend, wakeup, sleep, ecc.)
-        solo nei punti in cui il valore cambia rispetto alla barra precedente.
-        Usa indice numerico (df_pos.index).
+        Evidenzia i cambi di stato di Signal6 con marker compatti.
+
+        Le etichette complete coprivano candele e indicatori, soprattutto per gli
+        stati Downtrend_revS3Sig. Il colore e la forma del marker mantengono
+        l'informazione essenziale senza aggiungere riquadri o frecce.
         """
         import numpy as np
         if 'Signal6' not in df_pos.columns:
@@ -1056,13 +1058,12 @@ class AlligatorChartManager:
         change_mask = s6.ne(s6.shift(1))
         change_idx = np.flatnonzero(change_mask.values)
 
-        # serie di riferimento per la quota Y a cui ancorare i label (High se disponibile)
-        ref = df_pos['High'] if 'High' in df_pos.columns else df_pos['Close']
-        y_min = np.nanmin(ref.values)
-        y_max = np.nanmax(ref.values)
+        high_ref = df_pos['High'] if 'High' in df_pos.columns else df_pos['Close']
+        low_ref = df_pos['Low'] if 'Low' in df_pos.columns else df_pos['Close']
+        y_min = np.nanmin(low_ref.values)
+        y_max = np.nanmax(high_ref.values)
         y_rng = max(1e-9, y_max - y_min)
-        up_off = 0.04 * y_rng  # offset verticale per label sopra
-        dn_off = 0.06 * y_rng  # offset verticale per label sotto (più largo)
+        marker_off = 0.015 * y_rng
 
         last_plotted = -10 ** 9  # per evitare label troppo ravvicinati
 
@@ -1087,29 +1088,15 @@ class AlligatorChartManager:
             color, marker, where = _style(lbl)
 
             x = int(df_pos.index[i])
-            y = float(ref.iat[i])
-
-            # marker sul prezzo
-            ax.scatter(x, y, color=color, marker=marker, s=95,
-                       edgecolors='black', linewidth=0.9, zorder=6)
-
-            # testo con freccina
+            # Marker rialzisti sotto la candela e ribassisti sopra, così non
+            # nascondono né il corpo né le linee degli indicatori.
             if where == 'top':
-                xytext = (x, y + up_off)
-                va = 'bottom'
+                y = float(low_ref.iat[i]) - marker_off
             else:
-                xytext = (x, y - dn_off)
-                va = 'top'
+                y = float(high_ref.iat[i]) + marker_off
 
-            ax.annotate(
-                lbl,
-                xy=(x, y), xytext=xytext,
-                textcoords='data',
-                ha='center', va=va, fontsize=9,
-                bbox=dict(boxstyle="round,pad=0.25", fc="white", alpha=0.85, ec=color),
-                arrowprops=dict(arrowstyle='-|>', color=color, lw=0.8),
-                zorder=6
-            )
+            ax.scatter(x, y, color=color, marker=marker, s=58,
+                       edgecolors='black', linewidth=0.7, zorder=6)
             last_plotted = i
 
     def stampa_mcs_plain(ta, show_triggers: bool = True):
@@ -1448,13 +1435,6 @@ class AlligatorChartManager:
         if 'Signal6' in df_pos.columns:
             self._add_signal_markers_positions(ax_price, df_pos)
             self._add_signal6_state_labels_positions(ax_price, df_pos, min_gap=10)
-            ax_price.text(
-                0.985, 0.93,
-                f"S6: {str(df_pos['Signal6'].iloc[-1])}",
-                transform=ax_price.transAxes, ha='right', va='top',
-                fontsize=10, fontweight='bold',
-                bbox=dict(boxstyle="round,pad=0.35", fc="lightyellow", alpha=0.85, ec='gray')
-            )
 
         # ATR Bands - DISABLED per user request
         # if show_atr_band and {'ATR_Upper', 'ATR_Lower'}.issubset(df_pos.columns):
@@ -1524,11 +1504,14 @@ class AlligatorChartManager:
             packer = HPacker(children=children, align="center", pad=3, sep=2)
             ab = AnnotationBbox(
                 packer,
-                xy=(0.5, 0.96),
+                # Keep the performance summary in the white header area,
+                # outside the price plot, so it never covers candles/lines.
+                xy=(0.5, 1.12),
                 xycoords='axes fraction',
-                box_alignment=(0.5, 1.0),
+                box_alignment=(0.5, 0.5),
                 bboxprops=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.9, ec="#d0d0d0"),
                 frameon=True,
+                annotation_clip=False,
                 zorder=10
             )
             ax_price.add_artist(ab)
@@ -1984,10 +1967,6 @@ class AlligatorChartManager:
         if 'Signal6' in df_pos.columns:
             self._add_signal_markers_positions(ax_price, df_pos)
             self._add_signal6_state_labels_positions(ax_price, df_pos, min_gap=10)
-            ax_price.text(0.985, 0.93, f"S6: {str(df_pos['Signal6'].iloc[-1])}",
-                          transform=ax_price.transAxes, ha='right', va='top',
-                          fontsize=10, fontweight='bold',
-                          bbox=dict(boxstyle="round,pad=0.35", fc="lightyellow", alpha=0.85, ec='gray'))
         # --- ATR Bands (Upper/Lower) - DISABLED per user request ---
         # if show_atr_band and {'ATR_Upper', 'ATR_Lower'}.issubset(df_pos.columns):
         #     ax_price.plot(df_pos.index, df_pos['ATR_Upper'], linestyle='--', linewidth=1.0, alpha=0.8,

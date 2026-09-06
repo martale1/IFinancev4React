@@ -159,7 +159,7 @@ Per ogni scansione si ottengono:
 ### 📋 Gestione Liste
 - Creazione e gestione di watchlist personalizzate
 - Aggiunta/rimozione ticker da UI
-- Supporto mercati: MIB30, ETC, ETF, Preferite, US_Others, DAX + custom
+- Supporto mercati: MIB30, ETC, ETF, Preferite, US_Others, DAX, Crypto + custom
 
 ### 📤 Export
 - Export PDF dei titoli in segnale **BUY** per mercato
@@ -401,6 +401,7 @@ Copia `.env.example` in `.env` e configura:
 | `ETC` | Exchange Traded Commodities |
 | `ETF` | Exchange Traded Funds |
 | `Preferite` | Watchlist personale dell'utente |
+| `Crypto` | Principali criptovalute liquide quotate in USD (`*-USD`) |
 | `US_Others` | Titoli USA extra-indice |
 | *Custom* | Liste create dall'utente dalla UI |
 

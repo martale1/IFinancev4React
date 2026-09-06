@@ -37,3 +37,72 @@ rules:
       TECH: {{TECH_SCORE}}
 
       Alligator: {{Signal6}}'
+- id: AI_CORN_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - CORN.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 17.85
+    - field: Volume
+      op: '>'
+      value: 20000.0
+    - field: RSI
+      op: <
+      value: 70.0
+    - field: DI_diff
+      op: '>'
+      value: 0
+  ai_conditions:
+  - field: Close
+    op: '>'
+    value: 17.85
+    description: Ingresso solo su breakout confermato del massimo recente
+  - field: Volume
+    op: '>'
+    value: 20000.0
+    description: Conferma di partecipazione sul breakout
+  - field: RSI
+    op: <
+    value: 70.0
+    description: Evitare ingresso in pieno ipercomprato
+  - field: DI_diff
+    op: '>'
+    value: 0
+    description: DI+ sopra DI-
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI CORN.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_CORN_MI_RESISTANCE_17_85
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - CORN.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 17.85
+  ai_level:
+    type: resistance
+    price: 17.85
+    trigger: '>'
+    description: Superamento della resistenza critica
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 17.85.
+
+      Close: {{Close}}'

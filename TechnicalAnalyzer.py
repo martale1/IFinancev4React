@@ -2950,6 +2950,9 @@ class TechnicalAnalyzer:
         if 'ADX' in indicators:
             adx, pdi, mdi = self._calculate_adx()
             self.dataframe['ADX'] = adx
+            # TA-Lib restituisce un ndarray; calcola la differenza sulla colonna
+            # appena assegnata, che è una Series pandas e supporta ``diff``.
+            self.dataframe['ADX_Change'] = self.dataframe['ADX'].diff()
             self.dataframe['PLUS_DI'] = pdi
             self.dataframe['MINUS_DI'] = mdi
             self._add_adx_analysis(self.dataframe)
@@ -2962,6 +2965,7 @@ class TechnicalAnalyzer:
 
         if 'VOL_PERC' in indicators or 'VOLUME' in indicators:
             self.dataframe['Vol_Perc_vs_MA20'] = self._calculate_volume_percentage(20)
+            self.dataframe['Vol_Perc_vs_MA10'] = self._calculate_volume_percentage(10)
             self.dataframe['Vol_Perc_vs_MA5'] = self._calculate_volume_percentage(5)
             # Crea anche le metriche di liquidità + flag finale
             self._add_liquidity_columns()

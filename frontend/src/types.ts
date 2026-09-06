@@ -66,6 +66,8 @@ export type AlertCondition = {
 export type AlertRule = {
   id: string;
   enabled: boolean;
+  source?: "ai" | "manual" | string;
+  ai_conditions?: Array<AlertCondition & { description?: string }>;
   scope?: {
     tickers?: string[];
     where?: AlertCondition[];
@@ -80,6 +82,22 @@ export type AlertRule = {
     title?: string;
     body?: string;
   };
+};
+
+export type AiProposedCondition = {
+  indicator?: string;
+  trigger?: string;
+  description?: string;
+  field?: string;
+  op?: AlertCondition["op"];
+  value?: string | number;
+};
+
+export type AiCriticalLevel = {
+  type: "support" | "resistance";
+  price: number;
+  trigger: "<" | ">";
+  description?: string;
 };
 
 export type AlertWriteResponse = {

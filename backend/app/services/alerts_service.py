@@ -2,8 +2,11 @@
 
 import json
 import importlib
+import os
+import re
 from datetime import datetime
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 import pandas as pd
@@ -14,6 +17,7 @@ from app.services.watchlist_service import load_market_dataframe, prepare_datafr
 
 RULES_FILE_TEMPLATE = "alert_rules_{market}.yaml"
 STATE_FILE_TEMPLATE = "alert_state_{market}.json"
+_RULES_WRITE_LOCK = RLock()
 
 
 def rules_path_for_market(market: str) -> Path:
@@ -58,8 +62,12 @@ def read_rules_file(path: Path) -> dict[str, Any]:
 
 def write_rules_file(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    temporary_path = path.with_suffix(path.suffix + ".tmp")
+    with open(temporary_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temporary_path, path)
 
 
 def read_state_file(path: Path) -> dict[str, Any]:
@@ -124,6 +132,153 @@ def _eval_op(left: Any, op: str, right: Any) -> bool:
     return False
 
 
+def _number_from_trigger(trigger: str) -> float | None:
+    match = re.search(r"[-+]?\d+(?:[.,]\d+)?", trigger)
+    return float(match.group(0).replace(",", ".")) if match else None
+
+
+def normalize_ai_conditions(raw_conditions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert AI-friendly indicator/trigger pairs into deterministic alert clauses."""
+    normalized: list[dict[str, Any]] = []
+    unsupported: list[str] = []
+
+    aliases = {
+        "price": "Close", "prezzo": "Close", "close": "Close",
+        "rsi": "RSI", "adx": "ADX", "macd_hist": "MACD_Hist",
+        "williams_r": "Williams_R", "williams %r": "Williams_R",
+        "stoch_k": "Stoch_K", "stoch_d": "Stoch_D", "volume": "Volume",
+        "ema30": "EMA30", "ema_30": "EMA30",
+    }
+
+    for item in raw_conditions or []:
+        indicator_raw = str(item.get("indicator") or item.get("field") or "").strip()
+        trigger = str(item.get("trigger") or "").strip()
+        field_given = str(item.get("field") or "").strip()
+        op_given = str(item.get("op") or "").strip()
+        value_given = item.get("value")
+        key = indicator_raw.lower().replace("+", "_plus").replace("-", "_minus")
+
+        if field_given and op_given in {"==", "!=", ">", ">=", "<", "<="} and value_given is not None:
+            normalized.append({"field": field_given, "op": op_given, "value": value_given,
+                               "description": item.get("description", "")})
+            continue
+
+        lo = trigger.lower()
+        if key == "volume" and re.search(r"ma\s*(5|10|20)", lo):
+            period = re.search(r"ma\s*(5|10|20)", lo).group(1)
+            multiplier = re.search(r"(?:\*|x)\s*(\d+(?:[.,]\d+)?)", lo)
+            threshold_pct = (float(multiplier.group(1).replace(",", ".")) - 1.0) * 100.0 if multiplier else 0.0
+            normalized.append({"field": f"Vol_Perc_vs_MA{period}", "op": ">", "value": threshold_pct,
+                               "description": item.get("description", trigger)})
+            continue
+        if key == "macd" and ("cross" in lo or "signal" in lo):
+            normalized.append({"field": "MACD_vs_Signal", "op": ">", "value": 0,
+                               "description": item.get("description", trigger)})
+            if "istogram" in lo and any(word in lo for word in ("positivo", "> 0", "sopra 0")):
+                normalized.append({"field": "MACD_Hist", "op": ">", "value": 0,
+                                   "description": "Istogramma MACD positivo"})
+            continue
+        if "adx" in indicator_raw.lower() and "di" in indicator_raw.lower():
+            added = False
+            if re.search(r"di\s*\+\s*>\s*di\s*-", lo):
+                normalized.append({"field": "DI_diff", "op": ">", "value": 0,
+                                   "description": "DI+ sopra DI-"})
+                added = True
+            adx_limit = re.search(r"adx.*?(?:sotto|<)\s*(-?\d+(?:[.,]\d+)?)", lo)
+            if adx_limit:
+                normalized.append({"field": "ADX", "op": "<", "value": float(adx_limit.group(1).replace(",", ".")),
+                                   "description": item.get("description", trigger)})
+                added = True
+            if added:
+                continue
+        if key in {"di_plus", "di+"} and "di" in lo:
+            normalized.append({"field": "DI_diff", "op": ">", "value": 0,
+                               "description": item.get("description", trigger)})
+            continue
+        if key == "alligator" or ("lips" in lo and "teeth" in lo and "jaw" in lo):
+            normalized.append({"field": "Signal6", "op": "==", "value": "Uptrend",
+                               "description": item.get("description", trigger)})
+            continue
+        if key == "stoch_k" and "stoch_d" in lo:
+            normalized.append({"field": "Stoch_KvsD", "op": ">", "value": 0,
+                               "description": "Stoch K sopra Stoch D"})
+            for op, value in re.findall(r"stoch_k\s*(>=|<=|>|<)\s*(-?\d+(?:[.,]\d+)?)", lo):
+                normalized.append({"field": "Stoch_K", "op": op, "value": float(value.replace(",", ".")),
+                                   "description": item.get("description", trigger)})
+            continue
+
+        field = aliases.get(key)
+        number = _number_from_trigger(trigger)
+        op_match = re.search(r"(>=|<=|>|<|==|!=)", trigger)
+        if not op_match:
+            word_op = ">" if any(x in lo for x in ("sopra", "supera", "maggiore")) else "<" if any(x in lo for x in ("sotto", "inferiore")) else None
+        else:
+            word_op = op_match.group(1)
+        if field and number is not None and word_op:
+            normalized.append({"field": field, "op": word_op, "value": number,
+                               "description": item.get("description", trigger)})
+            if key == "adx" and any(word in lo for word in ("crescente", "in aumento", "rising")):
+                normalized.append({"field": "ADX_Change", "op": ">", "value": 0,
+                                   "description": "ADX crescente rispetto alla seduta precedente"})
+        else:
+            unsupported.append(f"{indicator_raw}: {trigger}")
+
+    if unsupported:
+        raise ValueError("Condizioni AI non convertibili: " + "; ".join(unsupported))
+    if not normalized:
+        raise ValueError("Nessuna condizione AI valida")
+    return normalized
+
+
+def create_ai_alert_rule(market: str, ticker: str, raw_conditions: list[dict[str, Any]], title: str | None = None) -> dict[str, Any]:
+    ticker = str(ticker).strip().upper()
+    if not ticker:
+        raise ValueError("Ticker mancante")
+    conditions = normalize_ai_conditions(raw_conditions)
+    safe_ticker = re.sub(r"[^A-Z0-9]+", "_", ticker).strip("_")
+    rule_id = f"AI_{safe_ticker}"
+    payload = {
+        "id": rule_id,
+        "enabled": True,
+        "source": "ai",
+        "scope": {"tickers": [ticker]},
+        "when": {"all": [{"field": c["field"], "op": c["op"], "value": c["value"]} for c in conditions]},
+        "ai_conditions": conditions,
+        "cooldown_minutes": 0,
+        "max_per_day": 3,
+        "min_gap_minutes": 0,
+        "message": {
+            "title": title or "🤖 Alert AI {{Ticker}}",
+            "body": "Tutte le condizioni AI sono verificate.\nClose: {{Close}}",
+        },
+    }
+    upsert_rule(market, payload)
+    return payload
+
+
+def create_ai_level_alert_rule(market: str, ticker: str, level: dict[str, Any]) -> dict[str, Any]:
+    ticker = str(ticker).strip().upper()
+    level_type = str(level.get("type", "")).strip().lower()
+    trigger = str(level.get("trigger", "")).strip()
+    price = _safe_float(level.get("price"))
+    if not ticker or level_type not in {"support", "resistance"} or trigger not in {"<", ">"} or price is None or price <= 0:
+        raise ValueError("Livello AI non valido: richiede ticker, type support/resistance, trigger </> e price positivo")
+    safe_ticker = re.sub(r"[^A-Z0-9]+", "_", ticker).strip("_")
+    price_key = str(price).replace(".", "_")
+    rule_id = f"AI_LEVEL_{safe_ticker}_{level_type.upper()}_{price_key}"
+    label = "Supporto" if level_type == "support" else "Resistenza"
+    payload = {
+        "id": rule_id, "enabled": True, "source": "ai_level",
+        "scope": {"tickers": [ticker]},
+        "when": {"all": [{"field": "Close", "op": trigger, "value": price}]},
+        "ai_level": {"type": level_type, "price": price, "trigger": trigger, "description": str(level.get("description", ""))},
+        "cooldown_minutes": 0, "max_per_day": 3, "min_gap_minutes": 0,
+        "message": {"title": f"🤖 {label} AI {{Ticker}}", "body": f"{label} critico {trigger} {price}.\nClose: {{{{Close}}}}"},
+    }
+    upsert_rule(market, payload)
+    return payload
+
+
 def _tickers_from_where_scope(market: str, where: list[dict[str, Any]]) -> list[str]:
     if not where:
         return []
@@ -178,6 +333,7 @@ def _rule_to_rows(rule: dict[str, Any], market: str, defaults: dict[str, Any]) -
                 "Market": market,
                 "Ticker": ticker,
                 "RuleID": rid,
+                "Source": str(rule.get("source", "manual")),
                 "Enabled": enabled,
                 "Tipo": desc,
                 "Title": title,
@@ -201,7 +357,7 @@ def build_alerts_df_for_market(market: str) -> pd.DataFrame:
     today = datetime.now().strftime("%Y-%m-%d")
 
     if not rows:
-        df_rules = pd.DataFrame(columns=["Market", "Ticker", "RuleID", "Enabled", "Tipo", "Title", "Max_Per_Day", "Fired_Today", "Fired_Total", "Last_Alert"])
+        df_rules = pd.DataFrame(columns=["Market", "Ticker", "RuleID", "Source", "Enabled", "Tipo", "Title", "Max_Per_Day", "Fired_Today", "Fired_Total", "Last_Alert"])
     else:
         df_rules = pd.DataFrame(rows)
 
@@ -250,6 +406,7 @@ def build_alerts_df_for_market(market: str) -> pd.DataFrame:
                             "Market": market,
                             "Ticker": ticker,
                             "RuleID": rid,
+                            "Source": str(rule.get("source", "manual")),
                             "Enabled": enabled,
                             "Tipo": desc,
                             "Title": title,
@@ -282,51 +439,74 @@ def build_alerts_df_for_market(market: str) -> pd.DataFrame:
     df_rules["Fired_Today"] = df_rules.apply(lambda r: _today_count(r["RuleID"], r["Ticker"]), axis=1)
     df_rules["Fired_Total"] = df_rules.apply(lambda r: _total(r["RuleID"], r["Ticker"]), axis=1)
     df_rules["Last_Alert"] = df_rules.apply(lambda r: _last(r["RuleID"], r["Ticker"]), axis=1)
+
+    # Live per-condition progress for the dedicated AI alerts view.
+    try:
+        current = prepare_dataframe(load_market_dataframe(market))
+        current_rows = {str(r.get("Ticker", "")).strip(): r for r in current.to_dict(orient="records")}
+
+        def _condition_progress(row: pd.Series) -> str:
+            rule = rules_by_id.get(str(row["RuleID"]).strip(), {})
+            snapshot = current_rows.get(str(row["Ticker"]).strip(), {})
+            details = []
+            for cond in ((rule.get("when") or {}).get("all") or []):
+                field, op, value = cond.get("field"), cond.get("op"), cond.get("value")
+                actual = snapshot.get(field)
+                details.append({"field": field, "op": op, "value": value, "actual": actual,
+                                "verified": _eval_op(actual, str(op), value)})
+            return json.dumps(details, ensure_ascii=False, default=str)
+
+        df_rules["Condition_Status"] = df_rules.apply(_condition_progress, axis=1)
+    except Exception:
+        df_rules["Condition_Status"] = "[]"
     return df_rules.sort_values(by=["Ticker", "Enabled", "RuleID"], ascending=[True, False, True])
 
 
 def upsert_rule(market: str, payload: dict[str, Any]) -> dict[str, Any]:
-    path = rules_path_for_market(market)
-    rules_data = read_rules_file(path)
-    rules = rules_data.get("rules", []) or []
-    rid = str(payload.get("id", "")).strip()
-    if not rid:
-        raise ValueError("Rule id is required")
-    idx = next((i for i, r in enumerate(rules) if str(r.get("id", "")).strip() == rid), None)
-    if idx is None:
-        rules.append(payload)
-    else:
-        rules[idx] = payload
-    rules_data["rules"] = rules
-    write_rules_file(path, rules_data)
-    return rules_data
+    with _RULES_WRITE_LOCK:
+        path = rules_path_for_market(market)
+        rules_data = read_rules_file(path)
+        rules = rules_data.get("rules", []) or []
+        rid = str(payload.get("id", "")).strip()
+        if not rid:
+            raise ValueError("Rule id is required")
+        idx = next((i for i, r in enumerate(rules) if str(r.get("id", "")).strip() == rid), None)
+        if idx is None:
+            rules.append(payload)
+        else:
+            rules[idx] = payload
+        rules_data["rules"] = rules
+        write_rules_file(path, rules_data)
+        return rules_data
 
 
 def delete_rule(market: str, rule_id: str) -> dict[str, Any]:
-    path = rules_path_for_market(market)
-    rules_data = read_rules_file(path)
-    rules_data["rules"] = [r for r in (rules_data.get("rules", []) or []) if str(r.get("id", "")).strip() != str(rule_id).strip()]
-    write_rules_file(path, rules_data)
+    with _RULES_WRITE_LOCK:
+        path = rules_path_for_market(market)
+        rules_data = read_rules_file(path)
+        rules_data["rules"] = [r for r in (rules_data.get("rules", []) or []) if str(r.get("id", "")).strip() != str(rule_id).strip()]
+        write_rules_file(path, rules_data)
 
-    sp = state_path_for_market(market)
-    state = read_state_file(sp)
-    rid = str(rule_id).strip()
-    for k in list(state.keys()):
-        if k == rid or k.startswith(rid + "__"):
-            state.pop(k, None)
-    write_state_file(sp, state)
-    return rules_data
+        sp = state_path_for_market(market)
+        state = read_state_file(sp)
+        rid = str(rule_id).strip()
+        for k in list(state.keys()):
+            if k == rid or k.startswith(rid + "__"):
+                state.pop(k, None)
+        write_state_file(sp, state)
+        return rules_data
 
 
 def set_rule_enabled(market: str, rule_id: str, enabled: bool) -> dict[str, Any]:
-    path = rules_path_for_market(market)
-    rules_data = read_rules_file(path)
-    for r in (rules_data.get("rules", []) or []):
-        if str(r.get("id", "")).strip() == str(rule_id).strip():
-            r["enabled"] = bool(enabled)
-            break
-    write_rules_file(path, rules_data)
-    return rules_data
+    with _RULES_WRITE_LOCK:
+        path = rules_path_for_market(market)
+        rules_data = read_rules_file(path)
+        for r in (rules_data.get("rules", []) or []):
+            if str(r.get("id", "")).strip() == str(rule_id).strip():
+                r["enabled"] = bool(enabled)
+                break
+        write_rules_file(path, rules_data)
+        return rules_data
 
 
 def run_alert_engine(markets_to_run: list[str], telegram_channel: int = 5) -> dict[str, Any]:

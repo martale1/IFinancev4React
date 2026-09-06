@@ -1,7 +1,39 @@
-﻿version: 1
+version: 1
 defaults:
   cooldown_minutes: 240
   send_on_first_match_only: true
-rules: []
+  max_per_day: 3
+  min_gap_minutes: 0
+rules:
+- id: CARD_ALERT_3LCO_MI
+  enabled: true
+  scope:
+    tickers:
+    - 3LCO.MI
+  when:
+    all:
+    - field: Williams_R
+      op: <
+      value: -60
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🔔 Alert {{Ticker}}
+    body: 'Close: {{Close}}
 
+      RSI: {{RSI}}
 
+      willR: {{Williams_R}}
+
+      SARMA: {{SIG_MA_SAR}}
+
+      MACD: {{MACD}}
+
+      S3: {{MACD_vs_Signal}}
+
+      Action: {{Action}}
+
+      TECH: {{TECH_SCORE}}
+
+      Alligator: {{Signal6}}'

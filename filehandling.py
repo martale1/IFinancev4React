@@ -1,15 +1,18 @@
+import os
+from pathlib import Path
+
 import pandas as pd
 '''' 
 Questa funzione recupera i valid ticker da file excel.
 ETC: si usa la funzione getValidETC(0) chiamata in fase di inizializzazione per settare ETCNames, ETCTickers ed ETCDf 
 '''
 class fileHandling:
-  def __init__(self, path='C:/Users/theoi/PycharmProjects/LearningPython/IFinancev4/validTickersXLS/'):
-    import os
-    local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'validTickersXLS') + '/'
-    if not os.path.exists(path) or os.path.exists(local_path):
-      path = local_path
-    self.path=path
+  def __init__(self, path=None):
+    local_path = Path(__file__).resolve().parent / 'validTickersXLS'
+    selected_path = Path(path).expanduser() if path else local_path
+    if not selected_path.exists():
+      selected_path = local_path
+    self.path = str(selected_path.resolve()) + os.sep
 
     self.ETFNames=None
     self.ETFTickers=None
@@ -33,6 +36,9 @@ class fileHandling:
     self.DAXTickers = None
     self.DAXNames = None
 
+    self.CryptoTickers = None
+    self.CryptoNames = None
+
     self.getValidETC(0)
     self.getValidMIB30(0)
     self.getValidTickerETF(0)
@@ -40,6 +46,7 @@ class fileHandling:
     self.getValidUS_ETF(0)
     self.getValidUS_Others(0)
     self.getValidDAX(0)
+    self.getValidCrypto(0)
 
     # Define the path to the Excel file
 
@@ -155,6 +162,15 @@ class fileHandling:
     self.DAXTickers = df['Ticker'].head(ne).tolist()
     self.DAXNames = df['Name'].head(ne).tolist()
 
+  def getValidCrypto(self, nTicker=10):
+    filename = 'validtickers_CRYPTO.xlsx'
+    file_path = self.path + filename
+    df = pd.read_excel(file_path)
+
+    ne = len(df) if nTicker == 0 else nTicker
+    self.CryptoTickers = df['Ticker'].head(ne).tolist()
+    self.CryptoNames = df['Name'].head(ne).tolist()
+
   def dfToCSV(self, df, output_file):
     # Save DataFrame to a CSV file
     output_path = self.path + output_file
@@ -195,6 +211,8 @@ class fileHandling:
       return self.US_OthersTickers,self.US_OthersNames
     elif market=='DAX':
       return self.DAXTickers, self.DAXNames
+    elif market=='Crypto':
+      return self.CryptoTickers, self.CryptoNames
     else:
       return None, None
 

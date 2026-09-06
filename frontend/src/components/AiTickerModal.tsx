@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { analyzeChartImage, sendAiChat } from "../api";
-import type { AiChatMessage, WatchlistRow } from "../types";
+import { useQueryClient } from "@tanstack/react-query";
+import { analyzeChartImage, createAiAlert, createAiLevelAlert, sendAiChat } from "../api";
+import type { AiChatMessage, AiCriticalLevel, AiProposedCondition, WatchlistRow } from "../types";
+
+const ANALYSIS_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"];
+function savedAnalysisModel(): string {
+  const saved = window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini";
+  return ANALYSIS_MODELS.includes(saved) ? saved : "gpt-4o-mini";
+}
 
 type Props = {
   open: boolean;
@@ -8,6 +15,8 @@ type Props = {
   market: string;
   onClose: () => void;
   onChatActivity?: (market: string, ticker: string, active: boolean) => void;
+  aiLevelAlerts?: Array<{ ruleId: string; enabled: boolean; type: string; price: number; trigger: string; verified: boolean; actual: unknown }>;
+  aiAlertInfo?: { ruleId: string; enabled: boolean; verified: number; total: number } | null;
 };
 
 type TickerAiSession = {
@@ -33,6 +42,28 @@ function makeTickerSession(ticker: string): TickerAiSession {
     sessionId: makeSessionId(ticker),
     messages: [],
   };
+}
+
+function extractAiConditions(content: string): AiProposedCondition[] {
+  const blocks = normalizeAiMarkdown(content).match(/```(?:json)?\s*([\s\S]*?)```/gi) ?? [];
+  for (const block of blocks) {
+    try {
+      const parsed = JSON.parse(block.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim());
+      if (Array.isArray(parsed?.conditions)) return parsed.conditions;
+    } catch { /* try next block */ }
+  }
+  return [];
+}
+
+function extractAiLevels(content: string): AiCriticalLevel[] {
+  const blocks = normalizeAiMarkdown(content).match(/```(?:json)?\s*([\s\S]*?)```/gi) ?? [];
+  for (const block of blocks) {
+    try {
+      const parsed = JSON.parse(block.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim());
+      if (Array.isArray(parsed?.critical_levels)) return parsed.critical_levels;
+    } catch { /* next */ }
+  }
+  return [];
 }
 
 function toNum(v: unknown): number | null {
@@ -144,6 +175,11 @@ function renderInline(text: string, context: "body" | "list" = "body"): ReactNod
   });
 }
 
+function normalizeAiMarkdown(content: string): string {
+  let text = String(content || "").replace(/^\s*```(?:markdown|md)\s*\r?\n/i, "");
+  return text.replace(/\r?\n```\s*\r?\n(?=```json\b)/i, "\n");
+}
+
 function renderMessage(content: string) {
   const nodes: ReactNode[] = [];
   let listItems: ReactNode[] = [];
@@ -183,6 +219,15 @@ function renderMessage(content: string) {
             </table>
           </div>
         );
+        if (Array.isArray(parsed.critical_levels) && parsed.critical_levels.length) {
+          nodes.push(
+            <div key={`levels-table-${nodes.length}`} className="table-wrap" style={{ marginTop: "0.6rem" }}>
+              <table><thead><tr><th>Livello critico AI</th><th>Prezzo</th><th>Trigger</th><th>Descrizione</th></tr></thead>
+                <tbody>{parsed.critical_levels.map((l: AiCriticalLevel, i: number) => <tr key={i}><td>{l.type === "support" ? "Supporto" : "Resistenza"}</td><td>{l.price}</td><td>{l.trigger}</td><td>{l.description ?? ""}</td></tr>)}</tbody>
+              </table>
+            </div>
+          );
+        }
         codeContent = "";
         return;
       }
@@ -211,7 +256,7 @@ function renderMessage(content: string) {
     orderedStart = 1;
   }
 
-  const lines = String(content || "").split("\n");
+  const lines = normalizeAiMarkdown(content).split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -241,7 +286,7 @@ function renderMessage(content: string) {
 
     flushList();
 
-    const mdHeading = line.match(/^#{1,3}\s+(.+)/);
+    const mdHeading = line.match(/^#{1,6}\s+(.+)/);
     const boldOnlyHeading = line.match(/^\*\*([^*]{1,46})\*\*:?\s*$/);
     if (mdHeading || boldOnlyHeading) {
       nodes.push(<h4 key={`h-${i}`} style={{ marginTop: "0.8rem", marginBottom: "0.4rem", color: "#38bdf8" }}>{renderInline(mdHeading?.[1] ?? boldOnlyHeading?.[1] ?? line)}</h4>);
@@ -256,7 +301,8 @@ function renderMessage(content: string) {
   return nodes;
 }
 
-export default function AiTickerModal({ open, row, market, onClose, onChatActivity }: Props) {
+export default function AiTickerModal({ open, row, market, onClose, onChatActivity, aiLevelAlerts = [], aiAlertInfo }: Props) {
+  const queryClient = useQueryClient();
   const ticker = String(row?.Ticker ?? "");
   const sessionKey = ticker ? `${market}::${ticker}` : "";
   const [sessions, setSessions] = useState<Record<string, TickerAiSession>>({});
@@ -265,7 +311,13 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const messages = sessionKey ? sessions[sessionKey]?.messages ?? [] : [];
-  const [model, setModel] = useState(() => window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini");
+  const [model, setModel] = useState(savedAnalysisModel);
+  const [aiAlertBusy, setAiAlertBusy] = useState(false);
+  const [aiAlertMessage, setAiAlertMessage] = useState("");
+  const aiAlertActive = Boolean(aiAlertInfo?.enabled);
+  const isLevelActive = (level: AiCriticalLevel) => aiLevelAlerts.some((saved) =>
+    saved.enabled && saved.type === level.type && saved.trigger === level.trigger && Math.abs(saved.price - level.price) < 0.000001
+  );
 
   useEffect(() => {
     if (!open || !sessionKey) return;
@@ -273,7 +325,8 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
     setInput("");
     setError("");
     setBusy(false);
-    setModel(window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini");
+    setAiAlertMessage("");
+    setModel(savedAnalysisModel());
   }, [open, sessionKey, ticker]);
 
   useEffect(() => {
@@ -367,6 +420,45 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
     }
   }
 
+  async function activateConditions(conditions: AiProposedCondition[]) {
+    if (!conditions.length) return;
+    setAiAlertBusy(true);
+    setAiAlertMessage("");
+    try {
+      const result = await createAiAlert(market, { ticker, conditions, title: `🤖 Alert AI ${ticker}` });
+      await queryClient.invalidateQueries({ queryKey: ["alerts", market] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert ${result.rule.id} attivato.`);
+    } catch (e) {
+      setAiAlertMessage(`Impossibile attivare: ${String(e)}`);
+    } finally {
+      setAiAlertBusy(false);
+    }
+  }
+
+  async function activateLevel(level: AiCriticalLevel) {
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      const result = await createAiLevelAlert(market, { ticker, level });
+      await queryClient.invalidateQueries({ queryKey: ["alerts", market] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert livello ${result.rule.id} attivato.`);
+    } catch (e) { setAiAlertMessage(`Impossibile attivare: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
+  async function activateAllLevels(levels: AiCriticalLevel[]) {
+    if (!levels.length) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      await Promise.all(levels.map((level) => createAiLevelAlert(market, { ticker, level })));
+      await queryClient.invalidateQueries({ queryKey: ["alerts", market] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`${levels.length} alert sui livelli AI attivati.`);
+    } catch (e) { setAiAlertMessage(`Impossibile attivare tutti i livelli: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
   if (!open || !row) return null;
 
   return (
@@ -398,13 +490,8 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
             >
               <option value="gpt-4o-mini">GPT-4o Mini (Default)</option>
               <option value="gpt-4o">GPT-4o (Completo)</option>
-              <option value="o1-mini">o1 Mini (Ragionamento)</option>
-              <option value="o3-mini">o3 Mini (Nuovo Ragionamento)</option>
-              <option value="o1">o1 (Ragionamento Completo)</option>
               <option value="gpt-5.5">GPT-5.5</option>
-              <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
               <option value="gpt-5.4">GPT-5.4</option>
-              <option value="gpt-5.4-pro">GPT-5.4 Pro</option>
               <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
               <option value="gpt-5.4-nano">GPT-5.4 Nano</option>
             </select>
@@ -444,20 +531,38 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
           ))}
         </div>
 
+        {aiLevelAlerts.length ? <div className="guide-card" style={{ margin: "0.6rem 0", padding: "0.65rem", borderColor: "rgba(245,158,11,.45)" }}>
+          <strong>📍 Alert attivi su livelli AI</strong>
+          {aiLevelAlerts.map((level) => <div key={level.ruleId} style={{ color: level.verified ? "#22c55e" : "#f59e0b", marginTop: "0.25rem" }}>
+            {level.verified ? "✓" : "○"} {level.type === "support" ? "Supporto" : "Resistenza"} {level.price} · {level.enabled ? "Attivo" : "OFF"} · valore attuale {level.actual == null ? "n/d" : String(level.actual)}
+          </div>)}
+        </div> : null}
+
         <div className="ai-ticker-messages">
           {messages.length === 0 ? (
             <div className="ai-empty">Scegli una domanda rapida o scrivine una sul ticker.</div>
           ) : (
-            messages.map((m, idx) => (
+            messages.map((m, idx) => {
+              const proposed = m.role === "user" ? [] : extractAiConditions(m.content);
+              const levels = m.role === "user" ? [] : extractAiLevels(m.content);
+              return (
               <div key={`${m.role}-${idx}`} className={m.role === "user" ? "ai-msg user" : "ai-msg assistant"}>
                 <div className="ai-avatar">{m.role === "user" ? "Tu" : "AI"}</div>
                 <div className="ai-bubble">
                   <div className="ai-role">{m.role === "user" ? "Tu" : "IFinance AI"}</div>
                   <div className="ai-content">{renderMessage(m.content)}</div>
+                  {proposed.length ? <button className={`btn alert-on${aiAlertActive ? " alert-created" : ""}`} disabled={aiAlertBusy || aiAlertActive} onClick={() => activateConditions(proposed)}>{aiAlertActive ? `✓ Alert AI già attivo (${proposed.length})` : `🔔 Attiva alert AI (${proposed.length})`}</button> : null}
+                  {levels.length > 1 ? (() => {
+                    const activeCount = levels.filter(isLevelActive).length;
+                    return <button className={`btn alert-on${activeCount === levels.length ? " alert-created" : ""}`} disabled={aiAlertBusy || activeCount === levels.length} onClick={() => activateAllLevels(levels)}>{activeCount === levels.length ? `✓ Tutti i livelli attivi (${levels.length})` : `🔔 Attiva tutti i livelli (${activeCount}/${levels.length} attivi)`}</button>;
+                  })() : null}
+                  {levels.map((level, i) => <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy || isLevelActive(level)} onClick={() => activateLevel(level)}>{isLevelActive(level) ? "✓ Attivo" : "🔔 Attiva"} {level.type === "support" ? "Supporto" : "Resistenza"} {level.price}</button>)}
                 </div>
               </div>
-            ))
+              );
+            })
           )}
+          {aiAlertMessage ? <p className={aiAlertMessage.startsWith("Impossibile") ? "err" : "ok"}>{aiAlertMessage}</p> : null}
           {busy ? (
             <div className="ai-msg assistant">
               <div className="ai-avatar">AI</div>

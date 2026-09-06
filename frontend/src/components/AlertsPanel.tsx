@@ -124,6 +124,20 @@ export default function AlertsPanel({ market }: Props) {
   }, [alertsQuery.data?.table]);
 
   const defaults = useMemo(() => alertsQuery.data?.defaults ?? {}, [alertsQuery.data?.defaults]);
+  const aiRules = useMemo(() => rules.filter((r) => String(r.source ?? "").startsWith("ai")), [rules]);
+  const aiRows = useMemo(
+    () => (alertsQuery.data?.table ?? []).filter((row) => String(row.Source ?? "").toLowerCase().startsWith("ai")),
+    [alertsQuery.data?.table]
+  );
+
+  function conditionStatus(row: Record<string, unknown>): Array<{ field: string; op: string; value: unknown; actual: unknown; verified: boolean }> {
+    try {
+      const parsed = JSON.parse(String(row.Condition_Status ?? "[]"));
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
 
   function resolveMaxPerDay(row: Record<string, unknown>, rule: AlertRule | undefined): number {
     const maxPerDayCandidates = [
@@ -266,6 +280,43 @@ export default function AlertsPanel({ market }: Props) {
         </button>
       </div>
       {runMutation.isError ? <p className="err">Run error: {String(runMutation.error)}</p> : null}
+
+      <div className="alert-form" style={{ marginBottom: "1rem" }}>
+        <h3>🤖 Alert AI</h3>
+        <p className="muted">Regole create esplicitamente dalle condizioni proposte nelle analisi AI.</p>
+        {aiRules.length === 0 ? <p className="muted">Nessun alert AI attivo.</p> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Titolo</th><th>Avanzamento</th><th>Dettaglio condizioni</th><th>Stato</th><th>Azioni</th></tr></thead>
+              <tbody>
+                {aiRows.map((row, i) => {
+                  const statuses = conditionStatus(row);
+                  const verified = statuses.filter((c) => c.verified).length;
+                  const rule = rulesById.get(normalizeRuleId(row.RuleID));
+                  return (
+                    <tr key={`ai-${String(row.RuleID)}-${String(row.Ticker)}-${i}`}>
+                      <td><strong>{String(row.Ticker ?? "-")}</strong><br /><small>{String(row.Source) === "ai_level" ? "Livello critico AI" : "Setup condizioni AI"} · {String(row.RuleID ?? "-")}</small></td>
+                      <td><span className={`enabled-badge ${statuses.length > 0 && verified === statuses.length ? "active" : "inactive"}`}>{verified}/{statuses.length}</span></td>
+                      <td>
+                        {statuses.map((c, idx) => (
+                          <div key={idx} style={{ color: c.verified ? "#22c55e" : "#f59e0b", whiteSpace: "nowrap" }}>
+                            {c.verified ? "✓" : "○"} {c.field} {c.op} {String(c.value)} <small>(ora: {c.actual == null ? "n/d" : String(c.actual)})</small>
+                          </div>
+                        ))}
+                      </td>
+                      <td>{rule?.enabled ? "Attivo" : "Disabilitato"}</td>
+                      <td className="actions-cell">
+                        <button className="btn ghost" onClick={() => rule && toggleMutation.mutate({ id: rule.id, enabled: !rule.enabled })}>{rule?.enabled ? "Disabilita" : "Abilita"}</button>
+                        <button className="btn ghost" onClick={() => rule && deleteMutation.mutate(rule.id)}>Elimina</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="alert-form">
         <h3>Nuovo alert / Modifica alert</h3>

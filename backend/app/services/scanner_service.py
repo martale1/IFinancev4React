@@ -585,6 +585,8 @@ def get_market_tickers(market: str) -> Tuple[List[str], List[str]]:
         return fh.ETCTickers, fh.ETCNames
     elif market == "MIB30":
         return fh.MIB30Tickers, fh.MIB30Names
+    elif market == "Crypto":
+        return fh.CryptoTickers, fh.CryptoNames
     elif market == "DAX":
         return fh.DAXTickers, fh.DAXNames
     

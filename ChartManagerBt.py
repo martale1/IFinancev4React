@@ -1709,11 +1709,14 @@ class AlligatorChartManager:
             packer = HPacker(children=children, align="center", pad=3, sep=2)
             ab = AnnotationBbox(
                 packer,
-                xy=(0.5, 0.96),
+                # Keep the performance summary in the white header area,
+                # outside the price plot, so it never covers candles/lines.
+                xy=(0.5, 1.12),
                 xycoords='axes fraction',
-                box_alignment=(0.5, 1.0),
+                box_alignment=(0.5, 0.5),
                 bboxprops=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.9, ec="#d0d0d0"),
                 frameon=True,
+                annotation_clip=False,
                 zorder=10
             )
             ax_price.add_artist(ab)

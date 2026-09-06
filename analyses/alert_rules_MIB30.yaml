@@ -13,8 +13,8 @@ rules:
   when:
     all:
     - field: Williams_R
-      op: <
-      value: -70
+      op: '>'
+      value: -80
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
@@ -34,17 +34,19 @@ rules:
 
       Action: {{Action}}
 
-      TECH: {{TECH_SCORE}}'
-- id: CARD_ALERT_BMPS_MI
+      TECH: {{TECH_SCORE}}
+
+      Alligator: {{Signal6}}'
+- id: CARD_ALERT_G_MI
   enabled: true
   scope:
     tickers:
-    - BMPS.MI
+    - G.MI
   when:
     all:
-    - field: ADX
+    - field: Williams_R
       op: '>'
-      value: 34
+      value: -80
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
@@ -64,4 +66,414 @@ rules:
 
       Action: {{Action}}
 
-      TECH: {{TECH_SCORE}}'
+      TECH: {{TECH_SCORE}}
+
+      Alligator: {{Signal6}}'
+- id: AI_DIA_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - DIA.MI
+  when:
+    all:
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: RSI
+      op: '>'
+      value: 60.0
+    - field: ADX
+      op: '>'
+      value: 25.0
+  ai_conditions:
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Segnale di potenziale inversione rialzista
+  - field: RSI
+    op: '>'
+    value: 60.0
+    description: Conferma di momentum positivo
+  - field: ADX
+    op: '>'
+    value: 25.0
+    description: Conferma di trend in rafforzamento
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI DIA.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_VOD_L
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - VOD.L
+  when:
+    all:
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+  ai_conditions:
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Incrocio rialzista confermato
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI VOD.L
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_PRY_MI_RESISTANCE_126_3
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - PRY.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 126.3
+  ai_level:
+    type: resistance
+    price: 126.3
+    trigger: '>'
+    description: Superamento della resistenza critica
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 126.3.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_PRY_MI_RESISTANCE_130_8
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - PRY.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 130.8
+  ai_level:
+    type: resistance
+    price: 130.8
+    trigger: '>'
+    description: Breakout della successiva area di congestione
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 130.8.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_PRY_MI_SUPPORT_119_05
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - PRY.MI
+  when:
+    all:
+    - field: Close
+      op: <
+      value: 119.05
+  ai_level:
+    type: support
+    price: 119.05
+    trigger: <
+    description: Perdita del supporto critico
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Supporto AI {Ticker}
+    body: 'Supporto critico < 119.05.
+
+      Close: {{Close}}'
+- id: AI_IG_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - IG.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 8.9
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: MACD_Hist
+      op: '>'
+      value: 0
+    - field: DI_diff
+      op: '>'
+      value: 0
+    - field: ADX
+      op: <
+      value: 40.0
+  ai_conditions:
+  - field: Close
+    op: '>'
+    value: 8.9
+    description: Primo segnale di recupero sopra resistenza breve e medie dinamiche
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Conferma di momentum rialzista dopo fase ribassista
+  - field: MACD_Hist
+    op: '>'
+    value: 0
+    description: Istogramma MACD positivo
+  - field: DI_diff
+    op: '>'
+    value: 0
+    description: DI+ sopra DI-
+  - field: ADX
+    op: <
+    value: 40.0
+    description: Riduzione della pressione ribassista dominante
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI IG.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_HER_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - HER.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 3.905
+    - field: Vol_Perc_vs_MA10
+      op: '>'
+      value: 0.0
+    - field: ADX
+      op: '>'
+      value: 18.0
+    - field: ADX_Change
+      op: '>'
+      value: 0
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: MACD_Hist
+      op: '>'
+      value: 0
+  ai_conditions:
+  - field: Close
+    op: '>'
+    value: 3.905
+    description: Ingresso solo su chiusura confermata sopra la resistenza 3.90
+  - field: Vol_Perc_vs_MA10
+    op: '>'
+    value: 0.0
+    description: Breakout valido solo con volumi superiori alla media
+  - field: ADX
+    op: '>'
+    value: 18.0
+    description: Conferma minima di rafforzamento del trend
+  - field: ADX_Change
+    op: '>'
+    value: 0
+    description: ADX crescente rispetto alla seduta precedente
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Conferma del momentum rialzista
+  - field: MACD_Hist
+    op: '>'
+    value: 0
+    description: Istogramma MACD positivo
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI {{Ticker}}
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_TEN_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - TEN.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 23.64
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: MACD_Hist
+      op: '>'
+      value: 0
+    - field: DI_diff
+      op: '>'
+      value: 0
+  ai_conditions:
+  - field: Close
+    op: '>'
+    value: 23.64
+    description: Conferma di breakout sopra la resistenza immediata e recupero della
+      soglia tecnica segnalata
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Conferma di momentum rialzista dopo il recente recupero
+  - field: MACD_Hist
+    op: '>'
+    value: 0
+    description: Istogramma MACD positivo
+  - field: DI_diff
+    op: '>'
+    value: 0
+    description: DI+ sopra DI-
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI TEN.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_TEN_MI_SUPPORT_22_85
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - TEN.MI
+  when:
+    all:
+    - field: Close
+      op: <
+      value: 22.85
+  ai_level:
+    type: support
+    price: 22.85
+    trigger: <
+    description: Perdita del supporto intraday più vicino
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Supporto AI {Ticker}
+    body: 'Supporto critico < 22.85.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_TEN_MI_RESISTANCE_23_64
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - TEN.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 23.64
+  ai_level:
+    type: resistance
+    price: 23.64
+    trigger: '>'
+    description: Superamento della resistenza critica immediata
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 23.64.
+
+      Close: {{Close}}'
+- id: AI_PIRC_MI
+  enabled: true
+  source: ai
+  scope:
+    tickers:
+    - PIRC.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 6.75
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: MACD_Hist
+      op: '>'
+      value: 0
+    - field: DI_diff
+      op: '>'
+      value: 0
+  ai_conditions:
+  - field: Close
+    op: '>'
+    value: 6.75
+    description: Breakout della resistenza immediata con conferma sopra il range laterale
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: Conferma di momentum positivo già in formazione
+  - field: MACD_Hist
+    op: '>'
+    value: 0
+    description: Istogramma MACD positivo
+  - field: DI_diff
+    op: '>'
+    value: 0
+    description: DI+ sopra DI-
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI PIRC.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_LEVEL_PIRC_MI_SUPPORT_6_6
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - PIRC.MI
+  when:
+    all:
+    - field: Close
+      op: <
+      value: 6.6
+  ai_level:
+    type: support
+    price: 6.6
+    trigger: <
+    description: Perdita del primo supporto dinamico/laterale
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Supporto AI {Ticker}
+    body: 'Supporto critico < 6.6.
+
+      Close: {{Close}}'

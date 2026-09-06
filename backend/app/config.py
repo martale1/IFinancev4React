@@ -27,7 +27,7 @@ def _load_project_env_file() -> None:
 
 _load_project_env_file()
 
-MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "US_Others", "DAX"]
+MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "US_Others", "DAX", "Crypto"]
 
 
 def _path_from_env(name: str, default: Path) -> Path:

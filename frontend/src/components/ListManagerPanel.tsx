@@ -11,7 +11,7 @@ interface TickerItem {
   Source_Market?: string;
 }
 
-const ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others"];
+const ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others", "Crypto"];
 
 interface AnalysisJob {
   running: boolean;
@@ -468,6 +468,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
                   <option value="ETC">ETC</option>
                   <option value="Preferite">Preferite</option>
                   <option value="US_Others">DOW/NASDAQ</option>
+                  <option value="Crypto">Crypto</option>
                 </select>
               )}
             </div>

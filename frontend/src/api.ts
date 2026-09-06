@@ -7,6 +7,8 @@ import type {
   CustomWatchlistRemoveItemResponse,
   CustomWatchlistsResponse,
   AiChatResponse,
+  AiProposedCondition,
+  AiCriticalLevel,
   RunAlertsResponse,
   WatchlistResponse
 } from "./types";
@@ -173,6 +175,22 @@ export function chartUrl(
     if (latest.date) q.set("latest_date", latest.date);
   }
   return `${API_BASE}/charts/${encodeURIComponent(ticker)}?${q.toString()}`;
+}
+
+export async function createAiAlert(market: string, input: { ticker: string; conditions: AiProposedCondition[]; title?: string }): Promise<{ status: string; rule: AlertRule }> {
+  const resp = await fetch(`${API_BASE}/alerts/${encodeURIComponent(market)}/ai`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+  return parseJson<{ status: string; rule: AlertRule }>(resp);
+}
+
+export async function createAiLevelAlert(market: string, input: { ticker: string; level: AiCriticalLevel }): Promise<{ status: string; rule: AlertRule }> {
+  const resp = await fetch(`${API_BASE}/alerts/${encodeURIComponent(market)}/ai-level`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input)
+  });
+  return parseJson<{ status: string; rule: AlertRule }>(resp);
 }
 
 export async function analyzeChartImage(input: {

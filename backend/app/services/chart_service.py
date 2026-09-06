@@ -4,8 +4,22 @@ from io import BytesIO
 import os
 import threading
 import time
+from collections import OrderedDict
 
 _CHART_LOCK = threading.Lock()
+_CHART_CACHE: OrderedDict[tuple, tuple[float, bytes]] = OrderedDict()
+_CHART_CACHE_TTL_SECONDS = 60.0
+_CHART_CACHE_MAX_ITEMS = 16
+
+
+def _chart_cache_key(ticker, bars, chart_type, levels, latest_close, latest_pct_1d, latest_date) -> tuple:
+    normalized_levels = []
+    for key, value in sorted((levels or {}).items()):
+        if isinstance(value, list):
+            normalized_levels.append((key, tuple(float(item) for item in value)))
+        else:
+            normalized_levels.append((key, None if value is None else float(value)))
+    return (str(ticker).upper(), int(bars), str(chart_type), tuple(normalized_levels), latest_close, latest_pct_1d, latest_date)
 
 def _set_headless_matplotlib() -> None:
     """
@@ -185,6 +199,25 @@ def _add_level_lines(fig, levels: dict | None) -> None:
             label=f"{label_map.get(k, k)} {y:.3f}",
             zorder=2,
         )
+    ai_line_styles = ["--", ":", "-.", "--"]
+    for kind, palette, short_label in [
+        ("ai_support", ["#06b6d4", "#2563eb", "#22c55e", "#14b8a6"], "AI S"),
+        ("ai_resistance", ["#f43f5e", "#f97316", "#a855f7", "#eab308"], "AI R"),
+    ]:
+        values = levels.get(kind, []) or []
+        for index, raw_value in enumerate(values):
+            try:
+                y = float(raw_value)
+            except Exception:
+                continue
+            if y <= 0:
+                continue
+            color = palette[index % len(palette)]
+            linestyle = ai_line_styles[index % len(ai_line_styles)]
+            ax.axhline(
+                y=y, color=color, linestyle=linestyle, linewidth=2.2, alpha=0.98,
+                label=f"{short_label}{index + 1} {y:.3f}", zorder=3,
+            )
     try:
         ax.legend(loc="upper left", framealpha=0.85)
     except Exception:
@@ -204,10 +237,15 @@ def chart_png_bytes(
     import matplotlib.pyplot as plt
 
     ticker = str(ticker or "").strip()
+    cache_key = _chart_cache_key(ticker, bars, chart_type, levels, latest_close, latest_pct_1d, latest_date)
     fig = None
     try:
         # Matplotlib rendering is not thread-safe. Serialize chart generation.
         with _CHART_LOCK:
+            cached = _CHART_CACHE.get(cache_key)
+            if cached and time.time() - cached[0] <= _CHART_CACHE_TTL_SECONDS:
+                _CHART_CACHE.move_to_end(cache_key)
+                return cached[1]
             # Server-side retry: provider glitches can be transient.
             last_exc = None
             for _ in range(2):
@@ -259,7 +297,12 @@ def chart_png_bytes(
             buf = BytesIO()
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
-            return buf.getvalue()
+            image_bytes = buf.getvalue()
+            _CHART_CACHE[cache_key] = (time.time(), image_bytes)
+            _CHART_CACHE.move_to_end(cache_key)
+            while len(_CHART_CACHE) > _CHART_CACHE_MAX_ITEMS:
+                _CHART_CACHE.popitem(last=False)
+            return image_bytes
     finally:
         if fig is not None:
             plt.close(fig)

@@ -25,6 +25,13 @@ type Props = {
   onChart: (row: WatchlistRow) => void;
   onAi: (row: WatchlistRow) => void;
   aiActive: boolean;
+  aiAlertInfo?: {
+    ruleId: string; enabled: boolean; verified: number; total: number; summary: string;
+    conditions: Array<{ verified: boolean; field: string; op: string; value: unknown; actual: unknown }>;
+  } | null;
+  aiLevelAlerts?: Array<{ ruleId: string; enabled: boolean; type: string; price: number; trigger: string; verified: boolean; actual: unknown }>;
+  onToggleAiAlert?: (sourceMarket: string, ruleId: string, enabled: boolean) => Promise<void>;
+  onDeleteAiAlert?: (sourceMarket: string, ruleId: string) => Promise<void>;
   sourceMarket: string;
   alertSet: boolean;
   alertConfig: {
@@ -372,6 +379,10 @@ export default function WatchlistCard({
   onChart,
   onAi,
   aiActive,
+  aiAlertInfo,
+  aiLevelAlerts = [],
+  onToggleAiAlert,
+  onDeleteAiAlert,
   sourceMarket,
   alertSet,
   alertConfig,
@@ -397,6 +408,9 @@ export default function WatchlistCard({
   const [wlMsg, setWlMsg] = useState("");
   const [wlBusy, setWlBusy] = useState(false);
   const [alertMsg, setAlertMsg] = useState("");
+  const [showAiAlertTools, setShowAiAlertTools] = useState(false);
+  const [aiAlertBusy, setAiAlertBusy] = useState(false);
+  const [aiAlertMsg, setAiAlertMsg] = useState("");
   const ticker = String(row.Ticker ?? "");
   const action = String(row.Action ?? "-");
   const phase = String(row.Market_Phase ?? "-");
@@ -716,6 +730,22 @@ export default function WatchlistCard({
       ) : null}
 
       <div className="row actions">
+        {aiAlertInfo ? (
+          <button
+            type="button"
+            className={`enabled-badge ${aiAlertInfo.enabled ? "active" : "inactive"}`}
+            title={`Alert basato sulle condizioni generate dall'AI\n${aiAlertInfo.summary}`}
+            style={{ alignSelf: "center", whiteSpace: "nowrap", cursor: "pointer" }}
+            onClick={() => { setShowAiAlertTools((v) => !v); setAiAlertMsg(""); }}
+          >
+            🤖 Alert AI {aiAlertInfo.verified}/{aiAlertInfo.total}{aiAlertInfo.enabled ? "" : " OFF"}
+          </button>
+        ) : null}
+        {aiLevelAlerts.length ? (
+          <button type="button" className="enabled-badge active" style={{ cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => { setShowAiAlertTools((v) => !v); setAiAlertMsg(""); }}>
+            📍 Livelli AI {aiLevelAlerts.filter((l) => l.verified).length}/{aiLevelAlerts.length}
+          </button>
+        ) : null}
         <button className="btn" disabled={!ticker} onClick={() => ticker && onChart(row)}>
           Grafico
         </button>
@@ -760,6 +790,47 @@ export default function WatchlistCard({
           </button>
         ) : null}
       </div>
+      {showAiAlertTools && (aiAlertInfo || aiLevelAlerts.length) ? (
+        <div className="ai-alerts-activated-summary card-ai-alert-summary">
+          <div className="active-alerts-heading">
+            <div><strong>Alert AI</strong><span>{aiAlertInfo ? "1 regola" : "0 regole"} · {aiLevelAlerts.length} livelli</span></div>
+            <span className="active-status-pill">● {aiAlertInfo?.enabled || aiLevelAlerts.some((level) => level.enabled) ? "Monitoraggio attivo" : "Monitoraggio sospeso"}</span>
+          </div>
+          {aiAlertInfo ? <div className="active-rule-card">
+            <div className="active-rule-card-heading">
+              <div><strong>🤖 {aiAlertInfo.ruleId}</strong><span>{aiAlertInfo.conditions.length} condizioni collegate in AND</span></div>
+              <div className="compact-alert-actions">
+                <button className="compact-toggle-btn" disabled={aiAlertBusy || !onToggleAiAlert} onClick={async () => {
+                  if (!onToggleAiAlert) return; setAiAlertBusy(true); setAiAlertMsg("");
+                  try { await onToggleAiAlert(sourceMarket, aiAlertInfo.ruleId, !aiAlertInfo.enabled); } catch (e) { setAiAlertMsg(String(e)); } finally { setAiAlertBusy(false); }
+                }}>{aiAlertInfo.enabled ? "Disabilita" : "Abilita"}</button>
+                <button className="compact-remove-btn" disabled={aiAlertBusy || !onDeleteAiAlert} onClick={async () => {
+                  if (!onDeleteAiAlert) return; setAiAlertBusy(true); setAiAlertMsg("");
+                  try { await onDeleteAiAlert(sourceMarket, aiAlertInfo.ruleId); setShowAiAlertTools(false); } catch (e) { setAiAlertMsg(String(e)); } finally { setAiAlertBusy(false); }
+                }}>Rimuovi</button>
+              </div>
+            </div>
+            <div className="active-condition-grid">{aiAlertInfo.conditions.map((condition, index) => <div key={`${condition.field}-${index}`} className={`active-condition-chip ${condition.verified ? "verified" : "pending"}`}>
+              <b>{condition.verified ? "✓" : index + 1}</b><span><strong>{condition.field} {condition.op} {String(condition.value)}</strong><small>Valore attuale: {condition.actual == null ? "n/d" : String(condition.actual)}</small></span>
+            </div>)}</div>
+          </div> : null}
+          {aiLevelAlerts.map((level) => <div key={level.ruleId} className="activated-level-control">
+            <span className={level.verified ? "level-state verified" : "level-state pending"}>{level.verified ? "✓" : "○"}</span>
+            <span><strong>{level.type === "support" ? "Supporto" : "Resistenza"} {level.price}</strong><small>Close {level.trigger} {level.price} · ora {level.actual == null ? "n/d" : String(level.actual)} · {level.enabled ? "Attivo" : "OFF"}</small></span>
+            <div className="compact-alert-actions">
+              <button className="compact-toggle-btn" disabled={aiAlertBusy || !onToggleAiAlert} onClick={async () => {
+                if (!onToggleAiAlert) return; setAiAlertBusy(true); setAiAlertMsg("");
+                try { await onToggleAiAlert(sourceMarket, level.ruleId, !level.enabled); } catch (e) { setAiAlertMsg(String(e)); } finally { setAiAlertBusy(false); }
+              }}>{level.enabled ? "Disabilita" : "Abilita"}</button>
+              <button className="compact-remove-btn" disabled={aiAlertBusy || !onDeleteAiAlert} onClick={async () => {
+                if (!onDeleteAiAlert) return; setAiAlertBusy(true); setAiAlertMsg("");
+                try { await onDeleteAiAlert(sourceMarket, level.ruleId); } catch (e) { setAiAlertMsg(String(e)); } finally { setAiAlertBusy(false); }
+              }}>Rimuovi</button>
+            </div>
+          </div>)}
+          {aiAlertMsg ? <p className="err">{aiAlertMsg}</p> : null}
+        </div>
+      ) : null}
       {showWatchlistTools ? (
         <div className="watchlist-tools">
           <div className="watchlist-mode">

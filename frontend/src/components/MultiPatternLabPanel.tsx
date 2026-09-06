@@ -14,6 +14,14 @@ interface MultiPatternLabPanelProps {
   onChart: (row: WatchlistRow) => void;
   onAi: (row: WatchlistRow) => void;
   aiActiveChatMap: Record<string, boolean>;
+  aiAlertCardMap: Record<string, {
+    ruleId: string; enabled: boolean; verified: number; total: number; summary: string;
+    conditions: Array<{ verified: boolean; field: string; op: string; value: unknown; actual: unknown; description?: string }>;
+  }>;
+  aiLevelCardMap: Record<string, Array<{ ruleId: string; enabled: boolean; type: string; price: number; trigger: string; verified: boolean; actual: unknown }>>;
+  onToggleAiAlert: (sourceMarket: string, ruleId: string, enabled: boolean) => Promise<void>;
+  onDeleteAiAlert: (sourceMarket: string, ruleId: string) => Promise<void>;
+  onResultsChange?: (rows: WatchlistRow[]) => void;
   quickAlertMap: Record<string, boolean>;
   quickAlertConfigMap: Record<string, QuickAlertConfig>;
   quickAlertBusyMap: Record<string, boolean>;
@@ -95,7 +103,7 @@ const PATTERN_TABS = [
   { id: "S2_or_S3", label: "🔥 Qualsiasi", desc: "S2 o S3",      color: "#f97316" },
 ] as const;
 
-const SCAN_MARKETS = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"] as const;
+const SCAN_MARKETS = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF", "Crypto"] as const;
 const DEFAULT_SCAN_MARKETS = ["MIB30", "DAX", "ETC", "Preferite"];
 
 export default function MultiPatternLabPanel({
@@ -104,6 +112,11 @@ export default function MultiPatternLabPanel({
   onChart,
   onAi,
   aiActiveChatMap,
+  aiAlertCardMap,
+  aiLevelCardMap,
+  onToggleAiAlert,
+  onDeleteAiAlert,
+  onResultsChange,
   quickAlertMap,
   quickAlertConfigMap,
   quickAlertBusyMap,
@@ -160,6 +173,13 @@ export default function MultiPatternLabPanel({
   const [scanProgress, setScanProgress] = useState<{ done: number; total: number; market: string } | null>(null);
   // AbortController ref to cancel in-flight SSE streams when user changes params
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    onResultsChange?.((scanResults ?? []).map((row) => ({
+      ...row,
+      WL_Source_Market: row.WL_Source_Market ?? row.Market ?? market,
+    })));
+  }, [scanResults, market, onResultsChange]);
 
   // ─── Sorting ────────────────────────────────────────────────────────────────
   type SortDir = "asc" | "desc" | null;
@@ -865,7 +885,7 @@ export default function MultiPatternLabPanel({
               </span>
             </div>
 
-            <div className="table-wrap" style={{ maxHeight: "300px", overflowX: "auto", width: "100%" }}>
+            <div className="table-wrap" style={{ maxHeight: "560px", overflowX: "auto", width: "100%" }}>
               <table>
                 <thead>
                   <tr>
@@ -1027,6 +1047,10 @@ export default function MultiPatternLabPanel({
                       onChart={onChart}
                       onAi={onAi}
                       aiActive={Boolean(aiActiveChatMap[key])}
+                      aiAlertInfo={aiAlertCardMap[key] ?? null}
+                      aiLevelAlerts={aiLevelCardMap[key] ?? []}
+                      onToggleAiAlert={onToggleAiAlert}
+                      onDeleteAiAlert={onDeleteAiAlert}
                       sourceMarket={String(rowMarket)}
                       alertSet={Boolean(quickAlertMap[key])}
                       alertConfig={quickAlertConfigMap[key] ?? null}

@@ -9,6 +9,7 @@ import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
 import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
+import MarketHeatmapPanel from "./components/MarketHeatmapPanel";
 import type { AlertRule, WatchlistRow, QuickAlertField } from "./types";
 
 import {
@@ -21,11 +22,13 @@ import {
   fetchMarkets,
   fetchWatchlist,
   removeTickerFromCustomWatchlist,
+  setAlertRuleEnabled,
   upsertAlertRule,
 } from "./api";
 
 const tabs = [
   "All",
+  "🔥 Heatmap",
   "Alerts",
   "AI chat",
   "🧪 Multi-Pattern Lab",
@@ -109,6 +112,12 @@ type QuickAlertConfig = {
   value: number | string | null;
 };
 
+type AiAlertCardInfo = {
+  ruleId: string; enabled: boolean; verified: number; total: number; summary: string;
+  conditions: Array<{ verified: boolean; field: string; op: string; value: unknown; actual: unknown; description?: string }>;
+};
+type AiLevelCardInfo = { ruleId: string; enabled: boolean; type: string; price: number; trigger: string; verified: boolean; actual: unknown };
+
 export default function App() {
   const qc = useQueryClient();
   const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: fetchMarkets });
@@ -145,8 +154,18 @@ export default function App() {
   const [chartType, setChartType] = useState<"candlestick" | "line">("candlestick");
   const [quickAlertMap, setQuickAlertMap] = useState<Record<string, boolean>>({});
   const [quickAlertConfigMap, setQuickAlertConfigMap] = useState<Record<string, QuickAlertConfig>>({});
+  const [aiAlertCardMap, setAiAlertCardMap] = useState<Record<string, AiAlertCardInfo>>({});
+  const [aiLevelCardMap, setAiLevelCardMap] = useState<Record<string, AiLevelCardInfo[]>>({});
+  const [multiPatternRows, setMultiPatternRows] = useState<WatchlistRow[]>([]);
+  const [alertsRefreshNonce, setAlertsRefreshNonce] = useState(0);
   const [quickAlertBusyMap, setQuickAlertBusyMap] = useState<Record<string, boolean>>({});
   const [quickChartInput, setQuickChartInput] = useState("");
+
+  useEffect(() => {
+    const refresh = () => setAlertsRefreshNonce((v) => v + 1);
+    window.addEventListener("ifinance-alerts-changed", refresh);
+    return () => window.removeEventListener("ifinance-alerts-changed", refresh);
+  }, []);
 
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
@@ -275,7 +294,24 @@ export default function App() {
       pageSize,
       rankN
     }),
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste"
+    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔥 Heatmap"
+  });
+
+  const heatmapQuery = useQuery({
+    queryKey: ["heatmap", market, search, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
+    queryFn: () => fetchWatchlist({
+      market,
+      tab: "All",
+      search,
+      minVolume,
+      entrySignal: entrySignalFilter,
+      marketPhase: marketPhaseFilter,
+      trendPhaseDetail: effectiveTrendPhaseDetailFilter,
+      page: 1,
+      pageSize: 200,
+      rankN: 100,
+    }),
+    enabled: tab === "🔥 Heatmap",
   });
 
   const addToWatchlistMutation = useMutation({
@@ -331,14 +367,17 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!watchlistQuery.data?.items?.length || tab === "Alerts") {
+    const activeItems = tab === "🧪 Multi-Pattern Lab" ? multiPatternRows : (watchlistQuery.data?.items ?? []);
+    if (!activeItems.length || tab === "Alerts") {
       setQuickAlertMap({});
       setQuickAlertConfigMap({});
+      setAiAlertCardMap({});
+      setAiLevelCardMap({});
       return;
     }
 
     let cancelled = false;
-    const items = watchlistQuery.data.items;
+    const items = activeItems;
     const rows = items
       .map((row) => {
         const source = String(row.WL_Source_Market ?? market).trim();
@@ -350,23 +389,26 @@ export default function App() {
     const uniqueMarkets = [...new Set(rows.map((x) => x.source))];
 
     (async () => {
-      const byMarket = new Map<string, AlertRule[]>();
+      const byMarket = new Map<string, Awaited<ReturnType<typeof fetchAlerts>>>();
       await Promise.all(
         uniqueMarkets.map(async (mkt) => {
           try {
             const data = await fetchAlerts(mkt);
-            byMarket.set(mkt, data.rules ?? []);
+            byMarket.set(mkt, data);
           } catch {
-            byMarket.set(mkt, []);
+            byMarket.set(mkt, { market: mkt, rules: [], defaults: {}, version: 1, table: [] });
           }
         })
       );
 
       const next: Record<string, boolean> = {};
       const nextCfg: Record<string, QuickAlertConfig> = {};
+      const nextAi: Record<string, AiAlertCardInfo> = {};
+      const nextLevels: Record<string, AiLevelCardInfo[]> = {};
       for (const x of rows) {
         const rid = normalizeRuleId(quickAlertRuleId(x.ticker));
-        const rules = byMarket.get(x.source) ?? [];
+        const alertData = byMarket.get(x.source);
+        const rules = alertData?.rules ?? [];
         const foundEnabled = rules.find((r) => normalizeRuleId(r.id) === rid && Boolean(r.enabled));
         const foundAny = rules.find((r) => normalizeRuleId(r.id) === rid);
         const found = foundEnabled ?? foundAny;
@@ -402,18 +444,50 @@ export default function App() {
         const value = fieldRaw === "Signal6" ? String(valRaw ?? "").trim() : toNum(valRaw);
 
         nextCfg[k] = { field, op, value };
+
+        const aiRule = rules.find((r) => r.source === "ai" && (r.scope?.tickers ?? []).some((t) => String(t).trim().toUpperCase() === x.ticker.toUpperCase()));
+        if (aiRule) {
+          const aiRow = (alertData?.table ?? []).find((r) => String(r.RuleID) === aiRule.id && String(r.Ticker).trim().toUpperCase() === x.ticker.toUpperCase());
+          let statuses: Array<{ verified?: boolean; field?: string; op?: string; value?: unknown; actual?: unknown }> = [];
+          try { statuses = JSON.parse(String(aiRow?.Condition_Status ?? "[]")); } catch { statuses = []; }
+          const configuredConditions = aiRule.when?.all ?? [];
+          const conditions = configuredConditions.map((condition, index) => {
+            const status = statuses[index] ?? statuses.find((item) => item.field === condition.field && item.op === condition.op && String(item.value) === String(condition.value));
+            const aiCondition = aiRule.ai_conditions?.[index];
+            return {
+              verified: Boolean(status?.verified), field: condition.field, op: condition.op, value: condition.value,
+              actual: status?.actual, description: aiCondition?.description,
+            };
+          });
+          const verified = conditions.filter((condition) => condition.verified).length;
+          nextAi[k] = {
+            ruleId: aiRule.id, enabled: Boolean(aiRule.enabled), verified, total: conditions.length,
+            summary: conditions.map((condition) => `${condition.verified ? "✓" : "○"} ${condition.field} ${condition.op} ${String(condition.value)}`).join("\n"),
+            conditions,
+          };
+        }
+        const levelRules = rules.filter((r) => r.source === "ai_level" && (r.scope?.tickers ?? []).some((t) => String(t).trim().toUpperCase() === x.ticker.toUpperCase()));
+        nextLevels[k] = levelRules.map((rule) => {
+          const tableRow = (alertData?.table ?? []).find((r) => String(r.RuleID) === rule.id && String(r.Ticker).trim().toUpperCase() === x.ticker.toUpperCase());
+          let status: any = {};
+          try { status = JSON.parse(String(tableRow?.Condition_Status ?? "[]"))[0] ?? {}; } catch { status = {}; }
+          const meta = (rule as any).ai_level ?? {};
+          return { ruleId: rule.id, enabled: Boolean(rule.enabled), type: String(meta.type ?? "level"), price: Number(meta.price ?? status.value ?? 0), trigger: String(meta.trigger ?? status.op ?? ""), verified: Boolean(status.verified), actual: status.actual };
+        });
       }
 
       if (!cancelled) {
         setQuickAlertMap(next);
         setQuickAlertConfigMap(nextCfg);
+        setAiAlertCardMap(nextAi);
+        setAiLevelCardMap(nextLevels);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [watchlistQuery.data?.items, market, tab]);
+  }, [watchlistQuery.data?.items, multiPatternRows, market, tab, alertsRefreshNonce]);
 
   async function handleAddToWatchlist(input: { name: string; ticker: string; source_market: string }): Promise<string> {
     const out = await addToWatchlistMutation.mutateAsync(input);
@@ -459,6 +533,18 @@ export default function App() {
     } finally {
       setAlertBusy(sourceMarket, ticker, false);
     }
+  }
+
+  async function handleToggleAiAlert(sourceMarket: string, ruleId: string, enabled: boolean): Promise<void> {
+    await setAlertRuleEnabled(sourceMarket, ruleId, enabled);
+    await qc.invalidateQueries({ queryKey: ["alerts", sourceMarket] });
+    window.dispatchEvent(new Event("ifinance-alerts-changed"));
+  }
+
+  async function handleDeleteAiAlert(sourceMarket: string, ruleId: string): Promise<void> {
+    await deleteAlertRule(sourceMarket, ruleId);
+    await qc.invalidateQueries({ queryKey: ["alerts", sourceMarket] });
+    window.dispatchEvent(new Event("ifinance-alerts-changed"));
   }
 
   async function handleCreateQuickAlert(input: {
@@ -740,6 +826,7 @@ export default function App() {
             const mergedRow: WatchlistRow = foundRow
               ? { ...scanRow, ...foundRow }
               : scanRow;
+            mergedRow.WL_Source_Market = mergedRow.WL_Source_Market ?? scanRow.Market ?? market;
             setChartTicker(scanRow.Ticker ?? "");
             setChartRow(mergedRow);
             setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
@@ -749,6 +836,11 @@ export default function App() {
           onChart={openChart}
           onAi={openTickerAi}
           aiActiveChatMap={aiActiveChatMap}
+          aiAlertCardMap={aiAlertCardMap}
+          aiLevelCardMap={aiLevelCardMap}
+          onToggleAiAlert={handleToggleAiAlert}
+          onDeleteAiAlert={handleDeleteAiAlert}
+          onResultsChange={setMultiPatternRows}
           quickAlertMap={quickAlertMap}
           quickAlertConfigMap={quickAlertConfigMap}
           quickAlertBusyMap={quickAlertBusyMap}
@@ -766,11 +858,21 @@ export default function App() {
       {tab === "🔧 Gestione Pattern" ? (
         <PatternManagerPanel />
       ) : null}
+      {tab === "🔥 Heatmap" ? (
+        <MarketHeatmapPanel
+          market={market}
+          rows={heatmapQuery.data?.items ?? []}
+          alertMap={quickAlertMap}
+          loading={heatmapQuery.isLoading}
+          error={heatmapQuery.isError ? String(heatmapQuery.error) : undefined}
+          onChart={openChart}
+        />
+      ) : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
@@ -830,6 +932,10 @@ export default function App() {
                 onChart={openChart}
                 onAi={openTickerAi}
                 aiActive={Boolean(aiActiveChatMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))])}
+                aiAlertInfo={aiAlertCardMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))] ?? null}
+                aiLevelAlerts={aiLevelCardMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))] ?? []}
+                onToggleAiAlert={handleToggleAiAlert}
+                onDeleteAiAlert={handleDeleteAiAlert}
                 sourceMarket={String(row.WL_Source_Market ?? market)}
                 alertSet={Boolean(quickAlertMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))])}
                 alertConfig={quickAlertConfigMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))] ?? null}
@@ -877,6 +983,8 @@ export default function App() {
         alertSet={Boolean(chartRow && quickAlertMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))])}
         alertConfig={chartRow ? (quickAlertConfigMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))] ?? null) : null}
         alertBusy={Boolean(chartRow && quickAlertBusyMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))])}
+        aiLevelAlerts={chartRow ? (aiLevelCardMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))] ?? []) : []}
+        aiAlertInfo={chartRow ? (aiAlertCardMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))] ?? null) : null}
         onCreateAlert={handleCreateQuickAlert}
         onRemoveAlert={handleRemoveQuickAlert}
         onClose={() => {
@@ -891,6 +999,8 @@ export default function App() {
         open={Boolean(aiTickerRow)}
         row={aiTickerRow}
         market={aiTickerMarket || market}
+        aiLevelAlerts={aiTickerRow ? (aiLevelCardMap[alertKey(aiTickerMarket || market, String(aiTickerRow.Ticker ?? ""))] ?? []) : []}
+        aiAlertInfo={aiTickerRow ? (aiAlertCardMap[alertKey(aiTickerMarket || market, String(aiTickerRow.Ticker ?? ""))] ?? null) : null}
         onChatActivity={setTickerAiActivity}
         onClose={() => {
           setAiTickerRow(null);

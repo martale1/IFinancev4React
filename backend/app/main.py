@@ -31,6 +31,8 @@ from app.config import CORS_ORIGINS, FRONTEND_DIST_DIR, MARKETS, PROJECT_ROOT
 from app.schemas import (
     AlertToggleRequest,
     AlertUpsertRequest,
+    AiAlertCreateRequest,
+    AiLevelAlertCreateRequest,
     CustomWatchlistAddItemRequest,
     CustomWatchlistCreateRequest,
     CustomWatchlistRemoveItemRequest,
@@ -49,6 +51,8 @@ from app.services.alerts_service import (
     rules_path_for_market,
     run_alert_engine,
     set_rule_enabled,
+    create_ai_alert_rule,
+    create_ai_level_alert_rule,
     upsert_rule,
 )
 from app.services.chart_service import chart_png_bytes, chart_backtest_png_bytes
@@ -79,7 +83,7 @@ from app.services.watchlist_service import (
 
 app = FastAPI(title="IFinance v4 React Backend", version="0.1.0")
 
-ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others"]
+ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others", "Crypto"]
 _analysis_lock = threading.Lock()
 _analysis_job: dict[str, Any] = {
     "process": None,
@@ -220,6 +224,8 @@ def chart(
     sl2: float | None = Query(default=None),
     pb_stop: float | None = Query(default=None),
     pp_level: float | None = Query(default=None),
+    ai_support: list[float] | None = Query(default=None),
+    ai_resistance: list[float] | None = Query(default=None),
     latest_close: float | None = Query(default=None),
     latest_pct_1d: float | None = Query(default=None),
     latest_date: str | None = Query(default=None),
@@ -227,7 +233,10 @@ def chart(
     if chart_type not in ["candlestick", "line"]:
         raise HTTPException(status_code=400, detail="chart_type must be 'candlestick' or 'line'")
     try:
-        levels = {"sl1": sl1, "sl2": sl2, "pb_stop": pb_stop, "pp_level": pp_level}
+        levels = {
+            "sl1": sl1, "sl2": sl2, "pb_stop": pb_stop, "pp_level": pp_level,
+            "ai_support": ai_support or [], "ai_resistance": ai_resistance or [],
+        }
         data = chart_png_bytes(
             ticker=ticker,
             bars=bars,
@@ -239,7 +248,11 @@ def chart(
         )
         if not data:
             raise HTTPException(status_code=404, detail=f"No chart data for ticker '{ticker}'")
-        return StreamingResponse(BytesIO(data), media_type="image/png")
+        return StreamingResponse(
+            BytesIO(data),
+            media_type="image/png",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -489,7 +502,7 @@ def api_scanner_scan(
     lookback: int = Query(default=1, ge=1, le=10),
 ):
     try:
-        available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"]
+        available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF", "Crypto"]
         target_markets = available_markets if market == "ALL" else list(dict.fromkeys(m.strip() for m in market.split(",") if m.strip()))
         invalid = [m for m in target_markets if m not in available_markets]
         if invalid:
@@ -526,6 +539,32 @@ def api_scanner_scan(
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@app.post("/api/alerts/{market}/ai")
+def post_ai_alert_rule(market: str, req: AiAlertCreateRequest):
+    if market not in MARKETS:
+        raise HTTPException(status_code=400, detail=f"Unsupported market: {market}")
+    try:
+        rule = create_ai_alert_rule(market, req.ticker, req.conditions, req.title)
+        return {"status": "ok", "rule": rule}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/alerts/{market}/ai-level")
+def post_ai_level_alert_rule(market: str, req: AiLevelAlertCreateRequest):
+    if market not in MARKETS:
+        raise HTTPException(status_code=400, detail=f"Unsupported market: {market}")
+    try:
+        rule = create_ai_level_alert_rule(market, req.ticker, req.level)
+        return {"status": "ok", "rule": rule}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
 @app.get("/api/scanner/scan-stream")
 def api_scanner_scan_stream(
     market: str = Query(default="ALL"),
@@ -545,7 +584,7 @@ def api_scanner_scan_stream(
       data: {"type": "progress", "done": 6, "total": 30, "market": "MIB30"}
       data: {"type": "done"}
     """
-    available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF"]
+    available_markets = ["MIB30", "DAX", "ETC", "ETF", "Preferite", "US_Others", "US_ETF", "Crypto"]
     target_markets = available_markets if market == "ALL" else list(dict.fromkeys(m.strip() for m in market.split(",") if m.strip()))
     invalid = [m for m in target_markets if m not in available_markets]
     if invalid:
@@ -633,6 +672,7 @@ MARKET_FILES = {
     "ETC": "validtickers_IT_ETC.xlsx",
     "US_Others": "validtickers_US_DOW_NASDAQ.xlsx",
     "US_ETF": "validtickers_US_ETF.xlsx",
+    "Crypto": "validtickers_CRYPTO.xlsx",
 }
 
 def get_excel_list_path(market: str) -> Path | None:
@@ -912,6 +952,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             prompt_text = (
                 f"Analizza l'immagine del grafico tecnico allegata per il titolo '{req.ticker}' (Mercato: {req.market}).\n\n"
                 "RISPONDI ESCLUSIVAMENTE IN ITALIANO con la seguente struttura FISSA e OBBLIGATORIA in markdown. Sii estremamente sintetico, conciso e operativo (da farsi nell'immediato).\n\n"
+                "NON racchiudere l'intera risposta in un blocco ```markdown```: usa il markdown direttamente. Racchiudi nei backtick tripli esclusivamente il singolo blocco JSON richiesto.\n\n"
                 "---\n"
                 "### 📘 ANALISI GRAFICA STRUTTURATA SINTETICA — {ticker}\n\n"
                 "#### 🔍 QUADRO TECNICO (Massimo 3-4 righe complessive)\n"
@@ -930,9 +971,14 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                 "{\n"
                 "  \"conditions\": [\n"
                 "    { \"indicator\": \"[Indicatore]\", \"trigger\": \"[Trigger]\", \"description\": \"[Breve descrizione]\" }\n"
+                "  ],\n"
+                "  \"critical_levels\": [\n"
+                "    { \"type\": \"support\", \"price\": 0.0, \"trigger\": \"<\", \"description\": \"Perdita del supporto critico\" },\n"
+                "    { \"type\": \"resistance\", \"price\": 0.0, \"trigger\": \">\", \"description\": \"Superamento della resistenza critica\" }\n"
                 "  ]\n"
                 "}\n"
                 "```\n\n"
+                "critical_levels è OBBLIGATORIO e deve contenere tutti i livelli chiaramente identificabili dal grafico: fino a 3 supporti e 3 resistenze, ordinati dal più vicino al prezzo al più lontano. price deve essere numerico positivo, type solo support/resistance e trigger solo </>. Non inventare livelli; usa [] se non sono affidabili.\n\n"
                 "Usa un tono altamente professionale, editoriale e focalizzato sul risk management. Sii preciso e prudente."
             )
         else:
@@ -945,6 +991,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                 "4. MACD: Linea MACD (blu), Segnale (rosso), Istogramma (verde/rosso).\n"
                 "5. ADX (verde) e indicatori direzionali DI+ (blu) / DI- (arancione).\n\n"
                 "RISPONDI ESCLUSIVAMENTE IN ITALIANO con la seguente struttura FISSA e OBBLIGATORIA in markdown. Non saltare nessuna sezione.\n\n"
+                "NON racchiudere l'intera risposta in un blocco ```markdown```: usa il markdown direttamente. Racchiudi nei backtick tripli esclusivamente il singolo blocco JSON richiesto.\n\n"
                 "---\n"
                 "### 📘 ANALISI GRAFICA MULTIMODALE AI — {ticker}\n\n"
                 "#### 🔍 CONDIZIONI MINIME DI INGRESSO (Analisi dei 10 Pilastri)\n"
@@ -990,9 +1037,14 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                 "    { \"indicator\": \"Volume\", \"trigger\": \"> MA10 * 1.30\", \"description\": \"Volume sopra la media MA10 del +30% o più per confermare la rottura\" },\n"
                 "    { \"indicator\": \"Alligator\", \"trigger\": \"Lips > Teeth > Jaw\", \"description\": \"Alligator in configurazione bullish con apertura progressiva delle linee\" },\n"
                 "    { \"indicator\": \"ADX\", \"trigger\": \"> 25\", \"description\": \"ADX sopra 25 e crescente: il mercato sta entrando in un trend vero\" }\n"
+                "  ],\n"
+                "  \"critical_levels\": [\n"
+                "    { \"type\": \"support\", \"price\": 20.20, \"trigger\": \"<\", \"description\": \"Perdita del supporto tecnico principale\" },\n"
+                "    { \"type\": \"resistance\", \"price\": 21.10, \"trigger\": \">\", \"description\": \"Superamento della resistenza tecnica principale\" }\n"
                 "  ]\n"
                 "}\n"
                 "```\n\n"
+                "critical_levels è OBBLIGATORIO: includi fino a 3 supporti e 3 resistenze realmente leggibili dal grafico, ordinati dal più vicino al prezzo al più lontano. price deve essere numerico positivo, type solo support/resistance, trigger solo </>. Non inventare livelli; restituisci [] se non sono affidabili.\n\n"
                 "Usa un tono altamente professionale, editoriale e focalizzato sul risk management. Sii preciso e prudente."
             )
         
@@ -1022,7 +1074,6 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                     ]
                 }
             ],
-            "temperature": 0.15,
         }
         
         # Reasoning models and newer models do not support max_tokens. They require max_completion_tokens.
@@ -1030,6 +1081,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             kwargs_completions["max_completion_tokens"] = 2500
         else:
             kwargs_completions["max_tokens"] = 2500
+            kwargs_completions["temperature"] = 0.15
 
         response = client.chat.completions.create(**kwargs_completions)
         

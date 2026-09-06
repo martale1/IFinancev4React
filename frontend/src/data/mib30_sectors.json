@@ -1,0 +1,13 @@
+{
+  "A2A.MI": "Utility", "AMP.MI": "Salute", "AZM.MI": "Servizi finanziari",
+  "BMED.MI": "Banche", "BMPS.MI": "Banche", "BAMI.MI": "Banche", "BPSO.MI": "Banche", "BPE.MI": "Banche",
+  "BC.MI": "Lusso e consumi", "CPR.MI": "Beni di consumo", "DIA.MI": "Salute",
+  "ENEL.MI": "Utility", "ENI.MI": "Energia", "ERG.MI": "Utility", "RACE.MI": "Automotive",
+  "FBK.MI": "Servizi finanziari", "G.MI": "Assicurazioni", "HER.MI": "Utility", "IP.MI": "Industria",
+  "INW.MI": "Telecomunicazioni", "IG.MI": "Utility", "IVG.MI": "Automotive", "LDO.MI": "Aerospazio e difesa",
+  "MB.MI": "Banche", "MONC.MI": "Lusso e consumi", "NEXI.MI": "Tecnologia e pagamenti",
+  "PIRC.MI": "Automotive", "PST.MI": "Servizi finanziari", "PRY.MI": "Industria", "REC.MI": "Salute",
+  "SPM.MI": "Energia", "SRG.MI": "Utility", "STLAM.MI": "Automotive", "STMMI.MI": "Tecnologia e pagamenti",
+  "TIT.MI": "Telecomunicazioni", "TEN.MI": "Energia", "TRN.MI": "Utility", "UCG.MI": "Banche",
+  "UNI.MI": "Assicurazioni", "FCT.MI": "Industria", "LTMC.MI": "Beni di consumo"
+}

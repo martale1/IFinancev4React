@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { WatchlistRow, QuickAlertField } from "../types";
-import { analyzeChartImage } from "../api";
+import { useQueryClient } from "@tanstack/react-query";
+import type { WatchlistRow, QuickAlertField, AiProposedCondition, AiCriticalLevel } from "../types";
+import { analyzeChartImage, createAiAlert, createAiLevelAlert, deleteAlertRule, fetchAlerts } from "../api";
+
+type ChartAiAlertInfo = {
+  ruleId: string; enabled: boolean; verified: number; total: number;
+  conditions: Array<{ verified: boolean; field: string; op: string; value: unknown; actual: unknown; description?: string }>;
+};
+type ChartAiLevelAlert = { ruleId: string; enabled: boolean; type: string; price: number; trigger: string; verified: boolean; actual: unknown };
+
+const VISION_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"];
+function savedVisionModel(): string {
+  const saved = window.localStorage.getItem("ifinance-openai-vision-model") || "gpt-4o";
+  return VISION_MODELS.includes(saved) ? saved : "gpt-4o";
+}
 
 
 function quickAlertFieldLabel(field: QuickAlertField): string {
@@ -45,6 +58,11 @@ function renderInline(text: string, context: "body" | "list" = "body"): ReactNod
   });
 }
 
+function normalizeAiMarkdown(content: string): string {
+  let text = String(content || "").replace(/^\s*```(?:markdown|md)\s*\r?\n/i, "");
+  return text.replace(/\r?\n```\s*\r?\n(?=```json\b)/i, "\n");
+}
+
 function renderMessage(content: string) {
   const nodes: ReactNode[] = [];
   let listItems: ReactNode[] = [];
@@ -84,6 +102,15 @@ function renderMessage(content: string) {
             </table>
           </div>
         );
+        if (Array.isArray(parsed.critical_levels) && parsed.critical_levels.length) {
+          nodes.push(
+            <div key={`levels-table-${nodes.length}`} className="table-wrap" style={{ marginTop: "0.6rem" }}>
+              <table><thead><tr><th>Livello critico AI</th><th>Prezzo</th><th>Trigger</th><th>Descrizione</th></tr></thead>
+                <tbody>{parsed.critical_levels.map((l: AiCriticalLevel, i: number) => <tr key={i}><td>{l.type === "support" ? "Supporto" : "Resistenza"}</td><td>{l.price}</td><td>{l.trigger}</td><td>{l.description ?? ""}</td></tr>)}</tbody>
+              </table>
+            </div>
+          );
+        }
         codeContent = "";
         return;
       }
@@ -113,7 +140,7 @@ function renderMessage(content: string) {
     orderedStart = 1;
   }
 
-  const lines = String(content || "").split("\n");
+  const lines = normalizeAiMarkdown(content).split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -143,7 +170,7 @@ function renderMessage(content: string) {
 
     flushList();
 
-    const mdHeading = line.match(/^#{1,3}\s+(.+)/);
+    const mdHeading = line.match(/^#{1,6}\s+(.+)/);
     const boldOnlyHeading = line.match(/^\*\*([^*]{1,46})\*\*:?\s*$/);
     if (mdHeading || boldOnlyHeading) {
       nodes.push(<h4 key={`h-${i}`} style={{ marginTop: "0.8rem", marginBottom: "0.4rem", color: "#38bdf8" }}>{renderInline(mdHeading?.[1] ?? boldOnlyHeading?.[1] ?? line)}</h4>);
@@ -156,6 +183,33 @@ function renderMessage(content: string) {
   flushList();
   flushCodeBlock();
   return nodes;
+}
+
+function extractAiConditions(content: string): AiProposedCondition[] {
+  const blocks = normalizeAiMarkdown(content).match(/```(?:json)?\s*([\s\S]*?)```/gi) ?? [];
+  for (const block of blocks) {
+    const json = block.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+    try {
+      const parsed = JSON.parse(json);
+      if (Array.isArray(parsed?.conditions)) return parsed.conditions;
+    } catch { /* try next block */ }
+  }
+  return [];
+}
+
+function extractAiLevels(content: string): AiCriticalLevel[] {
+  const blocks = normalizeAiMarkdown(content).match(/```(?:json)?\s*([\s\S]*?)```/gi) ?? [];
+  for (const block of blocks) {
+    try {
+      const parsed = JSON.parse(block.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim());
+      if (Array.isArray(parsed?.critical_levels)) return parsed.critical_levels;
+    } catch { /* next */ }
+  }
+  return [];
+}
+
+function aiAnalysisStorageKey(market: string | undefined, ticker: string): string {
+  return `ifinance-chart-ai-analysis::${String(market ?? "").trim().toUpperCase()}::${String(ticker).trim().toUpperCase()}`;
 }
 
 type Props = {
@@ -186,6 +240,8 @@ type Props = {
     value: number | string | null;
   } | null;
   alertBusy?: boolean;
+  aiLevelAlerts?: ChartAiLevelAlert[];
+  aiAlertInfo?: ChartAiAlertInfo | null;
   onCreateAlert?: (input: {
     row: WatchlistRow;
     source_market: string;
@@ -197,6 +253,7 @@ type Props = {
 };
 
 export default function ChartModal(props: Props) {
+  const queryClient = useQueryClient();
   const MAX_AUTO_RETRIES = 2;
   const QUICK_BARS = [10, 20, 70, 200];
   const [loading, setLoading] = useState(true);
@@ -215,8 +272,89 @@ export default function ChartModal(props: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiModel, setAiModel] = useState(() => window.localStorage.getItem("ifinance-openai-vision-model") || "gpt-4o");
+  const [aiModel, setAiModel] = useState(savedVisionModel);
   const [aiAnalysisType, setAiAnalysisType] = useState<"detailed" | "concise">("concise");
+  const [aiAlertBusy, setAiAlertBusy] = useState(false);
+  const [aiAlertMessage, setAiAlertMessage] = useState("");
+  const [showAiLevelsOnChart, setShowAiLevelsOnChart] = useState(false);
+  const [currentAiAlertInfo, setCurrentAiAlertInfo] = useState<ChartAiAlertInfo | null>(props.aiAlertInfo ?? null);
+  const [currentAiLevelAlerts, setCurrentAiLevelAlerts] = useState<ChartAiLevelAlert[]>(props.aiLevelAlerts ?? []);
+  const [knownAiConditions, setKnownAiConditions] = useState<AiProposedCondition[]>([]);
+  const [knownAiLevels, setKnownAiLevels] = useState<AiCriticalLevel[]>([]);
+  const aiConditions = useMemo(() => extractAiConditions(aiAnalysis || ""), [aiAnalysis]);
+  const aiLevels = useMemo(() => extractAiLevels(aiAnalysis || ""), [aiAnalysis]);
+  const availableAiConditions = aiConditions.length ? aiConditions : knownAiConditions;
+  const chartAiLevels = useMemo(() => {
+    const combined: AiCriticalLevel[] = [
+      ...aiLevels,
+      ...knownAiLevels,
+      ...currentAiLevelAlerts.map((level) => ({
+        type: level.type === "support" ? "support" as const : "resistance" as const,
+        price: level.price,
+        trigger: level.trigger === "<" ? "<" as const : ">" as const,
+      })),
+    ];
+    return combined.filter((level, index) => combined.findIndex((candidate) =>
+      candidate.type === level.type && Math.abs(candidate.price - level.price) < 0.000001
+    ) === index);
+  }, [aiLevels, knownAiLevels, currentAiLevelAlerts]);
+  const aiAlertActive = Boolean(currentAiAlertInfo?.enabled);
+  const isLevelActive = (level: AiCriticalLevel) => Boolean(currentAiLevelAlerts.some((saved) =>
+    saved.enabled && saved.type === level.type && saved.trigger === level.trigger && Math.abs(saved.price - level.price) < 0.000001
+  ));
+  const activeLevelFor = (level: AiCriticalLevel) => currentAiLevelAlerts.find((saved) =>
+    saved.enabled && saved.type === level.type && saved.trigger === level.trigger && Math.abs(saved.price - level.price) < 0.000001
+  );
+  const activeLevelCount = chartAiLevels.filter(isLevelActive).length;
+  const displayedAiConditions = aiAlertActive
+    ? (currentAiAlertInfo?.conditions ?? [])
+    : availableAiConditions.map((condition) => ({
+        verified: false,
+        field: String(condition.field ?? condition.indicator ?? "Condizione"),
+        op: String(condition.op ?? ""),
+        value: condition.value ?? condition.trigger ?? "-",
+        actual: null,
+      }));
+
+  async function refreshAiAlertState() {
+    if (!props.open || !props.sourceMarket || !props.ticker) return;
+    try {
+      const data = await fetchAlerts(props.sourceMarket);
+      const ticker = props.ticker.trim().toUpperCase();
+      const matchesTicker = (rule: any) => (rule.scope?.tickers ?? []).some((item: unknown) => String(item).trim().toUpperCase() === ticker);
+      const aiRule = data.rules.find((rule) => rule.source === "ai" && matchesTicker(rule));
+      if (aiRule) {
+        const tableRow = data.table.find((row) => String(row.RuleID) === aiRule.id && String(row.Ticker).trim().toUpperCase() === ticker);
+        let statuses: any[] = [];
+        try { statuses = JSON.parse(String(tableRow?.Condition_Status ?? "[]")); } catch { statuses = []; }
+        const conditions = (aiRule.when?.all ?? []).map((condition, index) => ({
+          verified: Boolean(statuses[index]?.verified), field: condition.field, op: condition.op, value: condition.value,
+          actual: statuses[index]?.actual, description: aiRule.ai_conditions?.[index]?.description,
+        }));
+        setCurrentAiAlertInfo({ ruleId: aiRule.id, enabled: Boolean(aiRule.enabled), verified: conditions.filter((item) => item.verified).length, total: conditions.length, conditions });
+        setKnownAiConditions((aiRule.ai_conditions?.length ? aiRule.ai_conditions : (aiRule.when?.all ?? [])) as AiProposedCondition[]);
+      } else setCurrentAiAlertInfo(null);
+      const levels = data.rules.filter((rule) => rule.source === "ai_level" && matchesTicker(rule)).map((rule) => {
+        const tableRow = data.table.find((row) => String(row.RuleID) === rule.id && String(row.Ticker).trim().toUpperCase() === ticker);
+        let status: any = {};
+        try { status = JSON.parse(String(tableRow?.Condition_Status ?? "[]"))[0] ?? {}; } catch { status = {}; }
+        const meta = (rule as any).ai_level ?? {};
+        return { ruleId: rule.id, enabled: Boolean(rule.enabled), type: String(meta.type ?? "level"), price: Number(meta.price ?? status.value ?? 0), trigger: String(meta.trigger ?? status.op ?? ""), verified: Boolean(status.verified), actual: status.actual };
+      });
+      setCurrentAiLevelAlerts(levels);
+      if (levels.length) setKnownAiLevels((previous) => {
+        const combined = [...previous, ...levels.map((level) => ({ type: level.type === "support" ? "support" as const : "resistance" as const, price: level.price, trigger: level.trigger === "<" ? "<" as const : ">" as const }))];
+        return combined.filter((level, index) => combined.findIndex((candidate) => candidate.type === level.type && Math.abs(candidate.price - level.price) < 0.000001) === index);
+      });
+    } catch {
+      // Mantiene l'ultimo stato noto ricevuto dal contenitore.
+    }
+  }
+
+  useEffect(() => {
+    if (aiConditions.length) setKnownAiConditions(aiConditions);
+    if (aiLevels.length) setKnownAiLevels(aiLevels);
+  }, [aiConditions, aiLevels]);
 
   // Local state for bars input/slider to prevent backend request storms during dragging
   const [localBars, setLocalBars] = useState(props.bars);
@@ -266,9 +404,25 @@ export default function ChartModal(props: Props) {
 
     // Reset AI states
     setAiLoading(false);
-    setAiAnalysis(null);
+    const savedAnalysis = window.localStorage.getItem(aiAnalysisStorageKey(props.sourceMarket, props.ticker));
+    setAiAnalysis(savedAnalysis || null);
     setAiError(null);
+    setAiAlertMessage("");
+    setShowAiLevelsOnChart(false);
   }, [props.open, props.ticker]);
+
+  useEffect(() => {
+    setCurrentAiAlertInfo(props.aiAlertInfo ?? null);
+    setCurrentAiLevelAlerts(props.aiLevelAlerts ?? []);
+  }, [props.aiAlertInfo, props.aiLevelAlerts]);
+
+  useEffect(() => {
+    if (!props.open) return;
+    void refreshAiAlertState();
+    const refresh = () => void refreshAiAlertState();
+    window.addEventListener("ifinance-alerts-changed", refresh);
+    return () => window.removeEventListener("ifinance-alerts-changed", refresh);
+  }, [props.open, props.sourceMarket, props.ticker]);
 
   const src = useMemo(() => {
     if (!props.imageUrl) return "";
@@ -284,9 +438,16 @@ export default function ChartModal(props: Props) {
           : `${url}${url.includes("?") ? "&" : "?"}chart_type=line`;
       }
     }
+    if (showAiLevelsOnChart && chartAiLevels.length) {
+      const parsed = new URL(url, window.location.origin);
+      parsed.searchParams.delete("ai_support");
+      parsed.searchParams.delete("ai_resistance");
+      chartAiLevels.forEach((level) => parsed.searchParams.append(level.type === "support" ? "ai_support" : "ai_resistance", String(level.price)));
+      url = parsed.toString();
+    }
     const sep = url.includes("?") ? "&" : "?";
     return `${url}${sep}retry=${retryCount}`;
-  }, [props.imageUrl, retryCount, forceLineFallback]);
+  }, [props.imageUrl, retryCount, forceLineFallback, showAiLevelsOnChart, chartAiLevels]);
 
   function retry() {
     setHasError(false);
@@ -394,11 +555,99 @@ export default function ChartModal(props: Props) {
         analysis_type: aiAnalysisType
       });
       setAiAnalysis(resp.analysis);
+      window.localStorage.setItem(aiAnalysisStorageKey(props.sourceMarket, props.ticker), resp.analysis);
     } catch (e) {
       setAiError(String(e));
     } finally {
       setAiLoading(false);
     }
+  }
+
+  async function activateAiAlert() {
+    if (!props.sourceMarket || !props.ticker || availableAiConditions.length === 0) return;
+    setAiAlertBusy(true);
+    setAiAlertMessage("");
+    try {
+      const result = await createAiAlert(props.sourceMarket, {
+        ticker: props.ticker,
+        conditions: availableAiConditions,
+        title: `🤖 Alert AI ${props.ticker}`
+      });
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert ${result.rule.id} attivato con ${result.rule.when?.all?.length ?? 0} condizioni in AND.`);
+    } catch (e) {
+      setAiAlertMessage(`Impossibile attivare: ${String(e)}`);
+    } finally {
+      setAiAlertBusy(false);
+    }
+  }
+
+  async function toggleAiAlert() {
+    if (!aiAlertActive) return activateAiAlert();
+    if (!props.sourceMarket || !currentAiAlertInfo?.ruleId) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      await deleteAlertRule(props.sourceMarket, currentAiAlertInfo.ruleId);
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert ${currentAiAlertInfo.ruleId} rimosso.`);
+    } catch (e) { setAiAlertMessage(`Impossibile rimuovere: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
+  async function activateAiLevel(level: AiCriticalLevel) {
+    if (!props.sourceMarket || !props.ticker) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      const result = await createAiLevelAlert(props.sourceMarket, { ticker: props.ticker, level });
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert livello ${result.rule.id} attivato.`);
+    } catch (e) { setAiAlertMessage(`Impossibile attivare: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
+  async function toggleAiLevel(level: AiCriticalLevel) {
+    const active = activeLevelFor(level);
+    if (!active) return activateAiLevel(level);
+    if (!props.sourceMarket) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      await deleteAlertRule(props.sourceMarket, active.ruleId);
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`Alert livello ${active.ruleId} rimosso.`);
+    } catch (e) { setAiAlertMessage(`Impossibile rimuovere: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
+  async function activateAllAiLevels() {
+    if (!props.sourceMarket || !props.ticker || !aiLevels.length) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      const results = await Promise.all(aiLevels.map((level) => createAiLevelAlert(props.sourceMarket!, { ticker: props.ticker, level })));
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`${results.length} alert sui livelli AI attivati separatamente.`);
+    } catch (e) { setAiAlertMessage(`Impossibile attivare tutti i livelli: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
+  }
+
+  async function toggleAllAiLevels() {
+    const active = currentAiLevelAlerts.filter((level) => level.enabled && aiLevels.some((candidate) =>
+      candidate.type === level.type && candidate.trigger === level.trigger && Math.abs(candidate.price - level.price) < 0.000001
+    ));
+    if (active.length !== aiLevels.length) return activateAllAiLevels();
+    if (!props.sourceMarket) return;
+    setAiAlertBusy(true); setAiAlertMessage("");
+    try {
+      await Promise.all(active.map((level) => deleteAlertRule(props.sourceMarket!, level.ruleId)));
+      await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
+      window.dispatchEvent(new Event("ifinance-alerts-changed"));
+      setAiAlertMessage(`${active.length} alert sui livelli AI rimossi.`);
+    } catch (e) { setAiAlertMessage(`Impossibile rimuovere tutti i livelli: ${String(e)}`); }
+    finally { setAiAlertBusy(false); }
   }
 
   if (!props.open) return null;
@@ -537,6 +786,14 @@ export default function ChartModal(props: Props) {
               {aiLoading ? "🧠 Analisi in corso..." : "🧠 Chiedi ad AI"}
             </button>
 
+            {chartAiLevels.length ? <button
+              className={showAiLevelsOnChart ? "btn alert-created" : "btn ghost"}
+              onClick={() => setShowAiLevelsOnChart((visible) => !visible)}
+              title="Mostra o nasconde sul grafico i supporti e le resistenze individuati dall'AI"
+            >
+              {showAiLevelsOnChart ? "✓ Nascondi livelli AI" : `📐 Livelli AI sul grafico (${chartAiLevels.length})`}
+            </button> : null}
+
             <select
               value={aiModel}
               onChange={(e) => {
@@ -559,12 +816,8 @@ export default function ChartModal(props: Props) {
             >
               <option value="gpt-4o">GPT-4o (Completo)</option>
               <option value="gpt-4o-mini">GPT-4o Mini (Default)</option>
-              <option value="o1">o1 (Vision)</option>
-              <option value="o3-mini">o3 Mini (Vision)</option>
               <option value="gpt-5.5">GPT-5.5</option>
-              <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
               <option value="gpt-5.4">GPT-5.4</option>
-              <option value="gpt-5.4-pro">GPT-5.4 Pro</option>
               <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
               <option value="gpt-5.4-nano">GPT-5.4 Nano</option>
             </select>
@@ -780,6 +1033,33 @@ export default function ChartModal(props: Props) {
           </div>
         ) : null}
 
+        {(availableAiConditions.length || chartAiLevels.length) ? (
+          <div className="ai-alerts-activated-summary">
+            <div className="active-alerts-heading">
+              <div><strong>Configurazione alert AI</strong><span>{aiAlertActive ? "1 regola attiva" : "Regola disponibile"} · {activeLevelCount}/{chartAiLevels.length} livelli attivi</span></div>
+              <span className={`active-status-pill${aiAlertActive || activeLevelCount ? "" : " inactive"}`}>● {aiAlertActive || activeLevelCount ? "Monitoraggio attivo" : "Disponibile"}</span>
+            </div>
+            {availableAiConditions.length ? <div className="active-rule-card">
+              <div className="active-rule-card-heading">
+                <div><strong>🤖 {currentAiAlertInfo?.ruleId ?? `AI_${props.ticker.replace(/[^A-Za-z0-9]+/g, "_").toUpperCase()}`}</strong><span>{displayedAiConditions.length} condizioni collegate in AND</span></div>
+                <button className={aiAlertActive ? "compact-remove-btn" : "compact-activate-btn"} disabled={aiAlertBusy} onClick={toggleAiAlert}>{aiAlertActive ? "Rimuovi alert" : "Attiva alert"}</button>
+              </div>
+              <div className="active-condition-grid">{displayedAiConditions.map((condition, index) => <div key={`${condition.field}-${index}`} className={`active-condition-chip ${condition.verified ? "verified" : "pending"}`}>
+                <b>{condition.verified ? "✓" : index + 1}</b><span><strong>{condition.field} {condition.op} {String(condition.value)}</strong><small>Valore attuale: {condition.actual == null ? "n/d" : String(condition.actual)}</small></span>
+              </div>)}</div>
+            </div> : null}
+            {chartAiLevels.map((level) => {
+              const active = activeLevelFor(level);
+              return <div key={`${level.type}-${level.price}`} className="activated-level-control">
+                <span className={active?.verified ? "level-state verified" : "level-state pending"}>{active?.verified ? "✓" : "○"}</span>
+                <span><strong>{level.type === "support" ? "Supporto" : "Resistenza"} {Number(level.price).toLocaleString("it-IT")}</strong><small>Close {level.trigger} {Number(level.price).toLocaleString("it-IT")} · {active ? `ora ${active.actual == null ? "n/d" : String(active.actual)}` : "non attivo"}</small></span>
+                <button className={active ? "compact-remove-btn" : "compact-activate-btn"} disabled={aiAlertBusy} onClick={() => toggleAiLevel(level)}>{active ? "Rimuovi" : "Attiva"}</button>
+              </div>;
+            })}
+          </div>
+        ) : null}
+        {aiAlertMessage ? <p className={aiAlertMessage.startsWith("Impossibile") ? "err" : "ok"}>{aiAlertMessage}</p> : null}
+
         {/* AI Analysis Result Section */}
         {aiLoading ? (
           <div className="chart-status" style={{ marginTop: "0.8rem", background: "rgba(139, 92, 246, 0.08)", borderColor: "rgba(139, 92, 246, 0.3)", display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -805,6 +1085,24 @@ export default function ChartModal(props: Props) {
             <div className="ai-content" style={{ fontSize: "0.92rem", color: "#e2e8f0" }}>
               {renderMessage(aiAnalysis)}
             </div>
+            {aiConditions.length > 0 ? (
+              <div style={{ marginTop: "0.8rem", display: "flex", alignItems: "center", gap: "0.7rem", flexWrap: "wrap" }}>
+                <button className={`btn alert-on${aiAlertActive ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={toggleAiAlert} title={aiAlertActive ? "Clicca per rimuovere questo alert" : "Clicca per attivare questo alert"}>
+                  {aiAlertBusy ? "Aggiornamento..." : aiAlertActive ? `✓ Alert AI attivo (${currentAiAlertInfo?.total ?? aiConditions.length} condizioni) · Rimuovi` : `🔔 Attiva alert AI (${aiConditions.length} condizioni)`}
+                </button>
+                <span className={aiAlertActive ? "alert-created-note" : "muted"}>{aiAlertActive ? `Regola ${currentAiAlertInfo?.ruleId} attiva.` : "Nessun alert viene creato finché non premi questo pulsante."}</span>
+              </div>
+            ) : null}
+            {aiLevels.length > 0 ? (
+              <div style={{ marginTop: "0.7rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {aiLevels.length > 1 ? <button className={`btn alert-on${activeLevelCount === aiLevels.length ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={toggleAllAiLevels}>{activeLevelCount === aiLevels.length ? `✓ Tutti i livelli attivi (${aiLevels.length}) · Rimuovi tutti` : `🔔 Attiva tutti i livelli (${activeLevelCount}/${aiLevels.length} attivi)`}</button> : null}
+                {aiLevels.map((level, i) => (
+                  <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={() => toggleAiLevel(level)} title={isLevelActive(level) ? "Clicca per rimuovere questo alert" : "Clicca per attivare questo alert"}>
+                    {isLevelActive(level) ? "✓ Attivo" : "🔔 Attiva"} {level.type === "support" ? "supporto" : "resistenza"} {Number(level.price).toLocaleString("it-IT")}{isLevelActive(level) ? " · Rimuovi" : ""}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -829,17 +1127,20 @@ export default function ChartModal(props: Props) {
             }}
             onError={() => {
               if (retryCount < MAX_AUTO_RETRIES) {
-                setRetryCount((v) => v + 1);
                 setLoading(true);
                 setHasError(false);
+                // Give the backend a moment to finish/recover before requesting
+                // the same chart again with a cache-busting query parameter.
+                window.setTimeout(() => setRetryCount((v) => v + 1), 1200);
                 return;
               }
-              if (props.chartType === "candlestick" && !forceLineFallback) {
+              if (!forceLineFallback) {
+                // Candlestick rendering can fail for sparse/incomplete OHLC data.
+                // Retry automatically with the more tolerant line chart.
                 setForceLineFallback(true);
                 setRetryCount(0);
                 setLoading(true);
                 setHasError(false);
-                props.onTypeChange("line");
                 return;
               }
               setLoading(false);

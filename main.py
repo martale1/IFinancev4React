@@ -45,6 +45,29 @@ def _has_enabled_gui_rules(rules_path: Path) -> bool:
     return any(bool(r.get("enabled", True)) for r in rules)
 
 
+def _ensure_gui_rules_file(rules_path: Path) -> None:
+    """Crea un file regole vuoto per i mercati nuovi, senza inventare alert."""
+    if rules_path.exists():
+        return
+    rules_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "defaults": {
+                    "cooldown_minutes": 0,
+                    "send_on_first_match_only": True,
+                    "max_per_day": 3,
+                    "min_gap_minutes": 0,
+                },
+                "rules": [],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+
 def run_gui_alerts(
     analyses_dir: str,
     telegram_channel: int = 5,
@@ -62,7 +85,7 @@ def run_gui_alerts(
         print(f"[ALERTS] analyses_dir not found: {p}")
         return {}
 
-    target_markets = markets or ["MIB30", "Preferite", "ETF", "ETC", "DAX"]
+    target_markets = markets or ["MIB30", "Preferite", "ETF", "ETC", "DAX", "Crypto"]
     target_markets = [str(m).strip() for m in target_markets if str(m).strip()]
 
     selected_markets = []
@@ -70,11 +93,9 @@ def run_gui_alerts(
         rules_path = p / f"alert_rules_{market}.yaml"
         xlsx_path = p / f"{market}_TA_Analyses.xlsx"
 
-        if not rules_path.exists():
-            print(f"[ALERTS] Skip {market}: rules file not found ({rules_path.name})")
-            continue
+        _ensure_gui_rules_file(rules_path)
         if require_enabled_rules and not _has_enabled_gui_rules(rules_path):
-            print(f"[ALERTS] Skip {market}: no enabled rules in {rules_path.name}")
+            print(f"[ALERTS] {market}: nessun alert attivo; analisi completata, controllo alert non necessario")
             continue
         if not xlsx_path.exists():
             print(f"[ALERTS] Skip {market}: excel file not found ({xlsx_path.name})")
@@ -83,7 +104,7 @@ def run_gui_alerts(
         selected_markets.append(market)
 
     if not selected_markets:
-        print("[ALERTS] No eligible GUI alert markets to run.")
+        print("[ALERTS] Nessun alert GUI attivo; i file di analisi restano disponibili.")
         return {}
 
     print(f"[ALERTS] analyses_dir: {p}")
@@ -283,7 +304,8 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
         "Preferite": (fh.PreferiteTickers, fh.PreferiteNames, None),
         "US_ETF":(fh.US_ETFTickers,fh.US_ETFNames,None),
         "US_Others": (fh.US_OthersTickers, fh.US_OthersNames, None),
-        "DAX": (fh.DAXTickers, fh.DAXNames, None)
+        "DAX": (fh.DAXTickers, fh.DAXNames, None),
+        "Crypto": (fh.CryptoTickers, fh.CryptoNames, None)
 
     }
     if market not in mercati:
@@ -1018,7 +1040,7 @@ liq_keep=('OK','LOW','AVOID')             # Non salva titoli con liquidita` LOW 
 NOTA: viene sempre chiamata la funzione per generare Layer1,2,3 indicazioni: analyzer.add_trading_layers_state_v3
 '''
 
-SUPPORTED_ANALYSIS_MARKETS = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'US_Others']
+SUPPORTED_ANALYSIS_MARKETS = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'US_Others', 'Crypto']
 _requested_markets = os.getenv("IFINANCE_ANALYSIS_MARKETS", "").strip()
 if _requested_markets:
     markets_to_run = [
@@ -1032,7 +1054,7 @@ if _requested_markets:
             f"Valori ammessi: {', '.join(SUPPORTED_ANALYSIS_MARKETS)}"
         )
 else:
-    markets_to_run = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF']
+    markets_to_run = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'Crypto']
 
 print(f"[ANALISI] Mercati selezionati: {', '.join(markets_to_run)}", flush=True)
 #,'MIB30','ETC','ETF']

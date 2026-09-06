@@ -19,7 +19,7 @@ NEEDED_COLUMNS = [
     "ATR", "ATR_PCT",
     "EMA_30", "EMA_50", "Signal6",
     "SAR", "SAR_Above_Price", "PCTV_10D", "PCTV_30D", "PCTV_180D",
-    "Vol_Perc_vs_MA20",
+    "Vol_Perc_vs_MA5", "Vol_Perc_vs_MA10", "Vol_Perc_vs_MA20", "ADX_Change",
     "MACD_vs_Signal",
     "Alligator_Jaw", "Alligator_Teeth", "Alligator_Lips", "Volume",
     "Pullback_Entry_Level", "Pullback_Entry_Zone_Low", "Pullback_Entry_Zone_High",
@@ -78,7 +78,8 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
         "MACD", "MACD_Signal", "MACD_Hist",
         "Stoch_K", "Stoch_D", "Volume",
         "MACDH_Trend_Days", "RSI_Trend_Days", "MACD_vs_Signal",
-        "Vol_Perc_vs_MA20", "EMA_30", "EMA_50", "SAR", "Layer2_Score",
+        "Vol_Perc_vs_MA5", "Vol_Perc_vs_MA10", "Vol_Perc_vs_MA20", "ADX_Change",
+        "EMA_30", "EMA_50", "SAR", "Layer2_Score",
         "Alligator_Jaw", "Alligator_Teeth", "Alligator_Lips", "Profit_Protect_Level",
         "Pullback_Entry_Level", "Pullback_Entry_Zone_Low", "Pullback_Entry_Zone_High",
         "Pullback_Stop_Level", "Trend_Stop_Level", "CE_Long",
@@ -87,6 +88,11 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     ]
     for c in numeric_cols:
         df[c] = _to_num_series(df[c])
+
+    # Derived fields used by relational alert conditions.
+    df["Stoch_KvsD"] = df["Stoch_K"] - df["Stoch_D"]
+    df["DI_diff"] = df["PLUS_DI"] - df["MINUS_DI"]
+    df["EMA30"] = df["EMA_30"]
 
     df["Action"] = df["Action"].astype(str).str.upper()
     df["Market_Phase"] = df["Market_Phase"].astype(str).str.upper()

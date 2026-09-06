@@ -1,0 +1,7 @@
+version: 1
+defaults:
+  cooldown_minutes: 0
+  send_on_first_match_only: true
+  max_per_day: 3
+  min_gap_minutes: 0
+rules: []
