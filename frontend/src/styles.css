@@ -1427,6 +1427,28 @@ td {
     gap: 0.65rem;
   }
 
+  /* Pattern S2-S8: swipe orizzontale dentro la viewport mobile */
+  .pattern-toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pattern-tabs-scroll {
+    flex: 0 0 auto !important;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: 0.35rem;
+    scroll-behavior: smooth;
+  }
+
+  .pattern-toolbar > .btn {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
   /* Forza tutti i grid 2-col a 1 colonna su mobile */
   .tech-details {
     grid-template-columns: 1fr;

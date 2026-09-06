@@ -571,7 +571,7 @@ export default function MultiPatternLabPanel({
   const filterLabel = [useSar ? "SAR" : null, useSma200 ? "SMA200" : null].filter(Boolean).join(", ") || "Nessuno";
 
   return (
-    <div style={{ marginTop: "1rem", display: "grid", gap: "1rem", maxWidth: "100%", overflow: "hidden" }}>
+    <div style={{ marginTop: "1rem", display: "grid", gap: "1rem", minWidth: 0, maxWidth: "100%", overflow: "hidden" }}>
 
       {/* ══════════════ HEADER COMPATTO ══════════════ */}
       <section className="hero" style={{ flexDirection: "column", gap: "0.7rem", alignItems: "stretch", padding: "1rem 1.2rem" }}>
@@ -737,15 +737,19 @@ export default function MultiPatternLabPanel({
       </section>
 
       {/* ══════════════ PATTERN TABS + SCAN BUTTON ══════════════ */}
-      <div style={{
+      <div className="pattern-toolbar" style={{
         display: "flex", alignItems: "center", gap: "0.5rem",
         background: "rgba(10, 25, 47, 0.45)",
         border: "1px solid rgba(184, 216, 246, 0.14)",
         borderRadius: "14px", padding: "0.5rem 0.6rem",
-        backdropFilter: "blur(10px)", flexWrap: "wrap"
+        backdropFilter: "blur(10px)", flexWrap: "wrap", minWidth: 0, maxWidth: "100%"
       }}>
         {/* Pattern selector pills */}
-        <div style={{ display: "flex", gap: "0.3rem", flex: "1 1 auto", overflowX: "auto", scrollbarWidth: "none" as any }}>
+        <div className="pattern-tabs-scroll" style={{
+          display: "flex", gap: "0.3rem", flex: "1 1 auto", minWidth: 0,
+          overflowX: "auto", overflowY: "hidden", scrollbarWidth: "thin" as any,
+          WebkitOverflowScrolling: "touch", touchAction: "pan-x", overscrollBehaviorX: "contain"
+        }}>
           {allTabs.map((t) => {
             const active = pattern === t.id;
             return (
