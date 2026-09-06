@@ -113,6 +113,7 @@ function formatMessage(content: string) {
 export default function AiChatPanel({ market }: Props) {
   const [sessionId, setSessionId] = useState(() => makeSessionId());
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const latestAssistantRef = useRef<HTMLDivElement | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AiChatMessage[]>(() => {
     try {
@@ -137,11 +138,24 @@ export default function AiChatPanel({ market }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [model, setModel] = useState(() => window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini");
+  const [readerOpen, setReaderOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, mode }));
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, mode]);
+
+  useEffect(() => {
+    if (!readerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => {
+      latestAssistantRef.current?.scrollIntoView({ block: "start" });
+    });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [readerOpen]);
 
   function clearChat() {
     setMessages([]);
@@ -171,8 +185,10 @@ export default function AiChatPanel({ market }: Props) {
     }
   }
 
+  const latestAssistantIndex = messages.map((message) => message.role).lastIndexOf("assistant");
+
   return (
-    <section className="ai-panel">
+    <section className={`ai-panel${readerOpen ? " reader-open" : ""}`}>
       <div className="ai-head">
         <div>
           <h2>IFinance AI</h2>
@@ -210,8 +226,16 @@ export default function AiChatPanel({ market }: Props) {
             <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
             <option value="gpt-5.4-nano">GPT-5.4 Nano</option>
           </select>
-          <button className="btn ghost" onClick={clearChat} disabled={busy || messages.length === 0}>
+          <button className="btn ghost ai-new-chat" onClick={clearChat} disabled={busy || messages.length === 0}>
             Nuova chat
+          </button>
+          <button
+            type="button"
+            className="btn ghost ai-reader-toggle"
+            onClick={() => setReaderOpen((current) => !current)}
+            disabled={messages.length === 0}
+          >
+            {readerOpen ? "✕ Chiudi lettura" : "📖 Leggi risposta"}
           </button>
         </div>
       </div>
@@ -231,7 +255,11 @@ export default function AiChatPanel({ market }: Props) {
           </div>
         ) : (
           messages.map((m, idx) => (
-            <div key={`${m.role}-${idx}`} className={m.role === "user" ? "ai-msg user" : "ai-msg assistant"}>
+            <div
+              key={`${m.role}-${idx}`}
+              ref={m.role === "assistant" && idx === latestAssistantIndex ? latestAssistantRef : undefined}
+              className={m.role === "user" ? "ai-msg user" : "ai-msg assistant"}
+            >
               <div className="ai-avatar">{m.role === "user" ? "Tu" : "AI"}</div>
               <div className="ai-bubble">
                 <div className="ai-role">{m.role === "user" ? "Tu" : "IFinance AI"}</div>
