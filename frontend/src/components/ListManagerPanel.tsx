@@ -270,10 +270,10 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
   }
 
   return (
-    <div style={{ marginTop: "1rem", display: "grid", gap: "1.5rem" }}>
+    <div className="list-manager-panel" style={{ marginTop: "1rem", display: "grid", gap: "1.5rem" }}>
       {/* Toast Notification */}
       {toast && (
-        <div style={{
+        <div className="analysis-layout" style={{
           position: "fixed",
           top: "20px",
           right: "20px",
@@ -382,7 +382,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "0.5rem" }}>
+        <div className="list-controls-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "0.5rem" }}>
           {/* Market Selection Dropdown */}
           <div style={{ background: "rgba(8,18,34,0.4)", padding: "0.8rem", borderRadius: "12px", border: "1px solid rgba(184,216,246,0.15)" }}>
             <span style={{ fontSize: "0.82rem", fontWeight: "bold", display: "block", marginBottom: "0.4rem", color: "#cfe5fa" }}>
@@ -416,7 +416,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
             <span style={{ fontSize: "0.82rem", fontWeight: "bold", display: "block", color: "#cfe5fa" }}>
               ➕ Aggiungi un Nuovo Titolo alla Lista:
             </span>
-            <div style={{ display: "grid", gridTemplateColumns: selectedMarket.startsWith("WL:") ? "1fr 1.2fr 1fr" : "1fr 1.5fr", gap: "0.5rem" }}>
+            <div className="add-ticker-fields" style={{ display: "grid", gridTemplateColumns: selectedMarket.startsWith("WL:") ? "1fr 1.2fr 1fr" : "1fr 1.5fr", gap: "0.5rem" }}>
               <input
                 type="text"
                 placeholder="Ticker (es. RWE.DE)"
@@ -486,8 +486,8 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
 
       {/* 2. List Content Card */}
       <section className="card" style={{ padding: "1rem" }}>
-        <h3 style={{ margin: "0 0 0.6rem 0", fontSize: "1rem", color: "#cfe5fa", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <h3 className="list-content-heading" style={{ margin: "0 0 0.6rem 0", fontSize: "1rem", color: "#cfe5fa", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="list-heading-primary" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <span>📋 Titoli Correnti ({items.length})</span>
             {selectedTickers.length > 0 && (
               <button
@@ -512,7 +512,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
               </button>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontSize: "0.78rem", color: "#8cb4d9", fontWeight: "normal" }}>
+          <div className="list-heading-meta" style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontSize: "0.78rem", color: "#8cb4d9", fontWeight: "normal" }}>
             <label style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
               Ordina:
               <select
@@ -546,8 +546,8 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
             Nessun titolo presente in questa lista. Usa il modulo sopra per aggiungere il tuo primo titolo!
           </div>
         ) : (
-          <div className="table-wrap" style={{ maxHeight: "400px" }}>
-            <table>
+          <div className="table-wrap managed-tickers-wrap" style={{ maxHeight: "400px" }}>
+            <table className="managed-tickers-table">
               <thead>
                 <tr>
                   <th style={{ width: "5%", textAlign: "center" }}>
@@ -573,7 +573,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
               <tbody>
                 {orderedItems.map((row) => (
                   <tr key={row.Ticker} style={{ transition: "background-color 0.2s" }}>
-                    <td style={{ textAlign: "center" }}>
+                    <td className="managed-select" style={{ textAlign: "center" }}>
                       <input
                         type="checkbox"
                         checked={selectedTickers.includes(row.Ticker)}
@@ -587,10 +587,10 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
                         style={{ cursor: "pointer", width: "16px", height: "16px" }}
                       />
                     </td>
-                    <td style={{ fontWeight: "bold", color: "#ffffff", fontSize: "0.9rem" }}>{row.Ticker}</td>
-                    <td style={{ color: "#b8d4ee", fontSize: "0.88rem" }}>{row.Name}</td>
+                    <td className="managed-ticker" style={{ fontWeight: "bold", color: "#ffffff", fontSize: "0.9rem" }}>{row.Ticker}</td>
+                    <td className="managed-name" style={{ color: "#b8d4ee", fontSize: "0.88rem" }}>{row.Name}</td>
                     {selectedMarket.startsWith("WL:") && (
-                      <td>
+                      <td className="managed-market">
                         <span style={{
                           padding: "0.15rem 0.45rem",
                           borderRadius: "6px",
@@ -604,7 +604,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
                         </span>
                       </td>
                     )}
-                    <td style={{ textAlign: "center" }}>
+                    <td className="managed-action" style={{ textAlign: "center" }}>
                       <button
                         className="btn ghost text-danger"
                         disabled={removingTicker === row.Ticker || removingTicker === "BULK"}

@@ -1506,6 +1506,54 @@ td {
     text-align: center;
   }
 
+  /* Pannello Analizza: nessun elemento può allargare la viewport. */
+  .list-manager-panel,
+  .list-manager-panel .hero,
+  .list-manager-panel .card {
+    width: 100%; min-width: 0; max-width: 100%; overflow-x: hidden;
+  }
+
+  .list-manager-panel .hero > div:first-of-type { align-items: stretch !important; }
+  .list-manager-panel .hero > div:first-of-type > div,
+  .list-manager-panel .hero > div:first-of-type .btn {
+    width: 100%; min-width: 0; height: auto !important; min-height: 42px; white-space: normal;
+  }
+
+  .analysis-layout,
+  .list-controls-layout,
+  .add-ticker-fields {
+    width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) !important; gap: 0.75rem !important;
+  }
+
+  .analysis-layout > *, .list-controls-layout > *, .add-ticker-fields > * { min-width: 0; max-width: 100%; }
+  .list-content-heading, .list-heading-primary, .list-heading-meta {
+    min-width: 0; align-items: stretch !important; flex-direction: column; gap: 0.55rem !important;
+  }
+
+  .list-heading-meta label, .list-heading-meta select { width: 100%; min-width: 0; }
+  .managed-tickers-wrap { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .managed-tickers-table { display: block; width: 100%; min-width: 0; }
+  .managed-tickers-table thead { display: none; }
+  .managed-tickers-table tbody { display: grid; gap: 0.5rem; }
+
+  .managed-tickers-table tr {
+    display: grid; grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 0.18rem 0.5rem; align-items: center; padding: 0.65rem;
+    border: 1px solid rgba(184, 216, 246, 0.16); border-radius: 10px;
+    background: rgba(7, 18, 33, 0.55);
+  }
+
+  .managed-tickers-table td {
+    display: block; width: auto !important; min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere;
+  }
+
+  .managed-select { grid-column: 1; grid-row: 1; }
+  .managed-ticker { grid-column: 2; grid-row: 1; }
+  .managed-name { grid-column: 2; grid-row: 2; }
+  .managed-market { grid-column: 2; grid-row: 3; }
+  .managed-action { grid-column: 3; grid-row: 1 / span 3; }
+  .managed-action .btn { width: auto; white-space: nowrap; }
+
   /* Griglia card mobile: 1 colonna */
   .grid {
     grid-template-columns: 1fr;
