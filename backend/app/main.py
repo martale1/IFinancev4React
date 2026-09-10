@@ -561,7 +561,7 @@ def post_ai_level_alert_rule(market: str, req: AiLevelAlertCreateRequest):
     if market not in MARKETS:
         raise HTTPException(status_code=400, detail=f"Unsupported market: {market}")
     try:
-        rule = create_ai_level_alert_rule(market, req.ticker, req.level)
+        rule = create_ai_level_alert_rule(market, req.ticker, req.level, req.current_price)
         return {"status": "ok", "rule": rule}
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -924,6 +924,7 @@ class AnalyzeChartRequest(BaseModel):
     levels: dict | None = None
     model: str | None = None
     analysis_type: str | None = "detailed" # "detailed" or "concise"
+    current_price: float | None = None
 
 @app.post("/api/ai/analyze-chart")
 def api_analyze_chart(req: AnalyzeChartRequest):
@@ -955,6 +956,8 @@ def api_analyze_chart(req: AnalyzeChartRequest):
         if req.analysis_type == "concise":
             prompt_text = (
                 f"Analizza l'immagine del grafico tecnico allegata per il titolo '{req.ticker}' (Mercato: {req.market}).\n\n"
+                f"PREZZO CORRENTE DI RIFERIMENTO: {req.current_price if req.current_price is not None else 'non disponibile'}.\n"
+                "Confronta obbligatoriamente ogni livello e trigger di prezzo con questo valore. Un supporto deve essere strettamente sotto il prezzo corrente e una resistenza strettamente sopra. Non proporre come condizione futura un confronto di prezzo già verificato; sostituiscilo con una soglia futura ancora non raggiunta o con una conferma tecnica misurabile.\n\n"
                 "RISPONDI ESCLUSIVAMENTE IN ITALIANO con la seguente struttura FISSA e OBBLIGATORIA in markdown. Sii estremamente sintetico, conciso e operativo (da farsi nell'immediato).\n\n"
                 "NON racchiudere l'intera risposta in un blocco ```markdown```: usa il markdown direttamente. Racchiudi nei backtick tripli esclusivamente il singolo blocco JSON richiesto.\n\n"
                 "---\n"
@@ -988,6 +991,8 @@ def api_analyze_chart(req: AnalyzeChartRequest):
         else:
             prompt_text = (
                 f"Analizza l'immagine del grafico tecnico allegata per il titolo '{req.ticker}' (Mercato: {req.market}).\n\n"
+                f"PREZZO CORRENTE DI RIFERIMENTO: {req.current_price if req.current_price is not None else 'non disponibile'}.\n"
+                "Confronta obbligatoriamente ogni livello e trigger di prezzo con questo valore. Un supporto deve essere strettamente sotto il prezzo corrente e una resistenza strettamente sopra. Non proporre come condizione futura un confronto di prezzo già verificato; sostituiscilo con una soglia futura ancora non raggiunta o con una conferma tecnica misurabile.\n\n"
                 "Il grafico è composto da 5 pannelli (dall'alto in basso):\n"
                 "1. Prezzo con Candele e medie Bill Williams Alligator (Jaw blu, Teeth rosso, Lips verde), più eventuali linee di stop (SL1, SL2).\n"
                 "2. Volumi con medie MA10/MA5.\n"

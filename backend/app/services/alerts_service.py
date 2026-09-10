@@ -261,13 +261,16 @@ def create_ai_alert_rule(market: str, ticker: str, raw_conditions: list[dict[str
     return payload
 
 
-def create_ai_level_alert_rule(market: str, ticker: str, level: dict[str, Any]) -> dict[str, Any]:
+def create_ai_level_alert_rule(market: str, ticker: str, level: dict[str, Any], current_price: float | None = None) -> dict[str, Any]:
     ticker = str(ticker).strip().upper()
     level_type = str(level.get("type", "")).strip().lower()
     trigger = str(level.get("trigger", "")).strip()
     price = _safe_float(level.get("price"))
     if not ticker or level_type not in {"support", "resistance"} or trigger not in {"<", ">"} or price is None or price <= 0:
         raise ValueError("Livello AI non valido: richiede ticker, type support/resistance, trigger </> e price positivo")
+    actual = _safe_float(current_price)
+    if actual is not None and ((trigger == ">" and actual >= price) or (trigger == "<" and actual <= price)):
+        raise ValueError(f"Livello già superato: prezzo corrente {actual:g}, trigger {trigger} {price:g}")
     safe_ticker = re.sub(r"[^A-Z0-9]+", "_", ticker).strip("_")
     price_key = str(price).replace(".", "_")
     rule_id = f"AI_LEVEL_{safe_ticker}_{level_type.upper()}_{price_key}"

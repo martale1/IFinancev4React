@@ -208,6 +208,11 @@ function extractAiLevels(content: string): AiCriticalLevel[] {
   return [];
 }
 
+function isAiLevelAlreadyCrossed(level: AiCriticalLevel, currentPrice: number | null): boolean {
+  return currentPrice !== null && Number.isFinite(currentPrice)
+    && (level.trigger === ">" ? currentPrice >= Number(level.price) : currentPrice <= Number(level.price));
+}
+
 function aiAnalysisStorageKey(market: string | undefined, ticker: string): string {
   return `ifinance-chart-ai-analysis::${String(market ?? "").trim().toUpperCase()}::${String(ticker).trim().toUpperCase()}`;
 }
@@ -660,7 +665,8 @@ export default function ChartModal(props: Props) {
           ppLevel: props.levels.ppLevel
         } : null,
         model: aiModel,
-        analysis_type: aiAnalysisType
+        analysis_type: aiAnalysisType,
+        current_price: close
       });
       if (currentChartAiContextRef.current !== requestedChartContext) return;
       setAiAnalysis(resp.analysis);
@@ -717,9 +723,13 @@ export default function ChartModal(props: Props) {
 
   async function activateAiLevel(level: AiCriticalLevel) {
     if (!props.sourceMarket || !props.ticker) return;
+    if (isAiLevelAlreadyCrossed(level, close)) {
+      setAiAlertMessage(`Livello già superato dal prezzo corrente (${fmtPrice(close)}): alert non attivato.`);
+      return;
+    }
     setAiAlertBusy(true); setAiAlertMessage("");
     try {
-      const result = await createAiLevelAlert(props.sourceMarket, { ticker: props.ticker, level });
+      const result = await createAiLevelAlert(props.sourceMarket, { ticker: props.ticker, level, current_price: close });
       await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
       setAiAlertMessage(`Alert livello ${result.rule.id} attivato.`);
@@ -745,7 +755,9 @@ export default function ChartModal(props: Props) {
     if (!props.sourceMarket || !props.ticker || !aiLevels.length) return;
     setAiAlertBusy(true); setAiAlertMessage("");
     try {
-      const results = await Promise.all(aiLevels.map((level) => createAiLevelAlert(props.sourceMarket!, { ticker: props.ticker, level })));
+      const actionable = aiLevels.filter((level) => !isAiLevelAlreadyCrossed(level, close));
+      if (!actionable.length) throw new Error("Tutti i livelli proposti sono già stati superati.");
+      const results = await Promise.all(actionable.map((level) => createAiLevelAlert(props.sourceMarket!, { ticker: props.ticker, level, current_price: close })));
       await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
       setAiAlertMessage(`${results.length} alert sui livelli AI attivati separatamente.`);
@@ -1224,8 +1236,8 @@ export default function ChartModal(props: Props) {
               <div style={{ marginTop: "0.7rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {aiLevels.length > 1 ? <button className={`btn alert-on${activeLevelCount === aiLevels.length ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={toggleAllAiLevels}>{activeLevelCount === aiLevels.length ? `✓ Tutti i livelli attivi (${aiLevels.length}) · Rimuovi tutti` : `🔔 Attiva tutti i livelli (${activeLevelCount}/${aiLevels.length} attivi)`}</button> : null}
                 {aiLevels.map((level, i) => (
-                  <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={() => toggleAiLevel(level)} title={isLevelActive(level) ? "Clicca per rimuovere questo alert" : "Clicca per attivare questo alert"}>
-                    {isLevelActive(level) ? "✓ Attivo" : "🔔 Attiva"} {level.type === "support" ? "supporto" : "resistenza"} {Number(level.price).toLocaleString("it-IT")}{isLevelActive(level) ? " · Rimuovi" : ""}
+                  <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy || (!isLevelActive(level) && isAiLevelAlreadyCrossed(level, close))} onClick={() => toggleAiLevel(level)} title={isAiLevelAlreadyCrossed(level, close) ? "Livello già superato dal prezzo corrente" : isLevelActive(level) ? "Clicca per rimuovere questo alert" : "Clicca per attivare questo alert"}>
+                    {isLevelActive(level) ? "✓ Attivo" : isAiLevelAlreadyCrossed(level, close) ? "⚠ Già superato" : "🔔 Attiva"} {level.type === "support" ? "supporto" : "resistenza"} {Number(level.price).toLocaleString("it-IT")}{isLevelActive(level) ? " · Rimuovi" : ""}
                   </button>
                 ))}
               </div>

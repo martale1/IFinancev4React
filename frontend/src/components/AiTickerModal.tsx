@@ -66,6 +66,11 @@ function extractAiLevels(content: string): AiCriticalLevel[] {
   return [];
 }
 
+function isAiLevelAlreadyCrossed(level: AiCriticalLevel, currentPrice: number | null): boolean {
+  return currentPrice !== null && Number.isFinite(currentPrice)
+    && (level.trigger === ">" ? currentPrice >= Number(level.price) : currentPrice <= Number(level.price));
+}
+
 function toNum(v: unknown): number | null {
   if (typeof v === "number" && !Number.isNaN(v)) return v;
   if (typeof v === "string") {
@@ -406,7 +411,8 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
           ppLevel: toNum(row.Profit_Protect_Level)
         },
         model,
-        analysis_type: analysisType
+        analysis_type: analysisType,
+        current_price: toNum(row.Close)
       });
       
       appendMessage(sessionKey, sessionForRequest, {
@@ -437,9 +443,14 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
   }
 
   async function activateLevel(level: AiCriticalLevel) {
+    const currentPrice = toNum(row?.Close);
+    if (isAiLevelAlreadyCrossed(level, currentPrice)) {
+      setAiAlertMessage(`Livello già superato dal prezzo corrente (${currentPrice}).`);
+      return;
+    }
     setAiAlertBusy(true); setAiAlertMessage("");
     try {
-      const result = await createAiLevelAlert(market, { ticker, level });
+      const result = await createAiLevelAlert(market, { ticker, level, current_price: currentPrice });
       await queryClient.invalidateQueries({ queryKey: ["alerts", market] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
       setAiAlertMessage(`Alert livello ${result.rule.id} attivato.`);
@@ -451,7 +462,10 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
     if (!levels.length) return;
     setAiAlertBusy(true); setAiAlertMessage("");
     try {
-      await Promise.all(levels.map((level) => createAiLevelAlert(market, { ticker, level })));
+      const currentPrice = toNum(row?.Close);
+      const actionable = levels.filter((level) => !isAiLevelAlreadyCrossed(level, currentPrice));
+      if (!actionable.length) throw new Error("Tutti i livelli proposti sono già stati superati.");
+      await Promise.all(actionable.map((level) => createAiLevelAlert(market, { ticker, level, current_price: currentPrice })));
       await queryClient.invalidateQueries({ queryKey: ["alerts", market] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
       setAiAlertMessage(`${levels.length} alert sui livelli AI attivati.`);
@@ -556,7 +570,10 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
                     const activeCount = levels.filter(isLevelActive).length;
                     return <button className={`btn alert-on${activeCount === levels.length ? " alert-created" : ""}`} disabled={aiAlertBusy || activeCount === levels.length} onClick={() => activateAllLevels(levels)}>{activeCount === levels.length ? `✓ Tutti i livelli attivi (${levels.length})` : `🔔 Attiva tutti i livelli (${activeCount}/${levels.length} attivi)`}</button>;
                   })() : null}
-                  {levels.map((level, i) => <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy || isLevelActive(level)} onClick={() => activateLevel(level)}>{isLevelActive(level) ? "✓ Attivo" : "🔔 Attiva"} {level.type === "support" ? "Supporto" : "Resistenza"} {level.price}</button>)}
+                  {levels.map((level, i) => {
+                    const crossed = isAiLevelAlreadyCrossed(level, toNum(row.Close));
+                    return <button key={i} className={`btn ghost${isLevelActive(level) ? " alert-created" : ""}`} disabled={aiAlertBusy || isLevelActive(level) || crossed} title={crossed ? "Livello già superato dal prezzo corrente" : undefined} onClick={() => activateLevel(level)}>{isLevelActive(level) ? "✓ Attivo" : crossed ? "⚠ Già superato" : "🔔 Attiva"} {level.type === "support" ? "Supporto" : "Resistenza"} {level.price}</button>;
+                  })}
                 </div>
               </div>
               );

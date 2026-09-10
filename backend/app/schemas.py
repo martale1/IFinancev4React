@@ -31,6 +31,7 @@ class AiAlertCreateRequest(BaseModel):
 class AiLevelAlertCreateRequest(BaseModel):
     ticker: str
     level: dict[str, Any]
+    current_price: float | None = None
 
 
 class AlertToggleRequest(BaseModel):

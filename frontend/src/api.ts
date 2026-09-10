@@ -191,7 +191,7 @@ export async function createAiAlert(market: string, input: { ticker: string; con
   return parseJson<{ status: string; rule: AlertRule }>(resp);
 }
 
-export async function createAiLevelAlert(market: string, input: { ticker: string; level: AiCriticalLevel }): Promise<{ status: string; rule: AlertRule }> {
+export async function createAiLevelAlert(market: string, input: { ticker: string; level: AiCriticalLevel; current_price?: number | null }): Promise<{ status: string; rule: AlertRule }> {
   const resp = await fetch(`${API_BASE}/alerts/${encodeURIComponent(market)}/ai-level`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input)
   });
@@ -206,6 +206,7 @@ export async function analyzeChartImage(input: {
   levels: Record<string, number | null | undefined> | null;
   model?: string;
   analysis_type?: string;
+  current_price?: number | null;
 }): Promise<{ ticker: string; analysis: string }> {
   const resp = await fetch(`${API_BASE}/ai/analyze-chart`, {
     method: "POST",
