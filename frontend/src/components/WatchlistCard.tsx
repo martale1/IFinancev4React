@@ -626,7 +626,7 @@ export default function WatchlistCard({
           </span>
         )}
         <span>
-          SARMA: <b style={{ color: sarma !== null && sarma > 0 ? "#22c55e" : "#ef4444" }}>{sarma !== null && sarma > 0 ? num(sarma, 0) : "<0"}</b>
+          SARMA: <b style={{ color: sarma !== null && sarma >= 0 ? "#22c55e" : "#ef4444" }}>{sarma !== null ? num(sarma, 0) : "-"}</b>
         </span>
         <span>
           RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b>
