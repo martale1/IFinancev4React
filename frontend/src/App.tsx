@@ -818,6 +818,17 @@ export default function App() {
       ) : null}
       <RuleGuide />
 
+      <label className="mobile-tab-selector">
+        <span>Sezione</span>
+        <select value={tab} onChange={(event) => {
+          const nextTab = event.target.value;
+          setTab(nextTab);
+          if (trendDetailForTab(nextTab)) setTrendPhaseDetailFilter("");
+          setPage(1);
+        }}>
+          {tabs.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </label>
       <nav className="tabs" aria-label="Sezioni principali">
         {tabs.map((t) => (
           <button

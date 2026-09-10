@@ -293,15 +293,16 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
 
       {/* 1. Header & Select Market */}
       <section className="hero" style={{ flexDirection: "column", gap: "1rem", alignItems: "stretch", position: "relative" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
+        <div className="analysis-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div className="analysis-title">
             <h2 style={{ fontSize: "1.25rem", margin: 0, color: "#ffffff" }}>📂 Gestore Database e Liste Titoli (Excel & JSON)</h2>
             <p style={{ fontSize: "0.85rem", color: "#8cb4d9", margin: "0.2rem 0 0 0" }}>
               Visualizza, aggiungi o rimuovi titoli dai file Excel sorgenti (`preferite.xlsx`, `validtickers_DE_DAX.xlsx`, ecc.) e dalle watchlists della GUI.
             </p>
           </div>
           <button
-            className="btn"
+            type="button"
+            className="btn analysis-run-button"
             disabled={analysisJob?.status === "stopping"}
             onClick={regenerating ? handleStopAnalysis : handleRegenerate}
             style={{ 
@@ -355,7 +356,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
             </div>
           </div>
 
-          <div style={{ background: "#050b14", borderRadius: "12px", border: "1px solid rgba(74,222,128,0.25)", overflow: "hidden" }}>
+          <div className="analysis-log" style={{ background: "#050b14", borderRadius: "12px", border: "1px solid rgba(74,222,128,0.25)", overflow: "hidden" }}>
             <div style={{
               display: "flex", justifyContent: "space-between", gap: "1rem", padding: "0.55rem 0.75rem",
               background: "rgba(15,34,55,0.95)", borderBottom: "1px solid rgba(184,216,246,0.12)", fontSize: "0.8rem"

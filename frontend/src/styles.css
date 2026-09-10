@@ -110,6 +110,10 @@ textarea {
   overflow: auto;
 }
 
+.mobile-tab-selector {
+  display: none;
+}
+
 .source-meta {
   margin-top: 0.55rem;
   padding: 0.35rem 0.2rem;
@@ -1486,13 +1490,25 @@ td {
     font-size: 1.15rem;
   }
 
-  /* Tab principali: griglia leggibile, senza scorrimento orizzontale. */
-  .tabs {
+  /* Su mobile un solo selettore sostituisce la lunga barra dei tab. */
+  .mobile-tab-selector {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible;
-    padding-bottom: 0;
-    gap: 0.4rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(187, 219, 247, 0.2);
+    border-radius: 12px;
+    background: rgba(9, 22, 39, 0.82);
+  }
+
+  .mobile-tab-selector span { color: #8cb4d9; font-size: 0.78rem; font-weight: 700; }
+  .mobile-tab-selector select { width: 100%; min-width: 0; font-size: 16px; }
+
+  .tabs {
+    display: none;
   }
 
   .tab {
@@ -1511,13 +1527,19 @@ td {
   .list-manager-panel .hero,
   .list-manager-panel .card {
     width: 100%; min-width: 0; max-width: 100%; overflow-x: hidden;
+    contain: inline-size;
   }
 
-  .list-manager-panel .hero > div:first-of-type { align-items: stretch !important; }
-  .list-manager-panel .hero > div:first-of-type > div,
-  .list-manager-panel .hero > div:first-of-type .btn {
+  .list-manager-panel * { min-width: 0; }
+  .analysis-header { flex-direction: column; align-items: stretch !important; }
+  .analysis-title { width: 100%; overflow-wrap: anywhere; }
+  .analysis-title p { display: none; }
+  .analysis-run-button {
     width: 100%; min-width: 0; height: auto !important; min-height: 42px; white-space: normal;
   }
+
+  .analysis-log { width: 100%; max-width: 100%; }
+  .analysis-log > div { max-width: 100%; overflow-wrap: anywhere; }
 
   .analysis-layout,
   .list-controls-layout,
