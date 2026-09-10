@@ -110,10 +110,6 @@ textarea {
   overflow: auto;
 }
 
-.mobile-tab-selector {
-  display: none;
-}
-
 .source-meta {
   margin-top: 0.55rem;
   padding: 0.35rem 0.2rem;
@@ -1490,34 +1486,22 @@ td {
     font-size: 1.15rem;
   }
 
-  /* Su mobile un solo selettore sostituisce la lunga barra dei tab. */
-  .mobile-tab-selector {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 0.65rem;
-    width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.65rem 0.75rem;
-    border: 1px solid rgba(187, 219, 247, 0.2);
-    border-radius: 12px;
-    background: rgba(9, 22, 39, 0.82);
-  }
-
-  .mobile-tab-selector span { color: #8cb4d9; font-size: 0.78rem; font-weight: 700; }
-  .mobile-tab-selector select { width: 100%; min-width: 0; font-size: 16px; }
-
+  /* Pulsanti diretti compatti: nessun dropdown e nessuno scroll laterale. */
   .tabs {
-    display: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+    width: 100%;
+    overflow: visible;
   }
 
   .tab {
     width: 100%;
     min-width: 0;
-    min-height: 42px;
-    padding: 0.42rem 0.5rem;
-    font-size: 0.8rem;
-    line-height: 1.2;
+    min-height: 34px;
+    padding: 0.32rem 0.2rem;
+    font-size: 0.68rem;
+    line-height: 1.12;
     white-space: normal;
     text-align: center;
   }
@@ -1526,8 +1510,7 @@ td {
   .list-manager-panel,
   .list-manager-panel .hero,
   .list-manager-panel .card {
-    width: 100%; min-width: 0; max-width: 100%; overflow-x: hidden;
-    contain: inline-size;
+    width: 100%; min-width: 0; max-width: 100%; overflow-x: clip;
   }
 
   .list-manager-panel * { min-width: 0; }
@@ -1539,7 +1522,14 @@ td {
   }
 
   .analysis-log { width: 100%; max-width: 100%; }
-  .analysis-log > div { max-width: 100%; overflow-wrap: anywhere; }
+  .analysis-log > div { width: 100%; max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap !important; }
+
+  .analysis-toast {
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: calc(100vw - 1.5rem) !important;
+  }
 
   .analysis-layout,
   .list-controls-layout,

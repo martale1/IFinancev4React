@@ -273,7 +273,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
     <div className="list-manager-panel" style={{ marginTop: "1rem", display: "grid", gap: "1.5rem" }}>
       {/* Toast Notification */}
       {toast && (
-        <div className="analysis-layout" style={{
+        <div className="analysis-toast" style={{
           position: "fixed",
           top: "20px",
           right: "20px",
@@ -327,7 +327,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
           </button>
         </div>
 
-        <div style={{
+        <div className="analysis-layout" style={{
           display: "grid", gridTemplateColumns: "minmax(260px, 0.8fr) minmax(420px, 1.7fr)",
           gap: "1rem", alignItems: "stretch"
         }}>
