@@ -675,9 +675,19 @@ export default function App() {
         if (aMissing) return 1;
         if (bMissing) return -1;
 
-        // S3 e SARMA: prima zero/positivi crescenti, poi negativi crescenti.
-        const aGroup = aNumber >= 0 ? 0 : 1;
-        const bGroup = bNumber >= 0 ? 0 : 1;
+        // SARMA: prima i positivi crescenti (1, 2, 3...), poi i negativi;
+        // lo zero, non significativo, resta sempre in fondo.
+        // S3 mantiene invece zero e positivi prima dei negativi.
+        const group = (value: number) => {
+          if (sortKey === "SIG_MA_SAR") {
+            if (value > 0) return 0;
+            if (value < 0) return 1;
+            return 2;
+          }
+          return value >= 0 ? 0 : 1;
+        };
+        const aGroup = group(aNumber);
+        const bGroup = group(bNumber);
         return aGroup !== bGroup ? aGroup - bGroup : aNumber - bNumber;
       }
 
