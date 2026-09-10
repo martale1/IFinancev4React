@@ -612,8 +612,21 @@ export default function WatchlistCard({
         <span>
           TECH: <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b>
         </span>
+        {toNum(row.Pattern_S2_Days_Ago) !== null && (
+          <span>
+            S2: <b style={{ color: toNum(row.Pattern_S2_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S2_Days_Ago, 0)}d</b>
+          </span>
+        )}
         <span>
           S3: <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b>
+        </span>
+        {toNum(row.Pattern_S3_Days_Ago) !== null && (
+          <span>
+            S3_Pat: <b style={{ color: toNum(row.Pattern_S3_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S3_Days_Ago, 0)}d</b>
+          </span>
+        )}
+        <span>
+          SARMA: <b style={{ color: sarma !== null && sarma > 0 ? "#22c55e" : "#ef4444" }}>{sarma !== null && sarma > 0 ? num(sarma, 0) : "<0"}</b>
         </span>
         <span>
           RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b>
@@ -628,29 +641,11 @@ export default function WatchlistCard({
           Sd: <b style={{ color: stochColor }}>{num(stochD, 0)}</b>
         </span>
         <span>
-          SARMA: <b style={{ color: sarma !== null && sarma > 0 ? "#22c55e" : "#ef4444" }}>{sarma !== null && sarma > 0 ? num(sarma, 0) : "<0"}</b>
-        </span>
-        <span>
           Alligator: <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")} {row.Signal6_Trend_Days !== undefined ? `(${row.Signal6_Trend_Days}d)` : ""}</b>
         </span>
         <span>
           LIQ: <b style={{ color: String(row.Liquidity ?? "").trim().toUpperCase() === "OK" ? "#22c55e" : "#ef4444" }}>{String(row.Liquidity ?? "-")}</b>
         </span>
-        {toNum(row.Pattern_S2_Days_Ago) !== null && (
-          <span>
-            S2: <b style={{ color: toNum(row.Pattern_S2_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S2_Days_Ago, 0)}d</b>
-          </span>
-        )}
-        {toNum(row.Pattern_S3_Days_Ago) !== null && (
-          <span>
-            S3_Pat: <b style={{ color: toNum(row.Pattern_S3_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S3_Days_Ago, 0)}d</b>
-          </span>
-        )}
-        {toNum(row.Pattern_S4_Days_Ago) !== null && (
-          <span>
-            S4: <b style={{ color: toNum(row.Pattern_S4_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S4_Days_Ago, 0)}d</b>
-          </span>
-        )}
       </div>
       <div className="pill-row">
         <span className={`pill ${entrySignalClass(entrySignal)}`} title={entryReason}>
