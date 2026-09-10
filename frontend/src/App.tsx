@@ -159,6 +159,9 @@ export default function App() {
   const [alertsRefreshNonce, setAlertsRefreshNonce] = useState(0);
   const [quickAlertBusyMap, setQuickAlertBusyMap] = useState<Record<string, boolean>>({});
   const [quickChartInput, setQuickChartInput] = useState("");
+  const [globalSearchRow, setGlobalSearchRow] = useState<WatchlistRow | null>(null);
+  const [globalSearchMessage, setGlobalSearchMessage] = useState("");
+  const [globalSearchBusy, setGlobalSearchBusy] = useState(false);
 
   useEffect(() => {
     const refresh = () => setAlertsRefreshNonce((v) => v + 1);
@@ -227,17 +230,16 @@ export default function App() {
     setChartSnapshot({ date: dateText, close: toNum(row.Close) });
   }
 
-  async function handleOpenQuickChart(rawTicker: string) {
+  async function findTickerAcrossMarkets(rawTicker: string): Promise<WatchlistRow | null> {
     const t = rawTicker.trim().toUpperCase();
-    if (!t) return;
+    if (!t) return null;
 
     // 1. Cerca localmente negli elementi caricati della watchlist
     const localFound = watchlistQuery.data?.items?.find(
       (r) => String(r.Ticker).toUpperCase() === t
     );
     if (localFound) {
-      openChart(localFound);
-      return;
+      return { ...localFound, WL_Source_Market: localFound.WL_Source_Market ?? market };
     }
 
     // 2. Cerca in tutti i mercati, dando priorità a quello visualizzato.
@@ -251,29 +253,52 @@ export default function App() {
         if (!res.ok) continue;
         const focusData = await res.json();
         if (focusData?.item) {
-          openChart({ ...focusData.item, WL_Source_Market: focusData.item.WL_Source_Market ?? candidateMarket });
-          return;
+          return { ...focusData.item, WL_Source_Market: focusData.item.WL_Source_Market ?? candidateMarket };
         }
       } catch (err) {
         console.warn(`Ricerca ticker fallita nel mercato ${candidateMarket}:`, err);
       }
     }
+    return null;
+  }
 
-    // 3. Fallback: crea una riga fittizia che caricherà solo il grafico da yfinance
-    const dummyRow: WatchlistRow = {
-      Ticker: t,
-      Name: t,
-      Close: 0,
-      Action: "WATCH",
-      Market_Phase: "RANGE",
-      WL_Source_Market: market
-    };
-    
-    setChartTicker(t);
-    setChartRow(dummyRow);
-    setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
-    setChartSnapshot({ date: null, close: null });
-    setIsQuickChart(true);
+  async function handleShowGlobalCard(rawTicker: string) {
+    const t = rawTicker.trim().toUpperCase();
+    if (!t || globalSearchBusy) return;
+    setGlobalSearchBusy(true);
+    setGlobalSearchMessage("");
+    try {
+      const found = await findTickerAcrossMarkets(t);
+      setGlobalSearchRow(found);
+      if (!found) setGlobalSearchMessage(`${t} non è presente nei database dei mercati. Puoi comunque aprire il grafico.`);
+    } finally {
+      setGlobalSearchBusy(false);
+    }
+  }
+
+  async function handleOpenQuickChart(rawTicker: string) {
+    const t = rawTicker.trim().toUpperCase();
+    if (!t || globalSearchBusy) return;
+    setGlobalSearchBusy(true);
+    setGlobalSearchMessage("");
+    try {
+      const cached = globalSearchRow && String(globalSearchRow.Ticker).toUpperCase() === t ? globalSearchRow : null;
+      const found = cached ?? await findTickerAcrossMarkets(t);
+      if (found) {
+        setGlobalSearchRow(found);
+        openChart(found);
+        return;
+      }
+
+      const dummyRow: WatchlistRow = { Ticker: t, Name: t, Close: 0, Action: "WATCH", Market_Phase: "RANGE", WL_Source_Market: market };
+      setChartTicker(t);
+      setChartRow(dummyRow);
+      setChartLevels({ sl1: null, sl2: null, pbStop: null, ppLevel: null });
+      setChartSnapshot({ date: null, close: null });
+      setIsQuickChart(true);
+    } finally {
+      setGlobalSearchBusy(false);
+    }
   }
 
   function openTickerAi(row: WatchlistRow) {
@@ -698,7 +723,7 @@ export default function App() {
               }}
             />
           </label>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4rem" }}>
+          <div className="global-search-control">
             <label style={{ display: "flex", flexDirection: "column" }}>
               Cerca titolo · tutti i mercati
               <input
@@ -717,16 +742,17 @@ export default function App() {
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && quickChartInput.trim()) {
-                    handleOpenQuickChart(quickChartInput.trim());
+                    handleShowGlobalCard(quickChartInput.trim());
                   }
                 }}
               />
             </label>
             <button
-              className="btn"
+              className="btn ghost"
+              disabled={globalSearchBusy || !quickChartInput.trim()}
               onClick={() => {
                 if (quickChartInput.trim()) {
-                  handleOpenQuickChart(quickChartInput.trim());
+                  handleShowGlobalCard(quickChartInput.trim());
                 }
               }}
               style={{
@@ -739,11 +765,55 @@ export default function App() {
                 alignItems: "center"
               }}
             >
-              Apri
+              {globalSearchBusy ? "Cerco…" : "Scheda"}
+            </button>
+            <button
+              className="btn"
+              disabled={globalSearchBusy || !quickChartInput.trim()}
+              onClick={() => handleOpenQuickChart(quickChartInput)}
+              style={{ height: "33px", padding: "0 0.8rem", borderRadius: "8px", fontWeight: "bold", fontSize: "0.82rem" }}
+            >
+              Grafico
             </button>
           </div>
         </div>
       </header>
+      {(globalSearchRow || globalSearchMessage) ? (
+        <section className="global-search-result">
+          <div className="global-search-result-head">
+            <div>
+              <strong>Risultato ricerca globale</strong>
+              {globalSearchRow ? <span>Mercato: {String(globalSearchRow.WL_Source_Market ?? market)}</span> : null}
+            </div>
+            <button className="btn ghost" onClick={() => { setGlobalSearchRow(null); setGlobalSearchMessage(""); }}>Chiudi</button>
+          </div>
+          {globalSearchMessage ? <p className="muted">{globalSearchMessage}</p> : null}
+          {globalSearchRow ? (
+            <div className="global-search-card">
+              <WatchlistCard
+                row={globalSearchRow}
+                onChart={openChart}
+                onAi={openTickerAi}
+                aiActive={Boolean(aiActiveChatMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))])}
+                aiAlertInfo={aiAlertCardMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))] ?? null}
+                aiLevelAlerts={aiLevelCardMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))] ?? []}
+                onToggleAiAlert={handleToggleAiAlert}
+                onDeleteAiAlert={handleDeleteAiAlert}
+                sourceMarket={String(globalSearchRow.WL_Source_Market ?? market)}
+                alertSet={Boolean(quickAlertMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))])}
+                alertConfig={quickAlertConfigMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))] ?? null}
+                alertBusy={Boolean(quickAlertBusyMap[alertKey(String(globalSearchRow.WL_Source_Market ?? market), String(globalSearchRow.Ticker ?? ""))])}
+                onCreateAlert={handleCreateQuickAlert}
+                onRemoveAlert={handleRemoveQuickAlert}
+                customWatchlists={customWatchlistNames}
+                onAddToWatchlist={handleAddToWatchlist}
+                currentWatchlistName={parseCurrentWatchlistName(String(globalSearchRow.WL_Source_Market ?? market))}
+                onRemoveFromWatchlist={handleRemoveFromWatchlist}
+              />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       <div className="filter-toggle-row">
         <button
           className={showStateFilters || activeFilterCount ? "btn filter-toggle active" : "btn ghost filter-toggle"}
