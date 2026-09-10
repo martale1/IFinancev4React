@@ -114,6 +114,7 @@ export default function AiChatPanel({ market }: Props) {
   const [sessionId, setSessionId] = useState(() => makeSessionId());
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const latestAssistantRef = useRef<HTMLDivElement | null>(null);
+  const composeRef = useRef<HTMLTextAreaElement | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AiChatMessage[]>(() => {
     try {
@@ -157,6 +158,13 @@ export default function AiChatPanel({ market }: Props) {
     };
   }, [readerOpen]);
 
+  useEffect(() => {
+    const textarea = composeRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  }, [input]);
+
   function clearChat() {
     setMessages([]);
     setMode("");
@@ -175,7 +183,7 @@ export default function AiChatPanel({ market }: Props) {
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     setInput("");
     try {
-      const resp = await sendAiChat({ session_id: sessionId, message, model });
+      const resp = await sendAiChat({ session_id: sessionId, message, model, history: messages });
       setMessages(resp.messages);
       setMode(resp.mode);
     } catch (e) {
@@ -233,9 +241,8 @@ export default function AiChatPanel({ market }: Props) {
             type="button"
             className="btn ghost ai-reader-toggle"
             onClick={() => setReaderOpen((current) => !current)}
-            disabled={messages.length === 0}
           >
-            {readerOpen ? "✕ Chiudi lettura" : "📖 Leggi risposta"}
+            {readerOpen ? "✕ Riduci" : "⛶ Schermo intero"}
           </button>
         </div>
       </div>
@@ -284,31 +291,29 @@ export default function AiChatPanel({ market }: Props) {
         <div ref={bottomRef} />
       </div>
 
-      {error ? <p className="err">{error}</p> : null}
-
-      <form
-        className="ai-compose"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <textarea
-          value={input}
-          rows={3}
-          placeholder={`Chiedi qualcosa su ${market}, per esempio: analizza STMMI.MI usando anche la serie prezzi`}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-        />
-        <button className="btn" disabled={busy || !input.trim()}>
-          {busy ? "Invio..." : "Invia"}
-        </button>
-      </form>
+      <div className="ai-chat-footer">
+        {error ? <p className="err ai-chat-error">{error}</p> : null}
+        <form className="ai-compose" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+          <textarea
+            ref={composeRef}
+            value={input}
+            rows={1}
+            aria-label="Messaggio per IFinance AI"
+            placeholder={`Scrivi un messaggio su ${market}...`}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+          />
+          <button className="btn ai-send" aria-label="Invia messaggio" title="Invia messaggio" disabled={busy || !input.trim()}>
+            {busy ? "…" : "↑"}
+          </button>
+        </form>
+        <small className="ai-compose-hint">Invio con Enter · nuova riga con Maiusc+Enter</small>
+      </div>
     </section>
   );
 }

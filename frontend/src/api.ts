@@ -6,6 +6,7 @@ import type {
   CustomWatchlistCreateResponse,
   CustomWatchlistRemoveItemResponse,
   CustomWatchlistsResponse,
+  AiChatMessage,
   AiChatResponse,
   AiProposedCondition,
   AiCriticalLevel,
@@ -142,7 +143,7 @@ export async function deleteAlertRule(market: string, ruleId: string): Promise<A
   return parseJson<AlertWriteResponse>(resp);
 }
 
-export async function sendAiChat(input: { session_id: string; message: string; model?: string }): Promise<AiChatResponse> {
+export async function sendAiChat(input: { session_id: string; message: string; model?: string; history?: AiChatMessage[] }): Promise<AiChatResponse> {
   const resp = await fetch(`${API_BASE}/ai/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

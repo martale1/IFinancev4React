@@ -70,6 +70,7 @@ class AiChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     model: str | None = None
+    history: list[dict[str, str]] = []
 
 
 class AiChatResponse(BaseModel):

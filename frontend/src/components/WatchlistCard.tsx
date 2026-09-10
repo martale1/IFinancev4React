@@ -143,6 +143,22 @@ function fmtPrice(v: unknown, digits = 3): string {
   });
 }
 
+function fmtAlertValue(v: unknown): string {
+  if (v == null) return "n/d";
+  const n = toNum(v);
+  if (n === null) return String(v);
+  return n.toLocaleString("it-IT", { maximumFractionDigits: 3 });
+}
+
+function alertConditionLabel(field: string): string {
+  if (field === "DI_diff") return "DI+ − DI−";
+  if (field === "MACD_vs_Signal") return "S3 (MACD − Signal)";
+  if (field === "Vol_Perc_vs_MA5") return "Volumi vs media 5 giorni";
+  if (field === "Vol_Perc_vs_MA10") return "Volumi vs media 10 giorni";
+  if (field === "Vol_Perc_vs_MA20") return "Volumi vs media 20 giorni";
+  return quickAlertFieldLabel(field as QuickAlertField);
+}
+
 function fmtRisk(v: unknown): string {
   const n = toNum(v);
   if (n === null) return "-";
@@ -811,7 +827,7 @@ export default function WatchlistCard({
               </div>
             </div>
             <div className="active-condition-grid">{aiAlertInfo.conditions.map((condition, index) => <div key={`${condition.field}-${index}`} className={`active-condition-chip ${condition.verified ? "verified" : "pending"}`}>
-              <b>{condition.verified ? "✓" : index + 1}</b><span><strong>{condition.field} {condition.op} {String(condition.value)}</strong><small>Valore attuale: {condition.actual == null ? "n/d" : String(condition.actual)}</small></span>
+              <b>{condition.verified ? "✓" : index + 1}</b><span><strong>{alertConditionLabel(condition.field)} {condition.op} {fmtAlertValue(condition.value)}</strong><small>Valore attuale: {fmtAlertValue(condition.actual)}</small></span>
             </div>)}</div>
           </div> : null}
           {aiLevelAlerts.map((level) => <div key={level.ruleId} className="activated-level-control">

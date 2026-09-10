@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WatchlistRow, QuickAlertField, AiProposedCondition, AiCriticalLevel } from "../types";
 import { analyzeChartImage, createAiAlert, createAiLevelAlert, deleteAlertRule, fetchAlerts } from "../api";
@@ -212,6 +212,74 @@ function aiAnalysisStorageKey(market: string | undefined, ticker: string): strin
   return `ifinance-chart-ai-analysis::${String(market ?? "").trim().toUpperCase()}::${String(ticker).trim().toUpperCase()}`;
 }
 
+type SavedAiAnalysis = {
+  version: 2;
+  analysis: string;
+  market: string;
+  ticker: string;
+  bars: number;
+  chartType: "candlestick" | "line";
+  snapshotClose: number | null;
+  savedAt: number;
+};
+
+const AI_ANALYSIS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function loadSavedAiAnalysis(input: {
+  market?: string;
+  ticker: string;
+  bars: number;
+  chartType: "candlestick" | "line";
+  snapshotClose: number | null;
+}): { analysis: string; isCurrent: boolean } | null {
+  const key = aiAnalysisStorageKey(input.market, input.ticker);
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw) as SavedAiAnalysis;
+    const market = String(input.market ?? "").trim().toUpperCase();
+    const ticker = input.ticker.trim().toUpperCase();
+    const sameClose = saved.snapshotClose === null && input.snapshotClose === null
+      || saved.snapshotClose !== null && input.snapshotClose !== null
+        && Math.abs(saved.snapshotClose - input.snapshotClose) <= Math.max(0.000001, Math.abs(input.snapshotClose) * 0.000001);
+    const valid = saved.version === 2
+      && typeof saved.analysis === "string"
+      && saved.market === market
+      && saved.ticker === ticker
+      && saved.bars === input.bars
+      && saved.chartType === input.chartType
+      && sameClose
+      && Date.now() - saved.savedAt <= AI_ANALYSIS_MAX_AGE_MS;
+    if (valid) return { analysis: saved.analysis, isCurrent: true };
+    if (typeof saved.analysis === "string") return { analysis: saved.analysis, isCurrent: false };
+  } catch {
+    // Le cache legacy erano testo semplice e non contenevano il contesto del grafico.
+    return { analysis: raw, isCurrent: false };
+  }
+  return null;
+}
+
+function saveAiAnalysis(input: {
+  analysis: string;
+  market?: string;
+  ticker: string;
+  bars: number;
+  chartType: "candlestick" | "line";
+  snapshotClose: number | null;
+}) {
+  const saved: SavedAiAnalysis = {
+    version: 2,
+    analysis: input.analysis,
+    market: String(input.market ?? "").trim().toUpperCase(),
+    ticker: input.ticker.trim().toUpperCase(),
+    bars: input.bars,
+    chartType: input.chartType,
+    snapshotClose: input.snapshotClose,
+    savedAt: Date.now(),
+  };
+  window.localStorage.setItem(aiAnalysisStorageKey(input.market, input.ticker), JSON.stringify(saved));
+}
+
 type Props = {
   open: boolean;
   ticker: string;
@@ -254,6 +322,11 @@ type Props = {
 
 export default function ChartModal(props: Props) {
   const queryClient = useQueryClient();
+  const aiStateScope = `${String(props.sourceMarket ?? "").trim().toUpperCase()}::${props.ticker.trim().toUpperCase()}`;
+  const aiStateScopeRef = useRef(aiStateScope);
+  const aiAnalysisContextRef = useRef<string | null>(null);
+  const currentChartAiContextRef = useRef("");
+  aiStateScopeRef.current = aiStateScope;
   const MAX_AUTO_RETRIES = 2;
   const QUICK_BARS = [10, 20, 70, 200];
   const [loading, setLoading] = useState(true);
@@ -271,18 +344,21 @@ export default function ChartModal(props: Props) {
   // AI state variables
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiAnalysisIsCurrent, setAiAnalysisIsCurrent] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState(savedVisionModel);
   const [aiAnalysisType, setAiAnalysisType] = useState<"detailed" | "concise">("concise");
   const [aiAlertBusy, setAiAlertBusy] = useState(false);
   const [aiAlertMessage, setAiAlertMessage] = useState("");
   const [showAiLevelsOnChart, setShowAiLevelsOnChart] = useState(false);
+  const [showAiAlertConfiguration, setShowAiAlertConfiguration] = useState(false);
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
   const [currentAiAlertInfo, setCurrentAiAlertInfo] = useState<ChartAiAlertInfo | null>(props.aiAlertInfo ?? null);
   const [currentAiLevelAlerts, setCurrentAiLevelAlerts] = useState<ChartAiLevelAlert[]>(props.aiLevelAlerts ?? []);
   const [knownAiConditions, setKnownAiConditions] = useState<AiProposedCondition[]>([]);
   const [knownAiLevels, setKnownAiLevels] = useState<AiCriticalLevel[]>([]);
-  const aiConditions = useMemo(() => extractAiConditions(aiAnalysis || ""), [aiAnalysis]);
-  const aiLevels = useMemo(() => extractAiLevels(aiAnalysis || ""), [aiAnalysis]);
+  const aiConditions = useMemo(() => aiAnalysisIsCurrent ? extractAiConditions(aiAnalysis || "") : [], [aiAnalysis, aiAnalysisIsCurrent]);
+  const aiLevels = useMemo(() => aiAnalysisIsCurrent ? extractAiLevels(aiAnalysis || "") : [], [aiAnalysis, aiAnalysisIsCurrent]);
   const availableAiConditions = aiConditions.length ? aiConditions : knownAiConditions;
   const chartAiLevels = useMemo(() => {
     const combined: AiCriticalLevel[] = [
@@ -318,8 +394,10 @@ export default function ChartModal(props: Props) {
 
   async function refreshAiAlertState() {
     if (!props.open || !props.sourceMarket || !props.ticker) return;
+    const requestedScope = aiStateScope;
     try {
       const data = await fetchAlerts(props.sourceMarket);
+      if (aiStateScopeRef.current !== requestedScope) return;
       const ticker = props.ticker.trim().toUpperCase();
       const matchesTicker = (rule: any) => (rule.scope?.tickers ?? []).some((item: unknown) => String(item).trim().toUpperCase() === ticker);
       const aiRule = data.rules.find((rule) => rule.source === "ai" && matchesTicker(rule));
@@ -383,6 +461,8 @@ export default function ChartModal(props: Props) {
   const plusDI = props.row ? toNum(props.row.PLUS_DI) : null;
   const minusDI = props.row ? toNum(props.row.MINUS_DI) : null;
   const close = props.snapshotClose ?? (props.row ? toNum(props.row.Close) : null);
+  const currentChartAiContext = `${aiStateScope}::${props.bars}::${props.chartType}::${close ?? "n/a"}`;
+  currentChartAiContextRef.current = currentChartAiContext;
 
   // 1. Chart loading state management
   useEffect(() => {
@@ -404,17 +484,41 @@ export default function ChartModal(props: Props) {
 
     // Reset AI states
     setAiLoading(false);
-    const savedAnalysis = window.localStorage.getItem(aiAnalysisStorageKey(props.sourceMarket, props.ticker));
-    setAiAnalysis(savedAnalysis || null);
+    const savedAnalysis = loadSavedAiAnalysis({
+      market: props.sourceMarket,
+      ticker: props.ticker,
+      bars: props.bars,
+      chartType: props.chartType,
+      snapshotClose: close,
+    });
+    setAiAnalysis(savedAnalysis?.analysis ?? null);
+    setAiAnalysisIsCurrent(Boolean(savedAnalysis?.isCurrent));
+    aiAnalysisContextRef.current = savedAnalysis?.isCurrent ? currentChartAiContext : null;
     setAiError(null);
     setAiAlertMessage("");
     setShowAiLevelsOnChart(false);
-  }, [props.open, props.ticker]);
+    setShowAiAlertConfiguration(false);
+    setShowAiAnalysis(false);
+    setKnownAiConditions([]);
+    setKnownAiLevels([]);
+    setCurrentAiAlertInfo(null);
+    setCurrentAiLevelAlerts([]);
+  }, [props.open, props.sourceMarket, props.ticker]);
+
+  useEffect(() => {
+    if (!props.open || !aiAnalysisContextRef.current || aiAnalysisContextRef.current === currentChartAiContext) return;
+    aiAnalysisContextRef.current = null;
+    setAiAnalysisIsCurrent(false);
+    setKnownAiConditions([]);
+    setKnownAiLevels([]);
+    setShowAiAnalysis(false);
+    setShowAiLevelsOnChart(false);
+  }, [props.open, currentChartAiContext]);
 
   useEffect(() => {
     setCurrentAiAlertInfo(props.aiAlertInfo ?? null);
     setCurrentAiLevelAlerts(props.aiLevelAlerts ?? []);
-  }, [props.aiAlertInfo, props.aiLevelAlerts]);
+  }, [props.ticker, props.aiAlertInfo, props.aiLevelAlerts]);
 
   useEffect(() => {
     if (!props.open) return;
@@ -536,9 +640,13 @@ export default function ChartModal(props: Props) {
 
   async function handleAskAi() {
     if (!props.ticker || !props.sourceMarket) return;
+    const requestedChartContext = currentChartAiContext;
     setAiLoading(true);
     setAiError(null);
     setAiAnalysis(null);
+    setAiAnalysisIsCurrent(false);
+    aiAnalysisContextRef.current = null;
+    setShowAiAnalysis(false);
     try {
       const resp = await analyzeChartImage({
         ticker: props.ticker,
@@ -554,8 +662,19 @@ export default function ChartModal(props: Props) {
         model: aiModel,
         analysis_type: aiAnalysisType
       });
+      if (currentChartAiContextRef.current !== requestedChartContext) return;
       setAiAnalysis(resp.analysis);
-      window.localStorage.setItem(aiAnalysisStorageKey(props.sourceMarket, props.ticker), resp.analysis);
+      setAiAnalysisIsCurrent(true);
+      aiAnalysisContextRef.current = currentChartAiContext;
+      setShowAiAnalysis(true);
+      saveAiAnalysis({
+        analysis: resp.analysis,
+        market: props.sourceMarket,
+        ticker: props.ticker,
+        bars: props.bars,
+        chartType: props.chartType,
+        snapshotClose: close,
+      });
     } catch (e) {
       setAiError(String(e));
     } finally {
@@ -1037,9 +1156,14 @@ export default function ChartModal(props: Props) {
           <div className="ai-alerts-activated-summary">
             <div className="active-alerts-heading">
               <div><strong>Configurazione alert AI</strong><span>{aiAlertActive ? "1 regola attiva" : "Regola disponibile"} · {activeLevelCount}/{chartAiLevels.length} livelli attivi</span></div>
-              <span className={`active-status-pill${aiAlertActive || activeLevelCount ? "" : " inactive"}`}>● {aiAlertActive || activeLevelCount ? "Monitoraggio attivo" : "Disponibile"}</span>
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.55rem" }}>
+                <span className={`active-status-pill${aiAlertActive || activeLevelCount ? "" : " inactive"}`}>● {aiAlertActive || activeLevelCount ? "Monitoraggio attivo" : "Disponibile"}</span>
+                <button className="btn ghost" style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem" }} onClick={() => setShowAiAlertConfiguration((visible) => !visible)}>
+                  {showAiAlertConfiguration ? "Nascondi" : "Mostra"}
+                </button>
+              </div>
             </div>
-            {availableAiConditions.length ? <div className="active-rule-card">
+            {showAiAlertConfiguration && availableAiConditions.length ? <div className="active-rule-card">
               <div className="active-rule-card-heading">
                 <div><strong>🤖 {currentAiAlertInfo?.ruleId ?? `AI_${props.ticker.replace(/[^A-Za-z0-9]+/g, "_").toUpperCase()}`}</strong><span>{displayedAiConditions.length} condizioni collegate in AND</span></div>
                 <button className={aiAlertActive ? "compact-remove-btn" : "compact-activate-btn"} disabled={aiAlertBusy} onClick={toggleAiAlert}>{aiAlertActive ? "Rimuovi alert" : "Attiva alert"}</button>
@@ -1048,7 +1172,7 @@ export default function ChartModal(props: Props) {
                 <b>{condition.verified ? "✓" : index + 1}</b><span><strong>{condition.field} {condition.op} {String(condition.value)}</strong><small>Valore attuale: {condition.actual == null ? "n/d" : String(condition.actual)}</small></span>
               </div>)}</div>
             </div> : null}
-            {chartAiLevels.map((level) => {
+            {showAiAlertConfiguration && chartAiLevels.map((level) => {
               const active = activeLevelFor(level);
               return <div key={`${level.type}-${level.price}`} className="activated-level-control">
                 <span className={active?.verified ? "level-state verified" : "level-state pending"}>{active?.verified ? "✓" : "○"}</span>
@@ -1076,13 +1200,16 @@ export default function ChartModal(props: Props) {
 
         {aiAnalysis ? (
           <div className="guide-card" style={{ marginTop: "0.8rem", background: "rgba(10, 22, 38, 0.8)", borderColor: "rgba(139, 92, 246, 0.35)", padding: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-              <h3 style={{ margin: 0, color: "#c084fc" }}>🧠 GenAI Multimodal Insight</h3>
-              <button className="btn ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setAiAnalysis(null)}>
-                Nascondi
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showAiAnalysis ? "0.5rem" : 0 }}>
+              <div>
+                <h3 style={{ margin: 0, color: "#c084fc" }}>🧠 GenAI Multimodal Insight</h3>
+                {!aiAnalysisIsCurrent ? <small style={{ color: "#fbbf24" }}>Analisi precedente: testo consultabile, livelli non applicati al grafico corrente.</small> : null}
+              </div>
+              <button className="btn ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setShowAiAnalysis((visible) => !visible)}>
+                {showAiAnalysis ? "Nascondi" : "Mostra analisi"}
               </button>
             </div>
-            <div className="ai-content" style={{ fontSize: "0.92rem", color: "#e2e8f0" }}>
+            {showAiAnalysis ? <><div className="ai-content" style={{ fontSize: "0.92rem", color: "#e2e8f0" }}>
               {renderMessage(aiAnalysis)}
             </div>
             {aiConditions.length > 0 ? (
@@ -1102,7 +1229,7 @@ export default function ChartModal(props: Props) {
                   </button>
                 ))}
               </div>
-            ) : null}
+            ) : null}</> : null}
           </div>
         ) : null}
 

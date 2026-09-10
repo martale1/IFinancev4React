@@ -28,11 +28,11 @@ import {
 
 const tabs = [
   "All",
+  "Analizza",
   "🔥 Heatmap",
   "Alerts",
   "AI chat",
   "🧪 Multi-Pattern Lab",
-  "📂 Gestione Liste",
   "🔧 Gestione Pattern",
   "Opportunità",
   "Da osservare",
@@ -124,7 +124,6 @@ export default function App() {
   const customWatchlistsQuery = useQuery({ queryKey: ["custom-watchlists"], queryFn: fetchCustomWatchlists });
   const [market, setMarket] = useState("MIB30");
   const [tab, setTab] = useState("All");
-  const [search, setSearch] = useState("");
   const [minVolume, setMinVolume] = useState(2000);
   const [entrySignalFilter, setEntrySignalFilter] = useState("");
   const [marketPhaseFilter, setMarketPhaseFilter] = useState("");
@@ -167,17 +166,29 @@ export default function App() {
     return () => window.removeEventListener("ifinance-alerts-changed", refresh);
   }, []);
 
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("MACD_vs_Signal");
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>("asc");
 
   function handleSort(key: string) {
+    if (key === "MACD_vs_Signal" || key === "SIG_MA_SAR") {
+      if (sortKey === key) {
+        setSortKey(null);
+        setSortDir(null);
+      } else {
+        setSortKey(key);
+        setSortDir("asc");
+      }
+      setPage(1);
+      return;
+    }
+    const preferredDirection: "asc" | "desc" = ["MACD_vs_Signal", "SIG_MA_SAR"].includes(key) ? "asc" : "desc";
     if (sortKey !== key) {
       setSortKey(key);
-      setSortDir("desc");
+      setSortDir(preferredDirection);
     } else {
-      if (sortDir === "desc") {
-        setSortDir("asc");
-      } else if (sortDir === "asc") {
+      if (sortDir === preferredDirection) {
+        setSortDir(preferredDirection === "asc" ? "desc" : "asc");
+      } else {
         setSortKey(null);
         setSortDir(null);
       }
@@ -229,20 +240,23 @@ export default function App() {
       return;
     }
 
-    // 2. Prova a interrogare l'API focus del backend per il mercato corrente
-    try {
-      const res = await fetch(
-        `/api/watchlist/focus?market=${encodeURIComponent(market)}&ticker=${encodeURIComponent(t)}`
-      );
-      if (res.ok) {
+    // 2. Cerca in tutti i mercati, dando priorità a quello visualizzato.
+    const allMarkets = marketsQuery.data ?? [market];
+    const marketsToSearch = [market, ...allMarkets.filter((candidate) => candidate !== market)];
+    for (const candidateMarket of marketsToSearch) {
+      try {
+        const res = await fetch(
+          `/api/watchlist/focus?market=${encodeURIComponent(candidateMarket)}&ticker=${encodeURIComponent(t)}`
+        );
+        if (!res.ok) continue;
         const focusData = await res.json();
         if (focusData?.item) {
-          openChart(focusData.item);
+          openChart({ ...focusData.item, WL_Source_Market: focusData.item.WL_Source_Market ?? candidateMarket });
           return;
         }
+      } catch (err) {
+        console.warn(`Ricerca ticker fallita nel mercato ${candidateMarket}:`, err);
       }
-    } catch (err) {
-      console.warn("Ticker non trovato nel mercato corrente:", err);
     }
 
     // 3. Fallback: crea una riga fittizia che caricherà solo il grafico da yfinance
@@ -281,11 +295,11 @@ export default function App() {
   const activeFilterCount = [entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter].filter(Boolean).length;
 
   const watchlistQuery = useQuery({
-    queryKey: ["watchlist", market, tabForApi, search, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN],
+    queryKey: ["watchlist", market, tabForApi, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN],
     queryFn: () => fetchWatchlist({
       market,
       tab: tabForApi,
-      search,
+      search: "",
       minVolume,
       entrySignal: entrySignalFilter,
       marketPhase: marketPhaseFilter,
@@ -294,15 +308,15 @@ export default function App() {
       pageSize,
       rankN
     }),
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔥 Heatmap"
+    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔥 Heatmap"
   });
 
   const heatmapQuery = useQuery({
-    queryKey: ["heatmap", market, search, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
+    queryKey: ["heatmap", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
     queryFn: () => fetchWatchlist({
       market,
       tab: "All",
-      search,
+      search: "",
       minVolume,
       entrySignal: entrySignalFilter,
       marketPhase: marketPhaseFilter,
@@ -610,8 +624,37 @@ export default function App() {
       const bv = b[sortKey];
 
       // Handle null/undefined values
-      if (av === undefined || av === null) return sortDir === "asc" ? 1 : -1;
-      if (bv === undefined || bv === null) return sortDir === "asc" ? -1 : 1;
+      if ((av === undefined || av === null) && (bv === undefined || bv === null)) return 0;
+      if (av === undefined || av === null) return 1;
+      if (bv === undefined || bv === null) return -1;
+
+      if (sortKey === "MACD_vs_Signal" || sortKey === "SIG_MA_SAR") {
+        const sortableNumber = (value: unknown): number | null => {
+          if (typeof value === "number") return Number.isFinite(value) ? value : null;
+          const text = String(value).trim().replace(",", ".");
+          const direct = Number(text);
+          if (Number.isFinite(direct)) return direct;
+          const match = text.match(/[+-]?\d+(?:\.\d+)?/);
+          if (!match) return null;
+          const parsed = Number(match[0]);
+          if (!Number.isFinite(parsed)) return null;
+          if (parsed === 0 && text.startsWith("<")) return -Number.EPSILON;
+          if (parsed === 0 && text.startsWith(">")) return Number.EPSILON;
+          return parsed;
+        };
+        const aNumber = sortableNumber(av);
+        const bNumber = sortableNumber(bv);
+        const aMissing = aNumber === null;
+        const bMissing = bNumber === null;
+        if (aMissing && bMissing) return 0;
+        if (aMissing) return 1;
+        if (bMissing) return -1;
+
+        // S3 e SARMA: prima zero/positivi crescenti, poi negativi crescenti.
+        const aGroup = aNumber >= 0 ? 0 : 1;
+        const bGroup = bNumber >= 0 ? 0 : 1;
+        return aGroup !== bGroup ? aGroup - bGroup : aNumber - bNumber;
+      }
 
       // Handle string vs number
       if (typeof av === "string" && typeof bv === "string") {
@@ -645,17 +688,6 @@ export default function App() {
             </select>
           </label>
           <label>
-            Search
-            <input
-              value={search}
-              placeholder="Ticker o nome..."
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </label>
-          <label>
             Min volume
             <input
               type="number"
@@ -668,11 +700,11 @@ export default function App() {
           </label>
           <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4rem" }}>
             <label style={{ display: "flex", flexDirection: "column" }}>
-              Grafico Rapido (Qualsiasi Ticker)
+              Cerca titolo · tutti i mercati
               <input
                 value={quickChartInput}
                 onChange={(e) => setQuickChartInput(e.target.value)}
-                placeholder="es. AAPL, TSLA, UC.MI"
+                placeholder="Ticker, es. VOD.L o AAPL"
                 style={{
                   width: "165px",
                   padding: "0.4rem 0.6rem",
@@ -786,7 +818,7 @@ export default function App() {
       ) : null}
       <RuleGuide />
 
-      <nav className="tabs">
+      <nav className="tabs" aria-label="Sezioni principali">
         {tabs.map((t) => (
           <button
             key={t}
@@ -803,7 +835,7 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
           <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
@@ -852,7 +884,7 @@ export default function App() {
           onRemoveFromWatchlist={handleRemoveFromWatchlist}
         />
       ) : null}
-      {tab === "📂 Gestione Liste" ? (
+      {tab === "Analizza" ? (
         <ListManagerPanel initialMarket={market} markets={marketsQuery.data ?? []} />
       ) : null}
       {tab === "🔧 Gestione Pattern" ? (
@@ -869,10 +901,10 @@ export default function App() {
         />
       ) : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "📂 Gestione Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
@@ -889,6 +921,7 @@ export default function App() {
               { label: "Var. 5D", key: "PCTV_5D" },
               { label: "TECH SCORE", key: "TECH_SCORE" },
               { label: "S3", key: "MACD_vs_Signal" },
+              { label: "SARMA", key: "SIG_MA_SAR" },
               { label: "RSI", key: "RSI" },
               { label: "willR", key: "Williams_R" },
             ].map((opt) => {

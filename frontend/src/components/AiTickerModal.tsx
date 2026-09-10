@@ -373,7 +373,7 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
     appendMessage(sessionKey, sessionForRequest, { role: "user", content: q });
     onChatActivity?.(market, ticker, true);
     try {
-      const resp = await sendAiChat({ session_id: sessionForRequest.sessionId, message: buildPrompt(row, market, q, showObservedData), model });
+      const resp = await sendAiChat({ session_id: sessionForRequest.sessionId, message: buildPrompt(row, market, q, showObservedData), model, history: sessionForRequest.messages });
       const assistant = resp.answer ? { role: "assistant", content: resp.answer } : [...resp.messages].reverse().find((m) => m.role !== "user") ?? null;
       if (assistant) appendMessage(sessionKey, sessionForRequest, assistant);
     } catch (e) {

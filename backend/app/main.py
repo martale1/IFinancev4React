@@ -403,7 +403,7 @@ def delete_custom_watchlist_endpoint(name: str):
 @app.post("/api/ai/chat", response_model=AiChatResponse)
 async def post_ai_chat(req: AiChatRequest):
     try:
-        return await ai_chat(session_id=req.session_id, message=req.message, model=req.model)
+        return await ai_chat(session_id=req.session_id, message=req.message, model=req.model, client_history=req.history)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 

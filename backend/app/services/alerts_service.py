@@ -146,7 +146,7 @@ def normalize_ai_conditions(raw_conditions: list[dict[str, Any]]) -> list[dict[s
         "price": "Close", "prezzo": "Close", "close": "Close",
         "rsi": "RSI", "adx": "ADX", "macd_hist": "MACD_Hist",
         "williams_r": "Williams_R", "williams %r": "Williams_R",
-        "stoch_k": "Stoch_K", "stoch_d": "Stoch_D", "volume": "Volume",
+        "stoch_k": "Stoch_K", "stoch_d": "Stoch_D", "volume": "Volume", "volumi": "Volume",
         "ema30": "EMA30", "ema_30": "EMA30",
     }
 
@@ -164,8 +164,9 @@ def normalize_ai_conditions(raw_conditions: list[dict[str, Any]]) -> list[dict[s
             continue
 
         lo = trigger.lower()
-        if key == "volume" and re.search(r"ma\s*(5|10|20)", lo):
-            period = re.search(r"ma\s*(5|10|20)", lo).group(1)
+        volume_period = re.search(r"(?:ma|media(?:\s+mobile)?)\s*(?:a\s*)?(5|10|20)(?:\s*giorni)?", lo)
+        if key in {"volume", "volumi"} and volume_period:
+            period = volume_period.group(1)
             multiplier = re.search(r"(?:\*|x)\s*(\d+(?:[.,]\d+)?)", lo)
             threshold_pct = (float(multiplier.group(1).replace(",", ".")) - 1.0) * 100.0 if multiplier else 0.0
             normalized.append({"field": f"Vol_Perc_vs_MA{period}", "op": ">", "value": threshold_pct,
@@ -180,13 +181,17 @@ def normalize_ai_conditions(raw_conditions: list[dict[str, Any]]) -> list[dict[s
             continue
         if "adx" in indicator_raw.lower() and "di" in indicator_raw.lower():
             added = False
-            if re.search(r"di\s*\+\s*>\s*di\s*-", lo):
-                normalized.append({"field": "DI_diff", "op": ">", "value": 0,
+            di_match = re.search(r"di\s*\+\s*(>=|>)\s*di\s*-", lo)
+            if di_match:
+                normalized.append({"field": "DI_diff", "op": di_match.group(1), "value": 0,
                                    "description": "DI+ sopra DI-"})
                 added = True
-            adx_limit = re.search(r"adx.*?(?:sotto|<)\s*(-?\d+(?:[.,]\d+)?)", lo)
+            adx_limit = re.search(r"adx\s*(?:sopra|supera|maggiore\s+di|sotto|inferiore\s+a)?\s*(>=|<=|>|<)?\s*(-?\d+(?:[.,]\d+)?)", lo)
             if adx_limit:
-                normalized.append({"field": "ADX", "op": "<", "value": float(adx_limit.group(1).replace(",", ".")),
+                explicit_op = adx_limit.group(1)
+                prefix = adx_limit.group(0).lower()
+                adx_op = explicit_op or ("<" if any(word in prefix for word in ("sotto", "inferiore")) else ">")
+                normalized.append({"field": "ADX", "op": adx_op, "value": float(adx_limit.group(2).replace(",", ".")),
                                    "description": item.get("description", trigger)})
                 added = True
             if added:
