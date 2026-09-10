@@ -651,11 +651,6 @@ export default function WatchlistCard({
             S4: <b style={{ color: toNum(row.Pattern_S4_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S4_Days_Ago, 0)}d</b>
           </span>
         )}
-        {toNum(row.Pattern_Combined_Days_Ago) !== null && (
-          <span>
-            Comb: <b style={{ color: toNum(row.Pattern_Combined_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_Combined_Days_Ago, 0)}d</b>
-          </span>
-        )}
       </div>
       <div className="pill-row">
         <span className={`pill ${entrySignalClass(entrySignal)}`} title={entryReason}>
