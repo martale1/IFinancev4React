@@ -258,6 +258,38 @@ def paginate(df: pd.DataFrame, page: int, page_size: int) -> tuple[pd.DataFrame,
     return df.iloc[start_idx:end_idx], total_rows, total_pages
 
 
+def sort_watchlist(df: pd.DataFrame, sort_key: str, sort_dir: str) -> pd.DataFrame:
+    """Sort the complete filtered result before pagination."""
+    allowed = {
+        "Ticker", "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE",
+        "MACD_vs_Signal", "SIG_MA_SAR", "RSI", "Williams_R",
+    }
+    if sort_key not in allowed or sort_key not in df.columns:
+        return df
+
+    if sort_key in {"MACD_vs_Signal", "SIG_MA_SAR"}:
+        values = pd.to_numeric(df[sort_key], errors="coerce")
+        if sort_key == "SIG_MA_SAR":
+            # Positivi (1, 2, 3...), negativi crescenti, zero, valori mancanti.
+            groups = pd.Series(3, index=df.index)
+            groups.loc[values > 0] = 0
+            groups.loc[values < 0] = 1
+            groups.loc[values == 0] = 2
+        else:
+            # S3: zero/positivi crescenti, poi negativi crescenti.
+            groups = pd.Series(2, index=df.index)
+            groups.loc[values >= 0] = 0
+            groups.loc[values < 0] = 1
+        return (
+            df.assign(__sort_group=groups, __sort_value=values)
+            .sort_values(["__sort_group", "__sort_value"], ascending=True, na_position="last", kind="mergesort")
+            .drop(columns=["__sort_group", "__sort_value"])
+        )
+
+    ascending = sort_dir == "asc"
+    return df.sort_values(sort_key, ascending=ascending, na_position="last", kind="mergesort")
+
+
 def records(df: pd.DataFrame) -> list[dict[str, Any]]:
     clean = df.where(pd.notna(df), None)
     return clean.to_dict(orient="records")

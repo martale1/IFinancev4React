@@ -320,7 +320,7 @@ export default function App() {
   const activeFilterCount = [entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter].filter(Boolean).length;
 
   const watchlistQuery = useQuery({
-    queryKey: ["watchlist", market, tabForApi, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN],
+    queryKey: ["watchlist", market, tabForApi, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN, sortKey, sortDir],
     queryFn: () => fetchWatchlist({
       market,
       tab: tabForApi,
@@ -331,7 +331,9 @@ export default function App() {
       trendPhaseDetail: effectiveTrendPhaseDetailFilter,
       page,
       pageSize,
-      rankN
+      rankN,
+      sortKey,
+      sortDir
     }),
     enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔥 Heatmap"
   });

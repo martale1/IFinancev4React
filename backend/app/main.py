@@ -79,6 +79,7 @@ from app.services.watchlist_service import (
     paginate,
     prepare_dataframe,
     records,
+    sort_watchlist,
 )
 
 app = FastAPI(title="IFinance v4 React Backend", version="0.1.0")
@@ -153,6 +154,8 @@ def watchlist(
     page_size: int = Query(default=50, ge=1, le=200),
     rank_n: int = Query(default=15, ge=5, le=100),
     only_neg_in_worst: bool = Query(default=True),
+    sort_key: str = Query(default=""),
+    sort_dir: str = Query(default=""),
 ) -> WatchlistResponse:
     if (market not in MARKETS) and (not is_custom_market(market)):
         raise HTTPException(status_code=400, detail=f"Unsupported market: {market}")
@@ -174,6 +177,7 @@ def watchlist(
             entry_signal=entry_signal,
         )
         dft = filter_by_tab(df, tab, rank_n, only_neg_in_worst=only_neg_in_worst)
+        dft = sort_watchlist(dft, sort_key, sort_dir)
         dft_page, total_rows, total_pages = paginate(dft, page, page_size)
         return WatchlistResponse(
             market=market,

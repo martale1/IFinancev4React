@@ -87,6 +87,8 @@ export async function fetchWatchlist(params: {
   marketPhase: string;
   trendPhaseDetail: string;
   rankN: number;
+  sortKey?: string | null;
+  sortDir?: "asc" | "desc" | null;
 }): Promise<WatchlistResponse> {
   const q = new URLSearchParams({
     market: params.market,
@@ -98,7 +100,9 @@ export async function fetchWatchlist(params: {
     entry_signal: params.entrySignal,
     market_phase: params.marketPhase,
     trend_phase_detail: params.trendPhaseDetail,
-    rank_n: String(params.rankN)
+    rank_n: String(params.rankN),
+    sort_key: params.sortKey ?? "",
+    sort_dir: params.sortDir ?? ""
   });
   const resp = await fetch(`${API_BASE}/watchlist?${q.toString()}`);
   return parseJson<WatchlistResponse>(resp);
