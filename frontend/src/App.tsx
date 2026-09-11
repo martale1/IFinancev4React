@@ -7,6 +7,7 @@ import AiTickerModal from "./components/AiTickerModal";
 import ChartModal from "./components/ChartModal";
 import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
+import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
 import MarketHeatmapPanel from "./components/MarketHeatmapPanel";
@@ -28,6 +29,7 @@ import {
 
 const tabs = [
   "All",
+  "Liste",
   "Analizza",
   "🔥 Heatmap",
   "Alerts",
@@ -356,7 +358,7 @@ export default function App() {
       sortDir
     }),
     refetchInterval: 60_000,
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔥 Heatmap"
+    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔥 Heatmap"
   });
 
   const heatmapQuery = useQuery({
@@ -784,6 +786,7 @@ export default function App() {
         </section>
       ) : null}
       <nav className="market-navigation" aria-label="Selezione mercato e liste">
+        <button className="btn ghost" onClick={() => setTab("Liste")}>Gestisci liste</button>
         {[{ label: "Mercati", personal: false }, { label: "Le mie liste", personal: true }].map((group) => {
           const options = (marketsQuery.data ?? ["MIB30"]).filter((m) =>
             (m === "Preferite" || Boolean(parseCurrentWatchlistName(m))) === group.personal);
@@ -901,7 +904,7 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
           <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
@@ -950,6 +953,9 @@ export default function App() {
           onRemoveFromWatchlist={handleRemoveFromWatchlist}
         />
       ) : null}
+      {tab === "Liste" && <WatchlistsPanel initialMarket={market} markets={marketsQuery.data ?? ["MIB30", "Preferite"]}
+        onOpen={(m) => { setMarket(m); setPage(1); setTab("All"); }}
+        onDeleted={(m) => { if (market === m) { setMarket("MIB30"); setPage(1); } if (globalSearchRow?.WL_Source_Market === m) setGlobalSearchRow(null); }} />}
       {tab === "Analizza" ? (
         <ListManagerPanel initialMarket={market} markets={marketsQuery.data ?? []} />
       ) : null}
@@ -967,10 +973,10 @@ export default function App() {
         />
       ) : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
