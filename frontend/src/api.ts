@@ -104,7 +104,7 @@ export async function fetchWatchlist(params: {
     sort_key: params.sortKey ?? "",
     sort_dir: params.sortDir ?? ""
   });
-  const resp = await fetch(`${API_BASE}/watchlist?${q.toString()}`);
+  const resp = await fetch(`${API_BASE}/watchlist?${q.toString()}`, { cache: "no-store" });
   return parseJson<WatchlistResponse>(resp);
 }
 

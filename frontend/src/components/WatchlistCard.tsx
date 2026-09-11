@@ -585,6 +585,9 @@ export default function WatchlistCard({
         <div>
           <div className="ticker">{ticker}</div>
           <div className="name">{String(row.Name ?? "-")}</div>
+          <div className="quote-date" title="Data della seduta contenuta nell’Excel, distinta dalla data di modifica del file. Non è una quotazione in tempo reale.">
+            Dato al {row.Date ? (row.Date instanceof Date ? row.Date.toISOString().slice(0, 10) : String(row.Date).slice(0, 10)) : "non disponibile"} · da analisi
+          </div>
         </div>
         <div className="price" style={{ display: "flex", alignItems: "baseline", gap: "0.4rem" }}>
           <span>{num(row.Close, 3)}</span>

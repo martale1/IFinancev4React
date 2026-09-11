@@ -2128,3 +2128,4 @@ td {
   .volume-filter { font-size: 0.75rem; gap: 0.35rem; }
   .volume-filter input { width: 85px; }
 }
+.quote-date { margin-top: 0.3rem; font-size: 0.72rem; color: #9fb7cf; }

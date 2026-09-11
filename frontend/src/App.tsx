@@ -163,6 +163,34 @@ export default function App() {
   const [globalSearchMessage, setGlobalSearchMessage] = useState("");
   const [globalSearchBusy, setGlobalSearchBusy] = useState(false);
 
+  const globalTicker = String(globalSearchRow?.Ticker ?? "");
+  const globalMarket = String(globalSearchRow?.WL_Source_Market ?? "");
+  useEffect(() => {
+    if (!globalTicker || !globalMarket) return;
+    let cancelled = false;
+    const refresh = async () => {
+      if (document.hidden) return;
+      try {
+        const response = await fetch(`/api/watchlist/focus?market=${encodeURIComponent(globalMarket)}&ticker=${encodeURIComponent(globalTicker)}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled && data.item) setGlobalSearchRow((current) =>
+          current?.Ticker === globalTicker && current?.WL_Source_Market === globalMarket
+            ? { ...data.item, WL_Source_Market: data.item.WL_Source_Market ?? globalMarket }
+            : current);
+      } catch (error) { console.warn("Aggiornamento scheda non riuscito:", error); }
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [globalTicker, globalMarket]);
+
   useEffect(() => {
     const refresh = () => setAlertsRefreshNonce((v) => v + 1);
     window.addEventListener("ifinance-alerts-changed", refresh);
@@ -234,21 +262,14 @@ export default function App() {
     const t = rawTicker.trim().toUpperCase();
     if (!t) return null;
 
-    // 1. Cerca localmente negli elementi caricati della watchlist
-    const localFound = watchlistQuery.data?.items?.find(
-      (r) => String(r.Ticker).toUpperCase() === t
-    );
-    if (localFound) {
-      return { ...localFound, WL_Source_Market: localFound.WL_Source_Market ?? market };
-    }
-
-    // 2. Cerca in tutti i mercati, dando priorità a quello visualizzato.
+    // Read the current workbook even when this ticker is already displayed.
     const allMarkets = marketsQuery.data ?? [market];
     const marketsToSearch = [market, ...allMarkets.filter((candidate) => candidate !== market)];
     for (const candidateMarket of marketsToSearch) {
       try {
         const res = await fetch(
-          `/api/watchlist/focus?market=${encodeURIComponent(candidateMarket)}&ticker=${encodeURIComponent(t)}`
+          `/api/watchlist/focus?market=${encodeURIComponent(candidateMarket)}&ticker=${encodeURIComponent(t)}`,
+          { cache: "no-store" }
         );
         if (!res.ok) continue;
         const focusData = await res.json();
@@ -282,8 +303,7 @@ export default function App() {
     setGlobalSearchBusy(true);
     setGlobalSearchMessage("");
     try {
-      const cached = globalSearchRow && String(globalSearchRow.Ticker).toUpperCase() === t ? globalSearchRow : null;
-      const found = cached ?? await findTickerAcrossMarkets(t);
+      const found = await findTickerAcrossMarkets(t);
       if (found) {
         setGlobalSearchRow(found);
         openChart(found);
@@ -335,6 +355,7 @@ export default function App() {
       sortKey,
       sortDir
     }),
+    refetchInterval: 60_000,
     enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "🔥 Heatmap"
   });
 
@@ -352,6 +373,7 @@ export default function App() {
       pageSize: 200,
       rankN: 100,
     }),
+    refetchInterval: 60_000,
     enabled: tab === "🔥 Heatmap",
   });
 
