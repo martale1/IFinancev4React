@@ -209,7 +209,21 @@ def watchlist_focus(market: str, ticker: str) -> dict[str, Any]:
             df_raw = load_market_dataframe(market)
             df = prepare_dataframe(df_raw)
         t = ticker.strip().upper()
-        found = df[df["Ticker"].astype(str).str.strip().str.upper() == t]
+        symbols = df["Ticker"].astype(str).str.strip().str.upper()
+        names = df["Name"].fillna("").astype(str).str.strip().str.upper()
+        found = df[symbols == t]
+        # Accept exchange-free symbols and company names, preserving exact
+        # ticker priority. Treat search text literally (dots are not regex).
+        if found.empty and t:
+            for matches in (
+                symbols.str.split(".").str[0] == t,
+                names == t,
+                names.str.startswith(t),
+                symbols.str.contains(t, regex=False) | names.str.contains(t, regex=False),
+            ):
+                found = df[matches]
+                if not found.empty:
+                    break
         if found.empty:
             raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found in market '{market}'")
         return {"market": market, "ticker": ticker, "item": records(found.iloc[[0]])[0]}

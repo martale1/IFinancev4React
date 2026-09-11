@@ -741,7 +741,7 @@ export default function App() {
               <input
                 value={quickChartInput}
                 onChange={(e) => setQuickChartInput(e.target.value)}
-                placeholder="Ticker, es. VOD.L o AAPL"
+                placeholder="Ticker o nome, es. FCT"
                 style={{
                   width: "165px",
                   padding: "0.4rem 0.6rem",
