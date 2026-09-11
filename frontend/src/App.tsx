@@ -703,98 +703,33 @@ export default function App() {
 
   return (
     <main className="app">
-      <header className="hero">
-        <div>
-          <h1>IFinancev4 AI</h1>
-        </div>
-        <div className="hero-controls">
+      <header className="hero app-header">
+        <h1>IFinancev4 AI</h1>
+        <div className="global-search-control" role="search" aria-label="Ricerca globale titoli">
           <label>
-            Mercato
-            <select
-              value={market}
-              onChange={(e) => {
-                setMarket(e.target.value);
-                setPage(1);
-              }}
-            >
-              {(marketsQuery.data ?? ["MIB30"]).map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Min volume
+            Cerca titolo · tutti i mercati
             <input
-              type="number"
-              value={minVolume}
-              onChange={(e) => {
-                setMinVolume(Number(e.target.value) || 0);
-                setPage(1);
+              value={quickChartInput}
+              onChange={(e) => setQuickChartInput(e.target.value)}
+              placeholder="Ticker o nome, es. FCT o Fincantieri"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && quickChartInput.trim()) handleShowGlobalCard(quickChartInput);
               }}
             />
           </label>
-          <div className="global-search-control">
-            <label style={{ display: "flex", flexDirection: "column" }}>
-              Cerca titolo · tutti i mercati
-              <input
-                value={quickChartInput}
-                onChange={(e) => setQuickChartInput(e.target.value)}
-                placeholder="Ticker o nome, es. FCT"
-                style={{
-                  width: "165px",
-                  padding: "0.4rem 0.6rem",
-                  borderRadius: "8px",
-                  backgroundColor: "rgba(12, 28, 48, 0.7)",
-                  border: "1px solid rgba(184, 216, 246, 0.25)",
-                  color: "#ffffff",
-                  fontSize: "0.84rem",
-                  outline: "none"
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && quickChartInput.trim()) {
-                    handleShowGlobalCard(quickChartInput.trim());
-                  }
-                }}
-              />
-            </label>
-            <button
-              className="btn ghost"
-              disabled={globalSearchBusy || !quickChartInput.trim()}
-              onClick={() => {
-                if (quickChartInput.trim()) {
-                  handleShowGlobalCard(quickChartInput.trim());
-                }
-              }}
-              style={{
-                height: "33px",
-                padding: "0 0.8rem",
-                borderRadius: "8px",
-                fontWeight: "bold",
-                fontSize: "0.82rem",
-                display: "flex",
-                alignItems: "center"
-              }}
-            >
-              {globalSearchBusy ? "Cerco…" : "Scheda"}
-            </button>
-            <button
-              className="btn"
-              disabled={globalSearchBusy || !quickChartInput.trim()}
-              onClick={() => handleOpenQuickChart(quickChartInput)}
-              style={{ height: "33px", padding: "0 0.8rem", borderRadius: "8px", fontWeight: "bold", fontSize: "0.82rem" }}
-            >
-              Grafico
-            </button>
-          </div>
+          <button className="btn ghost" disabled={globalSearchBusy || !quickChartInput.trim()}
+            onClick={() => handleShowGlobalCard(quickChartInput)}>
+            {globalSearchBusy ? "Cerco…" : "Scheda"}
+          </button>
+          <button className="btn" disabled={globalSearchBusy || !quickChartInput.trim()}
+            onClick={() => handleOpenQuickChart(quickChartInput)}>Grafico</button>
         </div>
       </header>
       {(globalSearchRow || globalSearchMessage) ? (
         <section className="global-search-result">
           <div className="global-search-result-head">
             <div>
-              <strong>Risultato ricerca globale</strong>
+              <strong>{globalSearchRow ? `${globalSearchRow.Ticker} · ${globalSearchRow.Name}` : "Risultato ricerca globale"}</strong>
               {globalSearchRow ? <span>Mercato: {String(globalSearchRow.WL_Source_Market ?? market)}</span> : null}
             </div>
             <button className="btn ghost" onClick={() => { setGlobalSearchRow(null); setGlobalSearchMessage(""); }}>Chiudi</button>
@@ -826,7 +761,34 @@ export default function App() {
           ) : null}
         </section>
       ) : null}
-      <div className="filter-toggle-row">
+      <nav className="market-navigation" aria-label="Selezione mercato e liste">
+        {[{ label: "Mercati", personal: false }, { label: "Le mie liste", personal: true }].map((group) => {
+          const options = (marketsQuery.data ?? ["MIB30"]).filter((m) =>
+            (m === "Preferite" || Boolean(parseCurrentWatchlistName(m))) === group.personal);
+          if (!options.length) return null;
+          return (
+            <div className="market-navigation-row" key={group.label}>
+              <span className="market-group-label">{group.label}</span>
+              <div className="market-options" role="group" aria-label={group.label}>
+                {options.map((m) => (
+                  <button key={m} className={`market-option${market === m ? " selected" : ""}`}
+                    aria-pressed={market === m}
+                    onClick={() => { setMarket(m); setPage(1); }}>
+                    {parseCurrentWatchlistName(m) ?? m.replace(/_/g, " ")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </nav>
+      <div className="filter-toggle-row market-list-toolbar">
+        <strong className="current-market">{parseCurrentWatchlistName(market) ?? market.replace(/_/g, " ")}</strong>
+        <label className="volume-filter">
+          Volume minimo
+          <input type="number" min="0" value={minVolume}
+            onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
+        </label>
         <button
           className={showStateFilters || activeFilterCount ? "btn filter-toggle active" : "btn ghost filter-toggle"}
           onClick={() => setShowStateFilters((v) => !v)}
