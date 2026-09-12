@@ -1071,6 +1071,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                 "Usa un tono altamente professionale, editoriale e focalizzato sul risk management. Sii preciso e prudente."
             )
         
+        from app.ai.alert_contract import ALERT_CONTRACT, validate_alert_analysis
         model_name = req.model or "gpt-4o"
         kwargs_completions = {
             "model": model_name,
@@ -1081,7 +1082,8 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                         "Sei un analista tecnico e risk manager professionista specializzato nell'analisi grafica avanzata per IFinance. "
                         "Rispondi SEMPRE in italiano, SEMPRE con la struttura markdown richiesta, e NON saltare mai nessuna sezione. "
                         "Quando la decisione è NON ENTRARE ORA, devi SEMPRE includere il blocco JSON con le condizioni future, "
-                        "con i valori trigger personalizzati sul grafico specifico analizzato, non valori generici."
+                        "con i valori trigger personalizzati sul grafico specifico analizzato, non valori generici. "
+                        + ALERT_CONTRACT
                     )
                 },
                 {
@@ -1106,9 +1108,19 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             kwargs_completions["max_tokens"] = 2500
             kwargs_completions["temperature"] = 0.15
 
-        response = client.chat.completions.create(**kwargs_completions)
-        
-        output_text = response.choices[0].message.content
+        for attempt in range(3):
+            response = client.chat.completions.create(**kwargs_completions)
+            output_text = response.choices[0].message.content or ""
+            try:
+                validate_alert_analysis(output_text)
+                break
+            except ValueError as error:
+                if attempt == 2:
+                    raise ValueError("L'AI non ha prodotto condizioni attivabili. Riprova l'analisi.") from error
+                kwargs_completions["messages"].extend([
+                    {"role": "assistant", "content": output_text},
+                    {"role": "user", "content": f"Correggi l'intera analisi: {error} Rispetta il contratto delle condizioni attivabili."},
+                ])
         return {"ticker": req.ticker, "analysis": output_text}
         
     except Exception as exc:

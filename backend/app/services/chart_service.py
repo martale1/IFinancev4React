@@ -130,6 +130,13 @@ def build_alligator_figure(
     )
     # EMA9 ed EMA21 sono già nel dataframe (ta.dataframe) e vengono disegnate
     # automaticamente da AlligatorChartManager._add_moving_averages_positions
+    if fig is not None and fig.axes:
+        # Shared axes hide upper date labels by default; retain the same date ticks.
+        price_axis = fig.axes[0]
+        price_axis.tick_params(axis="x", labelbottom=True, labelrotation=45)
+        for label in price_axis.get_xticklabels():
+            label.set_horizontalalignment("right")
+        fig.subplots_adjust(hspace=0.45)
     return fig
 
 

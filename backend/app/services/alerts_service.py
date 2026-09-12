@@ -143,7 +143,7 @@ def normalize_ai_conditions(raw_conditions: list[dict[str, Any]]) -> list[dict[s
     unsupported: list[str] = []
 
     aliases = {
-        "price": "Close", "prezzo": "Close", "close": "Close",
+        "price": "Close", "price action": "Close", "prezzo": "Close", "close": "Close",
         "rsi": "RSI", "adx": "ADX", "macd_hist": "MACD_Hist",
         "williams_r": "Williams_R", "williams %r": "Williams_R",
         "stoch_k": "Stoch_K", "stoch_d": "Stoch_D", "volume": "Volume", "volumi": "Volume",

@@ -335,6 +335,7 @@ export default function ChartModal(props: Props) {
   const MAX_AUTO_RETRIES = 2;
   const QUICK_BARS = [10, 20, 70, 200];
   const [loading, setLoading] = useState(true);
+  const [loadedImageSrc, setLoadedImageSrc] = useState("");
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [forceLineFallback, setForceLineFallback] = useState(false);
@@ -379,6 +380,9 @@ export default function ChartModal(props: Props) {
       candidate.type === level.type && Math.abs(candidate.price - level.price) < 0.000001
     ) === index);
   }, [aiLevels, knownAiLevels, currentAiLevelAlerts]);
+  useEffect(() => {
+    if (props.open && chartAiLevels.length > 0) setShowAiLevelsOnChart(true);
+  }, [props.open, aiStateScope, chartAiLevels.length]);
   const aiAlertActive = Boolean(currentAiAlertInfo?.enabled);
   const isLevelActive = (level: AiCriticalLevel) => Boolean(currentAiLevelAlerts.some((saved) =>
     saved.enabled && saved.type === level.type && saved.trigger === level.trigger && Math.abs(saved.price - level.price) < 0.000001
@@ -689,7 +693,10 @@ export default function ChartModal(props: Props) {
   }
 
   async function activateAiAlert() {
-    if (!props.sourceMarket || !props.ticker || availableAiConditions.length === 0) return;
+    if (!props.sourceMarket || !props.ticker || availableAiConditions.length === 0) {
+      setAiAlertMessage("Impossibile attivare: mercato, titolo o condizioni AI mancanti.");
+      return;
+    }
     setAiAlertBusy(true);
     setAiAlertMessage("");
     try {
@@ -698,9 +705,18 @@ export default function ChartModal(props: Props) {
         conditions: availableAiConditions,
         title: `🤖 Alert AI ${props.ticker}`
       });
+      const savedConditions = (result.rule.when?.all ?? []).map((condition) => ({
+        ...condition, verified: false, actual: null,
+      }));
+      setCurrentAiAlertInfo({
+        ruleId: result.rule.id, enabled: Boolean(result.rule.enabled),
+        verified: 0, total: savedConditions.length, conditions: savedConditions,
+      });
+      setShowAiAlertConfiguration(true);
+      setAiAlertMessage(`Alert ${result.rule.id} attivato con ${savedConditions.length} condizioni in AND.`);
       await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
-      setAiAlertMessage(`Alert ${result.rule.id} attivato con ${result.rule.when?.all?.length ?? 0} condizioni in AND.`);
+      await refreshAiAlertState();
     } catch (e) {
       setAiAlertMessage(`Impossibile attivare: ${String(e)}`);
     } finally {
@@ -714,6 +730,7 @@ export default function ChartModal(props: Props) {
     setAiAlertBusy(true); setAiAlertMessage("");
     try {
       await deleteAlertRule(props.sourceMarket, currentAiAlertInfo.ruleId);
+      setCurrentAiAlertInfo(null);
       await queryClient.invalidateQueries({ queryKey: ["alerts", props.sourceMarket] });
       window.dispatchEvent(new Event("ifinance-alerts-changed"));
       setAiAlertMessage(`Alert ${currentAiAlertInfo.ruleId} rimosso.`);
@@ -888,6 +905,48 @@ export default function ChartModal(props: Props) {
           {props.levels?.ppLevel != null ? (
             <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
           ) : null}
+        </div>
+
+        {forceLineFallback ? <div className="chart-snapshot stale">Fallback attivo: grafico line per stabilita.</div> : null}
+        <div className="chart-wrap">
+          {loading && loadedImageSrc !== src && !hasError ? <div className="chart-status">Caricamento grafico...</div> : null}
+          {hasError ? (
+            <div className="chart-status chart-error">
+              <div>Grafico non disponibile (retry automatici esauriti).</div>
+              <button className="btn ghost" onClick={retry}>
+                Riprova
+              </button>
+            </div>
+          ) : null}
+          <img
+            src={src}
+            alt={`Chart ${props.ticker}`}
+            style={{ display: hasError ? "none" : "block" }}
+            onLoad={() => {
+              setLoadedImageSrc(src);
+              setLoading(false);
+              setHasError(false);
+            }}
+            onError={() => {
+              if (retryCount < MAX_AUTO_RETRIES) {
+                setLoading(true);
+                setHasError(false);
+                // Allow the backend to recover before retrying with a fresh URL.
+                window.setTimeout(() => setRetryCount((v) => v + 1), 1200);
+                return;
+              }
+              if (!forceLineFallback) {
+                // Sparse OHLC data may require the more tolerant line chart.
+                setForceLineFallback(true);
+                setRetryCount(0);
+                setLoading(true);
+                setHasError(false);
+                return;
+              }
+              setLoading(false);
+              setHasError(true);
+            }}
+          />
         </div>
 
         {/* Alert and AI actions row in Modal */}
@@ -1225,11 +1284,27 @@ export default function ChartModal(props: Props) {
               {renderMessage(aiAnalysis)}
             </div>
             {aiConditions.length > 0 ? (
+              <div>
               <div style={{ marginTop: "0.8rem", display: "flex", alignItems: "center", gap: "0.7rem", flexWrap: "wrap" }}>
                 <button className={`btn alert-on${aiAlertActive ? " alert-created" : ""}`} disabled={aiAlertBusy} onClick={toggleAiAlert} title={aiAlertActive ? "Clicca per rimuovere questo alert" : "Clicca per attivare questo alert"}>
-                  {aiAlertBusy ? "Aggiornamento..." : aiAlertActive ? `✓ Alert AI attivo (${currentAiAlertInfo?.total ?? aiConditions.length} condizioni) · Rimuovi` : `🔔 Attiva alert AI (${aiConditions.length} condizioni)`}
+                  {aiAlertBusy ? "Aggiornamento..." : aiAlertActive ? `✓ Alert AI attivo (${currentAiAlertInfo?.total ?? aiConditions.length} condizioni) · Rimuovi` : `🔔 Attiva alert AI (${availableAiConditions.length} condizioni)`}
                 </button>
                 <span className={aiAlertActive ? "alert-created-note" : "muted"}>{aiAlertActive ? `Regola ${currentAiAlertInfo?.ruleId} attiva.` : "Nessun alert viene creato finché non premi questo pulsante."}</span>
+              </div>
+              </div>
+            ) : null}
+            {aiAlertMessage ? <p role="status" aria-live="polite" className={aiAlertMessage.startsWith("Impossibile") ? "err" : "ok"}>{aiAlertMessage}</p> : null}
+            {aiAlertMessage.includes("non convertibili") ? (
+              <button className="btn" disabled={aiLoading} onClick={handleAskAi}>Rigenera analisi AI</button>
+            ) : null}
+            {aiAlertActive ? (
+              <div className="active-condition-grid ai-active-condition-grid" aria-label="Condizioni alert AI attive">
+                {displayedAiConditions.map((condition, index) => (
+                  <div key={`${condition.field}-${index}`} className={`active-condition-chip ai-active-condition-chip ${condition.verified ? "verified" : "pending"}`}>
+                    <b aria-hidden="true">{condition.verified ? "✓" : "○"}</b>
+                    <span><strong>{condition.field} {condition.op} {String(condition.value)}</strong><small>Monitoraggio attivo</small></span>
+                  </div>
+                ))}
               </div>
             ) : null}
             {aiLevels.length > 0 ? (
@@ -1245,47 +1320,10 @@ export default function ChartModal(props: Props) {
           </div>
         ) : null}
 
-        {forceLineFallback ? <div className="chart-snapshot stale">Fallback attivo: grafico line per stabilita.</div> : null}
-        <div className="chart-wrap">
-          {loading && !hasError ? <div className="chart-status">Caricamento grafico...</div> : null}
-          {hasError ? (
-            <div className="chart-status chart-error">
-              <div>Grafico non disponibile (retry automatici esauriti).</div>
-              <button className="btn ghost" onClick={retry}>
-                Riprova
-              </button>
-            </div>
-          ) : null}
-          <img
-            src={src}
-            alt={`Chart ${props.ticker}`}
-            style={{ display: hasError ? "none" : "block" }}
-            onLoad={() => {
-              setLoading(false);
-              setHasError(false);
-            }}
-            onError={() => {
-              if (retryCount < MAX_AUTO_RETRIES) {
-                setLoading(true);
-                setHasError(false);
-                // Give the backend a moment to finish/recover before requesting
-                // the same chart again with a cache-busting query parameter.
-                window.setTimeout(() => setRetryCount((v) => v + 1), 1200);
-                return;
-              }
-              if (!forceLineFallback) {
-                // Candlestick rendering can fail for sparse/incomplete OHLC data.
-                // Retry automatically with the more tolerant line chart.
-                setForceLineFallback(true);
-                setRetryCount(0);
-                setLoading(true);
-                setHasError(false);
-                return;
-              }
-              setLoading(false);
-              setHasError(true);
-            }}
-          />
+        <div className="modal-bottom-close">
+          <button className="btn ghost" type="button" onClick={props.onClose}>
+            Chiudi
+          </button>
         </div>
       </div>
     </div>

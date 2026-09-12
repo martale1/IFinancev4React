@@ -45,6 +45,11 @@ TOKEN_ENV_BY_CHANNEL = {
 
 DEFAULT_TOKEN_ENV = "TELEGRAM_BOT_TOKEN_DEFAULT"
 RECEIVER_ENV = "TELEGRAM_RECEIVER_ID"
+SOFTWARE_NAME = "IFinancev4 AI"
+
+
+def _with_software_name(text: str) -> str:
+    return f"{SOFTWARE_NAME}\n\n{text}" if text else SOFTWARE_NAME
 
 
 class messaging:
@@ -74,6 +79,7 @@ class messaging:
         self._send_message(testo + "\u200B", parse_mode="HTML")
 
     def _send_message(self, text: str, parse_mode: Optional[str] = None):
+        text = _with_software_name(text)
         if telepot is not None:
             bot = telepot.Bot(self.token)
             if parse_mode:
@@ -358,10 +364,6 @@ class messaging:
         else:
             print("La colonna 'Signal6' non esiste nel DataFrame filtrato.")
 
-    def send(self, testo):
-        bot = telepot.Bot(self.token)
-        bot.sendMessage(self.receiver_id, testo)
-
     def sendURLsWithFile(self, testo, image_filename=None):
         bot = telepot.Bot(self.token)
 
@@ -374,10 +376,10 @@ class messaging:
             # Verifica che il file esista prima di inviarlo
             if os.path.exists(image_path):
                 with open(image_path, 'rb') as img_file:
-                    bot.sendPhoto(self.receiver_id, img_file, caption=testo)
+                    bot.sendPhoto(self.receiver_id, img_file, caption=_with_software_name(testo))
             else:
                 print(f"Errore: Il file '{image_filename}' non esiste nella cartella 'images'.")
-                bot.sendMessage(self.receiver_id, f"⚠️ Impossibile trovare il file: {image_filename}")
+                self.send(f"⚠️ Impossibile trovare il file: {image_filename}")
 
     def send_document(self, file_path, caption=""):
         import os
@@ -387,12 +389,12 @@ class messaging:
 
         if not os.path.exists(file_path):
             print(f"⚠️ File non trovato: {file_path}")
-            bot.sendMessage(self.receiver_id, f"⚠️ File non trovato: {file_path}")
+            self.send(f"⚠️ File non trovato: {file_path}")
             return
 
         try:
             with open(file_path, "rb") as f:
-                bot.sendDocument(self.receiver_id, f, caption=caption)
+                bot.sendDocument(self.receiver_id, f, caption=_with_software_name(caption))
         except Exception as e:
             print(f"Errore invio documento Telegram: {e}")
 
@@ -402,7 +404,7 @@ class messaging:
         """
         bot = telepot.Bot(self.token)
         try:
-            bot.sendPhoto(self.receiver_id, photo=open(file_path, 'rb'))
+            bot.sendPhoto(self.receiver_id, photo=open(file_path, 'rb'), caption=SOFTWARE_NAME)
         except Exception as e:
             print(f"Errore durante l'invio del file: {e}")
 

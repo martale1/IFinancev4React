@@ -7,6 +7,7 @@ import AiTickerModal from "./components/AiTickerModal";
 import ChartModal from "./components/ChartModal";
 import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
+import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
@@ -29,13 +30,13 @@ import {
 
 const tabs = [
   "All",
-  "Liste",
   "Analizza",
   "🔥 Heatmap",
   "Alerts",
   "AI chat",
   "🧪 Multi-Pattern Lab",
   "🔧 Gestione Pattern",
+  "Liste",
   "Opportunità",
   "Da osservare",
   "Attendi",
@@ -133,6 +134,9 @@ export default function App() {
   const [showStateFilters, setShowStateFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
+  const [watchlistView, setWatchlistView] = useState<"cards" | "table">(() =>
+    window.localStorage.getItem("ifinance-watchlist-view") === "table" ? "table" : "cards"
+  );
   const [rankN] = useState(15);
 
   const [chartTicker, setChartTicker] = useState("");
@@ -725,22 +729,50 @@ export default function App() {
     });
   }, [watchlistQuery.data?.items, sortKey, sortDir]);
 
+  function clearGlobalSearch() {
+    if (globalSearchBusy) return;
+    setQuickChartInput("");
+    setGlobalSearchRow(null);
+    setGlobalSearchMessage("");
+    setTab("All");
+    setPage(1);
+  }
+
+  function changeWatchlistView(view: "cards" | "table") {
+    setWatchlistView(view);
+    window.localStorage.setItem("ifinance-watchlist-view", view);
+  }
+
   return (
     <main className="app">
       <header className="hero app-header">
         <h1>IFinancev4 AI</h1>
         <div className="global-search-control" role="search" aria-label="Ricerca globale titoli">
-          <label>
+          <div className="global-search-field">
+          <label htmlFor="global-ticker-search">
             Cerca titolo · tutti i mercati
+          </label>
+          <div className="global-search-input-wrap">
             <input
+              id="global-ticker-search"
               value={quickChartInput}
               onChange={(e) => setQuickChartInput(e.target.value)}
               placeholder="Ticker o nome, es. FCT o Fincantieri"
               onKeyDown={(e) => {
+                if (e.key === "Escape") clearGlobalSearch();
                 if (e.key === "Enter" && quickChartInput.trim()) handleShowGlobalCard(quickChartInput);
               }}
             />
-          </label>
+            {(quickChartInput || globalSearchRow || globalSearchMessage) ? (
+              <button type="button" className="global-search-clear"
+                title="Cancella ricerca e torna alla pagina iniziale"
+                aria-label="Cancella ricerca e torna alla pagina iniziale"
+                disabled={globalSearchBusy} onClick={clearGlobalSearch}>
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </div>
+          </div>
           <button className="btn ghost" disabled={globalSearchBusy || !quickChartInput.trim()}
             onClick={() => handleShowGlobalCard(quickChartInput)}>
             {globalSearchBusy ? "Cerco…" : "Scheda"}
@@ -1028,8 +1060,12 @@ export default function App() {
                 Reset
               </button>
             )}
+            <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
+              <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
+              <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
+            </div>
           </div>
-          <section className="grid">
+          {watchlistView === "cards" ? <section className="grid">
             {sortedWatchlistItems.map((row, idx) => (
               <WatchlistCard
                 key={`${String(row.Ticker)}-${idx}`}
@@ -1053,7 +1089,24 @@ export default function App() {
                 onRemoveFromWatchlist={handleRemoveFromWatchlist}
               />
             ))}
-          </section>
+          </section> : (
+            <WatchlistTable
+              rows={sortedWatchlistItems}
+              market={market}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onChart={openChart}
+              onAi={openTickerAi}
+              aiAlertMap={aiAlertCardMap}
+              aiLevelMap={aiLevelCardMap}
+              alertMap={quickAlertMap}
+              alertConfigMap={quickAlertConfigMap}
+              alertBusyMap={quickAlertBusyMap}
+              onCreateAlert={handleCreateQuickAlert}
+              onRemoveAlert={handleRemoveQuickAlert}
+            />
+          )}
           <footer className="pager">
             <button className="btn ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               Prev
