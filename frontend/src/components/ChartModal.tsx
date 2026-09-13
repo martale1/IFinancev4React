@@ -1281,7 +1281,7 @@ export default function ChartModal(props: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showAiAnalysis ? "0.5rem" : 0 }}>
               <div>
                 <h3 style={{ margin: 0, color: "#c084fc" }}>🧠 GenAI Multimodal Insight</h3>
-                {aiAnalysisSavedAt ? <small style={{ display: "block", color: "#94a3b8" }}>Analisi del {new Date(aiAnalysisSavedAt).toLocaleString("it-IT")}</small> : null}
+                {aiAnalysis ? <small style={{ display: "block", color: "#94a3b8" }}>Analisi del {new Date(aiAnalysisSavedAt ?? Date.now()).toLocaleString("it-IT")}</small> : null}
                 {!aiAnalysisIsCurrent ? <small style={{ color: "#fbbf24" }}>Analisi precedente: testo consultabile, livelli non applicati al grafico corrente.</small> : null}
               </div>
               <button className="btn ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setShowAiAnalysis((visible) => !visible)}>
