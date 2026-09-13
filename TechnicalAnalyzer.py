@@ -3773,6 +3773,152 @@ class TechnicalAnalyzer:
         return df
 
     def calculate_technical_score(self, weights=None):
+        """Calcola TECH_SCORE v2 su una scala fissa e confrontabile 0-100.
+
+        Lo score misura la qualita' tecnica di un possibile ingresso long a
+        5-20 sedute. I sottopunteggi rendono il risultato ispezionabile e la
+        penalita' separa la forza del movimento dal rischio di inseguirlo.
+
+        ``weights`` resta accettato per compatibilita' con i chiamanti storici,
+        ma la v2 usa pesi di dimensione stabili e documentati.
+        """
+        import numpy as np
+        import pandas as pd
+
+        df = self.dataframe
+        if df is None or df.empty:
+            return pd.Series(dtype=float)
+
+        index = df.index
+
+        def numeric(name):
+            if name not in df.columns:
+                return pd.Series(np.nan, index=index, dtype=float)
+            return pd.to_numeric(df[name], errors="coerce")
+
+        def text(name):
+            if name not in df.columns:
+                return pd.Series("", index=index, dtype=str)
+            return df[name].fillna("").astype(str).str.strip().str.lower()
+
+        def boolean_score(condition, available):
+            result = pd.Series(np.nan, index=index, dtype=float)
+            mask = available.fillna(False)
+            result.loc[mask] = np.where(condition.loc[mask], 100.0, 0.0)
+            return result
+
+        def mean_available(parts):
+            if not parts:
+                return pd.Series(50.0, index=index, dtype=float)
+            return pd.concat(parts, axis=1).mean(axis=1, skipna=True).fillna(50.0)
+
+        def relative_position(upper, lower, full_scale_pct):
+            """Mappa una distanza percentuale simmetrica su 0-100.
+
+            Valori uguali valgono 50; ``upper`` sopra ``lower`` di almeno
+            ``full_scale_pct`` vale 100, sotto della stessa misura vale 0.
+            """
+            valid = upper.notna() & lower.notna() & lower.ne(0)
+            result = pd.Series(np.nan, index=index, dtype=float)
+            distance_pct = (upper / lower - 1.0) * 100.0
+            result.loc[valid] = (
+                50.0 + distance_pct.loc[valid] * (50.0 / full_scale_pct)
+            ).clip(0.0, 100.0)
+            return result
+
+        close = numeric("Close")
+        ema30 = numeric("EMA_30")
+        ema50 = numeric("EMA_50")
+        jaw = numeric("Alligator_Jaw")
+        teeth = numeric("Alligator_Teeth")
+        lips = numeric("Alligator_Lips")
+        sar = numeric("SAR")
+
+        alligator_mean = pd.concat([jaw, teeth, lips], axis=1).mean(axis=1, skipna=False)
+        structure = mean_available([
+            relative_position(close, ema30, 6.0),
+            relative_position(ema30, ema50, 6.0),
+            relative_position(lips, teeth, 3.0),
+            relative_position(teeth, jaw, 3.0),
+            relative_position(close, alligator_mean, 6.0),
+            relative_position(close, sar, 6.0),
+        ])
+
+        macd = numeric("MACD")
+        macd_signal = numeric("MACD_Signal")
+        macd_trend = text("MACDH_Trend")
+        macd_group = mean_available([
+            boolean_score(macd > macd_signal, macd.notna() & macd_signal.notna()),
+            boolean_score(macd_trend.eq("up"), macd_trend.isin(["up", "down"])),
+        ])
+
+        rsi = numeric("RSI")
+        rsi_level = ((rsi - 30.0) / 40.0 * 100.0).clip(0.0, 100.0)
+        rsi_trend = text("RSI_Trend")
+        rsi_group = mean_available([
+            rsi_level,
+            boolean_score(rsi_trend.eq("up"), rsi_trend.isin(["up", "down"])),
+        ])
+
+        stoch_k = numeric("Stoch_K")
+        stoch_d = numeric("Stoch_D")
+        stoch_group = boolean_score(
+            stoch_k > stoch_d,
+            stoch_k.notna() & stoch_d.notna(),
+        )
+
+        pct_5d = numeric("PCTV_5D")
+        pct_group = (50.0 + pct_5d * 5.0).clip(0.0, 100.0)
+        momentum = mean_available([macd_group, rsi_group, stoch_group, pct_group])
+
+        adx = numeric("ADX")
+        plus_di = numeric("PLUS_DI")
+        minus_di = numeric("MINUS_DI")
+        direction_strength = pd.Series(np.nan, index=index, dtype=float)
+        directional_data = adx.notna() & plus_di.notna() & minus_di.notna()
+        adx_strength = ((adx - 15.0) / 20.0).clip(0.0, 1.0)
+        bullish_di = plus_di >= minus_di
+        direction_strength.loc[directional_data] = np.where(
+            bullish_di.loc[directional_data],
+            50.0 + 50.0 * adx_strength.loc[directional_data],
+            50.0 - 50.0 * adx_strength.loc[directional_data],
+        )
+
+        volume_vs_ma20 = numeric("Vol_Perc_vs_MA20")
+        if volume_vs_ma20.isna().all() and "Volume" in df.columns:
+            volume = numeric("Volume")
+            volume_ma20 = volume.rolling(20, min_periods=5).mean()
+            volume_vs_ma20 = (volume / volume_ma20 - 1.0) * 100.0
+        volume_participation = (50.0 + volume_vs_ma20 * 2.5).clip(0.0, 100.0)
+        participation = (
+            0.70 * direction_strength.fillna(50.0)
+            + 0.30 * volume_participation.fillna(50.0)
+        )
+
+        distance_ema30 = ((close / ema30) - 1.0) * 100.0
+        distance_penalty = ((distance_ema30 - 4.0) / 8.0 * 8.0).clip(0.0, 8.0).fillna(0.0)
+
+        atr_pct = numeric("ATR_PCT")
+        atr_penalty = ((atr_pct - 3.0) / 5.0 * 5.0).clip(0.0, 5.0).fillna(0.0)
+        rsi_penalty = ((rsi - 70.0) / 15.0 * 4.0).clip(0.0, 4.0).fillna(0.0)
+        stoch_penalty = ((stoch_k - 80.0) / 20.0 * 3.0).clip(0.0, 3.0).fillna(0.0)
+        extension_penalty = (distance_penalty + atr_penalty + rsi_penalty + stoch_penalty).clip(0.0, 20.0)
+
+        score = (
+            0.35 * structure
+            + 0.35 * momentum
+            + 0.30 * participation
+            - extension_penalty
+        ).clip(0.0, 100.0)
+
+        self.dataframe["TECH_STRUCTURE"] = structure.round(2)
+        self.dataframe["TECH_MOMENTUM"] = momentum.round(2)
+        self.dataframe["TECH_PARTICIPATION"] = participation.round(2)
+        self.dataframe["TECH_EXTENSION_PENALTY"] = extension_penalty.round(2)
+        self.dataframe["TECH_SCORE"] = score.round(2)
+        return score
+
+    def calculate_technical_score_legacy(self, weights=None):
         """
         Calcola uno score tecnico complessivo (0-100).
         Versione con ADX & ATR inclusi e senza Williams %R.

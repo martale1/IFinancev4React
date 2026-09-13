@@ -10,7 +10,8 @@ from app.config import ANALYSES_DIR
 
 NEED_COLUMNS_START = 1
 NEEDED_COLUMNS = [
-    "Ticker", "Name", "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE", "Liquidity",
+    "Ticker", "Name", "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE",
+    "TECH_STRUCTURE", "TECH_MOMENTUM", "TECH_PARTICIPATION", "TECH_EXTENSION_PENALTY", "Liquidity",
     "Action", "Market_Phase", "Trend_Phase_Detail", "Action_Reason", "Layer3_Warning",
     "MACD", "MACD_Signal", "MACD_Hist", "MACDH_Trend", "MACDH_Trend_Days",
     "RSI", "RSI_Trend", "RSI_Trend_Days",
@@ -74,6 +75,7 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     numeric_cols = [
         "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE",
+        "TECH_STRUCTURE", "TECH_MOMENTUM", "TECH_PARTICIPATION", "TECH_EXTENSION_PENALTY",
         "RSI", "ADX", "PLUS_DI", "MINUS_DI", "ATR", "ATR_PCT",
         "MACD", "MACD_Signal", "MACD_Hist",
         "Stoch_K", "Stoch_D", "Volume",

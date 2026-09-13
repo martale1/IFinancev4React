@@ -1,1 +1,10 @@
-{}
+{
+  "CARD_ALERT_3LCO_MI__3LCO.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-08-25",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-08-25T08:27:20.498225+00:00"
+  }
+}

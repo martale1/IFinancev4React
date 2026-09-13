@@ -1,18 +1,50 @@
 {
-  "CARD_ALERT_TEN_MI__TEN.MI": {
-    "was_true": false,
-    "last_sent_ts": 1783523122,
-    "sent_day": "2026-07-15",
-    "sent_count": 0,
-    "sent_total": 6,
-    "updated_at": "2026-07-15T21:05:16.949292+00:00"
-  },
-  "CARD_ALERT_BMPS_MI__BMPS.MI": {
+  "CARD_ALERT_IG_MI__IG.MI": {
     "was_true": true,
-    "last_sent_ts": 1784149517,
-    "sent_day": "2026-07-15",
+    "last_sent_ts": 1789252107,
+    "sent_day": "2026-09-13",
     "sent_count": 2,
-    "sent_total": 8,
-    "updated_at": "2026-07-15T21:05:17.655699+00:00"
+    "sent_total": 3,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
+  },
+  "CARD_ALERT_ENI_MI__ENI.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-13",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
+  },
+  "AI_LEVEL_BMPS_MI_SUPPORT_11_6__BMPS.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-13",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
+  },
+  "AI_MB_MI__MB.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-13",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
+  },
+  "AI_LEVEL_MB_MI_RESISTANCE_29_4__MB.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-13",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
+  },
+  "AI_INW_MI__INW.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-13",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-12T22:28:27.965901+00:00"
   }
 }

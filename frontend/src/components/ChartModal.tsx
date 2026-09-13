@@ -228,7 +228,7 @@ type SavedAiAnalysis = {
   savedAt: number;
 };
 
-const AI_ANALYSIS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const AI_ANALYSIS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function loadSavedAiAnalysis(input: {
   market?: string;
@@ -236,7 +236,7 @@ function loadSavedAiAnalysis(input: {
   bars: number;
   chartType: "candlestick" | "line";
   snapshotClose: number | null;
-}): { analysis: string; isCurrent: boolean } | null {
+}): { analysis: string; isCurrent: boolean; savedAt: number } | null {
   const key = aiAnalysisStorageKey(input.market, input.ticker);
   const raw = window.localStorage.getItem(key);
   if (!raw) return null;
@@ -255,11 +255,13 @@ function loadSavedAiAnalysis(input: {
       && saved.chartType === input.chartType
       && sameClose
       && Date.now() - saved.savedAt <= AI_ANALYSIS_MAX_AGE_MS;
-    if (valid) return { analysis: saved.analysis, isCurrent: true };
-    if (typeof saved.analysis === "string") return { analysis: saved.analysis, isCurrent: false };
+    if (valid) return { analysis: saved.analysis, isCurrent: true, savedAt: saved.savedAt };
+    if (typeof saved.savedAt === "number" && Date.now() - saved.savedAt <= AI_ANALYSIS_MAX_AGE_MS) {
+      return { analysis: saved.analysis, isCurrent: false, savedAt: saved.savedAt };
+    }
+    window.localStorage.removeItem(key);
   } catch {
-    // Le cache legacy erano testo semplice e non contenevano il contesto del grafico.
-    return { analysis: raw, isCurrent: false };
+    window.localStorage.removeItem(key);
   }
   return null;
 }
@@ -350,6 +352,7 @@ export default function ChartModal(props: Props) {
   // AI state variables
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiAnalysisSavedAt, setAiAnalysisSavedAt] = useState<number | null>(null);
   const [aiAnalysisIsCurrent, setAiAnalysisIsCurrent] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState(savedVisionModel);
@@ -501,6 +504,7 @@ export default function ChartModal(props: Props) {
       snapshotClose: close,
     });
     setAiAnalysis(savedAnalysis?.analysis ?? null);
+    setAiAnalysisSavedAt(savedAnalysis?.savedAt ?? null);
     setAiAnalysisIsCurrent(Boolean(savedAnalysis?.isCurrent));
     aiAnalysisContextRef.current = savedAnalysis?.isCurrent ? currentChartAiContext : null;
     setAiError(null);
@@ -674,6 +678,7 @@ export default function ChartModal(props: Props) {
       });
       if (currentChartAiContextRef.current !== requestedChartContext) return;
       setAiAnalysis(resp.analysis);
+      setAiAnalysisSavedAt(Date.now());
       setAiAnalysisIsCurrent(true);
       aiAnalysisContextRef.current = currentChartAiContext;
       setShowAiAnalysis(true);
@@ -1274,6 +1279,7 @@ export default function ChartModal(props: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showAiAnalysis ? "0.5rem" : 0 }}>
               <div>
                 <h3 style={{ margin: 0, color: "#c084fc" }}>🧠 GenAI Multimodal Insight</h3>
+                {aiAnalysisSavedAt ? <small style={{ display: "block", color: "#94a3b8" }}>Analisi del {new Date(aiAnalysisSavedAt).toLocaleString("it-IT")}</small> : null}
                 {!aiAnalysisIsCurrent ? <small style={{ color: "#fbbf24" }}>Analisi precedente: testo consultabile, livelli non applicati al grafico corrente.</small> : null}
               </div>
               <button className="btn ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setShowAiAnalysis((visible) => !visible)}>

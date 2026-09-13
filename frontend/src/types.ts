@@ -20,6 +20,10 @@ export type WatchlistRow = Record<string, unknown> & {
   MACD_Hist?: number;
   MACD_vs_Signal?: number;
   TECH_SCORE?: number;
+  TECH_STRUCTURE?: number;
+  TECH_MOMENTUM?: number;
+  TECH_PARTICIPATION?: number;
+  TECH_EXTENSION_PENALTY?: number;
   Volume?: number;
   Trend_Stop_Level?: number;
   CE_Long?: number;

@@ -122,7 +122,7 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
           const isExpanded = expanded.has(rowKey);
           return [
             <tr key={rowKey} className={isExpanded ? "expanded" : ""}>
-              <td className="ticker-cell"><strong>{ticker}</strong><small>{String(row.Name ?? "-")}</small></td>
+              <td className="ticker-cell"><strong>{ticker}</strong><small>{String(row.Name ?? "-")}</small><div className="mobile-watchlist-summary"><span>Prezzo <b>{num(row.Close, 3)}</b></span><span className={pctClass(row.PCTV_1D)}>1D <b>{pct(row.PCTV_1D)}</b></span><span>TECH <b>{num(row.TECH_SCORE)}</b></span><span className={pctClass(row.MACD_vs_Signal)}>S3 <b>{num(row.MACD_vs_Signal)}</b></span><span>RSI <b>{num(row.RSI)}</b></span></div></td>
               <td><span className={`table-signal ${signalClass(signal)}`}>{signal}</span></td>
               <td className="numeric">{num(row.Close, 3)}</td>
               <td className={`numeric ${pctClass(row.PCTV_1D)}`}>{pct(row.PCTV_1D)}</td>
@@ -151,6 +151,10 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
                 <span><b>Stocastico</b>K {num(row.Stoch_K)} / D {num(row.Stoch_D)}</span>
                 <span><b>Williams %R</b>{num(row.Williams_R)}</span>
                 <span><b>Volume</b>{num(row.Volume)}</span>
+                <span><b>TECH Struttura</b>{num(row.TECH_STRUCTURE)}</span>
+                <span><b>TECH Momentum</b>{num(row.TECH_MOMENTUM)}</span>
+                <span><b>TECH Partecipazione</b>{num(row.TECH_PARTICIPATION)}</span>
+                <span><b>Penalità estensione</b>-{num(row.TECH_EXTENSION_PENALTY)}</span>
                 <span className="detail-reason"><b>Motivazione</b>{String(row.Entry_Reason ?? "-")}</span>
               </div>
             </td></tr> : null,

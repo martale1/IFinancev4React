@@ -1,10 +1,26 @@
 {
   "CARD_ALERT_LCOR_MI__LCOR.MI": {
     "was_true": false,
+    "last_sent_ts": 1787501788,
+    "sent_day": "2026-08-28",
+    "sent_count": 0,
+    "sent_total": 2,
+    "updated_at": "2026-08-28T14:16:23.955658+00:00"
+  },
+  "AI_CORN_MI__CORN.MI": {
+    "was_true": false,
     "last_sent_ts": 0,
-    "sent_day": "2026-07-15",
+    "sent_day": "2026-08-28",
     "sent_count": 0,
     "sent_total": 0,
-    "updated_at": "2026-07-15T21:05:18.871588+00:00"
+    "updated_at": "2026-08-28T14:16:23.955658+00:00"
+  },
+  "AI_LEVEL_CORN_MI_RESISTANCE_17_85__CORN.MI": {
+    "was_true": true,
+    "last_sent_ts": 1787926584,
+    "sent_day": "2026-08-28",
+    "sent_count": 1,
+    "sent_total": 1,
+    "updated_at": "2026-08-28T14:16:24.105777+00:00"
   }
 }
