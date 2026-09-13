@@ -500,8 +500,8 @@ class AlligatorChartManager:
 
         # --- DI+ / DI−
         if have_di:
-            ax.plot(idx, di_plus, linewidth=1.6, label='DI+')
-            ax.plot(idx, di_minus, linewidth=1.6, label='DI−')
+            ax.plot(idx, di_plus, color='#16a34a', linewidth=1.6, label='DI+')
+            ax.plot(idx, di_minus, color='#dc2626', linewidth=1.6, label='DI−')
 
             # Cross DI+ / DI−
             cross_up = (di_plus.shift(1) <= di_minus.shift(1)) & (di_plus > di_minus)  # bull cross
@@ -515,7 +515,7 @@ class AlligatorChartManager:
 
         # --- ADX
         if have_adx:
-            ax.plot(idx, df_pos['ADX'], linewidth=2.0, label='ADX', zorder=4)
+            ax.plot(idx, df_pos['ADX'], color='#6b7280', linewidth=2.0, label='ADX', zorder=4)
             self._add_safe_axhline(ax, 25, linestyle='--', linewidth=1, alpha=0.6)
             ax.text(1.01, 25, '25', transform=ax.get_yaxis_transform(),
                     ha='left', va='center', fontsize=8,
