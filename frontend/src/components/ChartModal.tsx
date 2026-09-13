@@ -249,6 +249,8 @@ function loadSavedAiAnalysis(input: {
         && Math.abs(saved.snapshotClose - input.snapshotClose) <= Math.max(0.000001, Math.abs(input.snapshotClose) * 0.000001);
     const valid = saved.version === 2
       && typeof saved.analysis === "string"
+      && typeof saved.savedAt === "number"
+      && Number.isFinite(saved.savedAt)
       && saved.market === market
       && saved.ticker === ticker
       && saved.bars === input.bars
