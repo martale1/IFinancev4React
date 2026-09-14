@@ -675,6 +675,18 @@ export default function App() {
     const items = [...watchlistQuery.data.items];
     if (!sortKey || !sortDir) return items;
     return items.sort((a, b) => {
+      if (sortKey === "ADX_DI_PLUS" || sortKey === "ADX_DI_MINUS") {
+        const value = (row: WatchlistRow, key: string) => Number(row[key]);
+        const directional = (row: WatchlistRow) => {
+          const plus = Number(row.PLUS_DI); const minus = Number(row.MINUS_DI);
+          return Number.isFinite(plus) && Number.isFinite(minus) && (sortKey === "ADX_DI_PLUS" ? plus > minus : plus < minus);
+        };
+        const aMatch = directional(a); const bMatch = directional(b);
+        if (aMatch !== bMatch) return aMatch ? -1 : 1;
+        const aAdx = value(a, "ADX"); const bAdx = value(b, "ADX");
+        if (Number.isFinite(aAdx) && Number.isFinite(bAdx)) return bAdx - aAdx;
+        return Number.isFinite(aAdx) ? -1 : Number.isFinite(bAdx) ? 1 : 0;
+      }
       const av = a[sortKey];
       const bv = b[sortKey];
 
@@ -1032,6 +1044,8 @@ export default function App() {
               { label: "SARMA", key: "SIG_MA_SAR" },
               { label: "RSI", key: "RSI" },
               { label: "ADX", key: "ADX" },
+              { label: "ADX + (DI+>DI−)", key: "ADX_DI_PLUS" },
+              { label: "ADX − (DI+<DI−)", key: "ADX_DI_MINUS" },
               { label: "willR", key: "Williams_R" },
             ].map((opt) => {
               const active = sortKey === opt.key;
