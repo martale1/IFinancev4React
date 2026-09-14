@@ -74,6 +74,17 @@ function normalizeRuleId(v: unknown): string {
     .toUpperCase();
 }
 
+function hasPattern(row: WatchlistRow, pattern: "S3" | "S8"): boolean {
+  const type = String(row.Pattern_Type ?? "").toUpperCase();
+  if (type.includes(pattern)) return true;
+  if (pattern === "S3") {
+    const days = Number(row.Pattern_S3_Days_Ago);
+    return Number.isFinite(days) && days <= 5;
+  }
+  const volumeRatio = Number(row.Vol_Perc_vs_MA20);
+  return Number.isFinite(volumeRatio) && volumeRatio >= 50 && Number(row.PCTV_1D) > 0;
+}
+
 function quickAlertRuleId(ticker: string): string {
   const normalizedTicker = String(ticker ?? "")
     .trim()
@@ -1030,10 +1041,10 @@ export default function App() {
           <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PLUS_DI) > Number(r.MINUS_DI)).length}</strong><span>DI+ &gt; DI−</span></div>
           <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PLUS_DI) < Number(r.MINUS_DI)).length}</strong><span>DI+ &lt; DI−</span></div>
           <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PCTV_1D) > 0).length}</strong><span>In rialzo oggi</span></div>
-          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => String(r.Pattern_Type ?? "").toUpperCase().includes("S8")).length}</strong><span>Pattern S8</span></div>
-          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => String(r.Pattern_Type ?? "").toUpperCase().includes("S3")).length}</strong><span>Pattern S3</span></div>
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => hasPattern(r, "S8")).length}</strong><span>Pattern S8</span></div>
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => hasPattern(r, "S3")).length}</strong><span>Pattern S3</span></div>
         </div>
-        <div className="highlights-dual-list"><div className="highlights-list"><h3>Pattern S8 · Volume Breakout</h3>{watchlistQuery.data!.items.filter((r) => String(r.Pattern_Type ?? "").toUpperCase().includes("S8")).slice(0, 8).map((row) => <button className="highlight-row trend-up" key={`s8-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>{String(row.Pattern_Type)} · {row.Pattern_Days_Ago === 0 ? "Oggi" : `${String(row.Pattern_Days_Ago ?? "-")}g fa`}</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Pattern S3 · MACD Cross</h3>{watchlistQuery.data!.items.filter((r) => String(r.Pattern_Type ?? "").toUpperCase().includes("S3")).slice(0, 8).map((row) => <button className="highlight-row trend-up" key={`s3-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>{String(row.Pattern_Type)} · {row.Pattern_Days_Ago === 0 ? "Oggi" : `${String(row.Pattern_Days_Ago ?? "-")}g fa`}</b><em>Grafico</em></button>)}</div></div>
+        <div className="highlights-dual-list"><div className="highlights-list"><h3>Pattern S8 · Volume Breakout</h3>{watchlistQuery.data!.items.filter((r) => hasPattern(r, "S8")).slice(0, 8).map((row) => <button className="highlight-row trend-up" key={`s8-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>Volume/MA20 {Number(row.Vol_Perc_vs_MA20 ?? 0).toFixed(1)}% · {row.PCTV_1D != null ? `${Number(row.PCTV_1D).toFixed(2)}% oggi` : "-"}</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Pattern S3 · MACD Cross</h3>{watchlistQuery.data!.items.filter((r) => hasPattern(r, "S3")).slice(0, 8).map((row) => <button className="highlight-row trend-up" key={`s3-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>S3 {Number(row.MACD_vs_Signal ?? 0).toFixed(2)} · {row.Pattern_S3_Days_Ago != null ? `${String(row.Pattern_S3_Days_Ago)}g fa` : "recente"}</b><em>Grafico</em></button>)}</div></div>
         <div className="highlights-list"><h3>Titoli in evidenza</h3>{[...watchlistQuery.data!.items].filter((row) => !(Number(row.ADX) >= 25 && Number(row.PLUS_DI) < Number(row.MINUS_DI))).sort((a,b) => Number(b.ADX ?? 0) - Number(a.ADX ?? 0)).slice(0, 8).map((row) => { const adx = Number(row.ADX); const plus = Number(row.PLUS_DI); const minus = Number(row.MINUS_DI); const direction = adx >= 25 && plus > minus ? "up" : "weak"; return <button className={`highlight-row ${direction === "up" ? "trend-up" : "bounce"}`} key={String(row.Ticker)} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>ADX {adx.toFixed(1)} · DI+ {plus.toFixed(1)} · DI− {minus.toFixed(1)}</b><em>{direction === "up" ? "Trend rialzista" : "Movimento debole"}</em></button>; })}</div>
         <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
       </section> : null}
