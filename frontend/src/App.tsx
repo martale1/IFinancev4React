@@ -1031,6 +1031,7 @@ export default function App() {
               { label: "S3", key: "MACD_vs_Signal" },
               { label: "SARMA", key: "SIG_MA_SAR" },
               { label: "RSI", key: "RSI" },
+              { label: "ADX", key: "ADX" },
               { label: "willR", key: "Williams_R" },
             ].map((opt) => {
               const active = sortKey === opt.key;
