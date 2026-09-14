@@ -635,6 +635,15 @@ export default function WatchlistCard({
           RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b>
         </span>
         <span>
+          ADX: <b style={{ color: techColor(row.ADX) }}>{num(row.ADX, 1)}</b>
+        </span>
+        <span>
+          DI+: <b style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</b>
+        </span>
+        <span>
+          DI−: <b style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</b>
+        </span>
+        <span>
           willR: <b style={{ color: willRColor }}>{num(row.Williams_R, 0)}</b>
         </span>
         <span>

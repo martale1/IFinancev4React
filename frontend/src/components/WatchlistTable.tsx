@@ -107,6 +107,9 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
           <th>{heading("S3", "MACD_vs_Signal")}</th>
           <th>{heading("SARMA", "SIG_MA_SAR")}</th>
           <th>{heading("RSI", "RSI")}</th>
+          <th>{heading("ADX", "ADX")}</th>
+          <th>DI+</th>
+          <th>DI−</th>
           <th>Scenario</th>
           <th>Liquidità</th>
           <th>Alert AI</th>
@@ -133,6 +136,9 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
               <td className={`numeric ${pctClass(row.MACD_vs_Signal)}`}>{num(row.MACD_vs_Signal)}</td>
               <td className="numeric">{num(row.SIG_MA_SAR)}</td>
               <td className="numeric">{num(row.RSI)}</td>
+              <td className="numeric">{num(row.ADX, 1)}</td>
+              <td className="numeric" style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</td>
+              <td className="numeric" style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</td>
               <td><span className="scenario-label">{String(row.Market_Phase ?? "-").replace(/_/g, " ")}</span></td>
               <td><span className={String(row.Liquidity ?? "").toUpperCase() === "OK" ? "positive" : "negative"}>{String(row.Liquidity ?? "-")}</span></td>
               <td>{aiAlert ? <span className={aiAlert.enabled ? "ai-table-status active" : "ai-table-status"}>{aiAlert.verified}/{aiAlert.total}</span> : aiLevels.length ? <span className="ai-table-status active">Livelli {aiLevels.filter((item) => item.verified).length}/{aiLevels.length}</span> : "-"}</td>
@@ -143,7 +149,7 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
                 <button className={alertMap[alertKey] ? "btn alert-on" : "btn ghost"} aria-expanded={alertEditor === rowKey} onClick={() => toggleAlertEditor(rowKey, row, alertKey)}>{alertMap[alertKey] ? "Alert ON" : "Alert"}</button>
               </td>
             </tr>,
-            isExpanded ? <tr className="watchlist-detail-row" key={`${rowKey}-details`}><td colSpan={15}>
+            isExpanded ? <tr className="watchlist-detail-row" key={`${rowKey}-details`}><td colSpan={18}>
               <div className="watchlist-row-details">
                 <span><b>Data</b>{row.Date ? String(row.Date).slice(0, 10) : "-"}</span>
                 <span><b>10D</b><i className={pctClass(row.PCTV_10D)}>{pct(row.PCTV_10D)}</i></span>
@@ -158,7 +164,7 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
                 <span className="detail-reason"><b>Motivazione</b>{String(row.Entry_Reason ?? "-")}</span>
               </div>
             </td></tr> : null,
-            alertEditor === rowKey ? <tr className="watchlist-alert-row" key={`${rowKey}-alert`}><td colSpan={15}>
+            alertEditor === rowKey ? <tr className="watchlist-alert-row" key={`${rowKey}-alert`}><td colSpan={18}>
               <div className="watchlist-inline-alert">
                 <strong>Alert {ticker}</strong>
                 <label>Indicatore<select value={alertField} onChange={(event) => setAlertField(event.target.value as QuickAlertField)}>{ALERT_FIELDS.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}</select></label>
