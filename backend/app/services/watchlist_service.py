@@ -28,6 +28,7 @@ NEEDED_COLUMNS = [
     "Trend_Stop_Level", "Trend_Stop_Invalidation", "Trend_Stop_Type",
     "Trading_State", "Layer1_Action", "Layer2_Label", "Layer2_Score",
     "ADX_Trend", "CE_Long", "Profit_Protect_Level", "Signal6_Trend_Days",
+    "Pattern_Type", "Pattern_Days_Ago", "Pattern_S2_Days_Ago", "Pattern_S3_Days_Ago",
 ]
 
 
