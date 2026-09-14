@@ -30,6 +30,7 @@ import {
 
 const tabs = [
   "All",
+  "📊 Highlights",
   "Analizza",
   "🔥 Heatmap",
   "Alerts",
@@ -948,7 +949,7 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📊 Highlights" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
           <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
@@ -1020,11 +1021,23 @@ export default function App() {
           onChart={openChart}
         />
       ) : null}
+      {tab === "📊 Highlights" && watchlistQuery.data ? <section className="highlights-panel">
+        <h2>Highlights {market}</h2>
+        <p className="muted">Una lettura rapida dei segnali principali del mercato corrente.</p>
+        <div className="highlights-grid">
+          {["ENTRA", "OSSERVA", "ATTENDI", "EVITA"].map((signal) => <div className="highlight-tile" key={signal}><strong>{watchlistQuery.data!.items.filter((r) => String(r.Entry_Signal ?? "ATTENDI").toUpperCase() === signal).length}</strong><span>{signal}</span></div>)}
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.ADX) >= 25).length}</strong><span>ADX ≥ 25</span></div>
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PLUS_DI) > Number(r.MINUS_DI)).length}</strong><span>DI+ &gt; DI−</span></div>
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PLUS_DI) < Number(r.MINUS_DI)).length}</strong><span>DI+ &lt; DI−</span></div>
+          <div className="highlight-tile"><strong>{watchlistQuery.data!.items.filter((r) => Number(r.PCTV_1D) > 0).length}</strong><span>In rialzo oggi</span></div>
+        </div>
+        <div className="highlights-list"><h3>Titoli in evidenza</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(b.ADX ?? 0) - Number(a.ADX ?? 0)).slice(0, 8).map((row) => <button className="highlight-row" key={String(row.Ticker)} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><span>{String(row.Name ?? "-")}</span><b>ADX {Number(row.ADX ?? 0).toFixed(1)} · DI+ {Number(row.PLUS_DI ?? 0).toFixed(1)} · DI− {Number(row.MINUS_DI ?? 0).toFixed(1)}</b><em>Grafico</em></button>)}</div>
+      </section> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
+      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
