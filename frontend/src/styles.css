@@ -314,8 +314,8 @@ textarea {
   .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(4),
   .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(8),
   .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(9),
-  .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(12),
-  .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(15) { display: block; }
+  .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(15),
+  .watchlist-table tbody > tr:not(.watchlist-detail-row):not(.watchlist-alert-row) > td:nth-child(18) { display: block; }
   .watchlist-table .ticker-cell {
     position: static;
     grid-column: 1 / 3;
@@ -332,12 +332,12 @@ textarea {
     justify-self: end;
     align-self: start;
   }
-  .watchlist-table tbody > tr > td:nth-child(12) {
+  .watchlist-table tbody > tr > td:nth-child(15) {
     grid-column: 1 / 5;
     color: #7899b8;
     font-size: .7rem;
   }
-  .watchlist-table tbody > tr > td:nth-child(12)::before {
+  .watchlist-table tbody > tr > td:nth-child(15)::before {
     content: "Scenario  ";
     color: #7899b8;
     font-weight: 400;
@@ -365,6 +365,7 @@ textarea {
   .watchlist-table tbody > tr > td:nth-child(4)::before { content: "1D"; }
   .watchlist-table tbody > tr > td:nth-child(8)::before { content: "TECH"; }
   .watchlist-table tbody > tr > td:nth-child(9)::before { content: "S3"; }
+  .watchlist-table tbody > tr > td:nth-child(18) { grid-column: 1 / 5; }
   .watchlist-table .table-actions {
     position: static;
     grid-column: 1 / 5;
