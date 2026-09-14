@@ -556,6 +556,7 @@ textarea {
 .fired-alert-card > div { display:flex; justify-content:space-between; gap:.5rem; align-items:center; }
 .fired-alert-card > div span { color:#8fb1d1; font-size:.72rem; }
 .fired-alert-card p { margin:.45rem 0 .65rem; color:#dbeafe; font-size:.8rem; }
+.fired-alert-metrics { display:block; margin:-.25rem 0 .65rem; color:#93c5fd; font-size:.74rem; }
 .active-alerts-heading > div, .active-rule-card-heading > div { display: flex; flex-direction: column; gap: .08rem; }
 .active-alerts-heading strong { color: #e5f2ff; font-size: .94rem; }
 .active-alerts-heading span, .active-rule-card-heading span { color: #8fb1d1; font-size: .7rem; }

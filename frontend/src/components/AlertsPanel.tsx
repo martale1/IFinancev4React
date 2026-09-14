@@ -134,9 +134,14 @@ export default function AlertsPanel({ market, onOpenChart }: Props) {
               const conditionText = statuses.length
                 ? statuses.map((c) => `${c.field} ${c.op} ${String(c.value)} · valore rilevato: ${c.actual == null ? "n/d" : String(c.actual)}${c.verified ? " ✓" : ""}`).join(" · ")
                 : (rule?.when?.all ?? []).map((c) => `${c.field} ${c.op} ${String(c.value)}`).join(" · ") || "Condizione non disponibile";
+              const metricText = [
+                ["ADX", row.ADX], ["DI+", row.PLUS_DI ?? row.DI_plus], ["DI−", row.MINUS_DI ?? row.DI_minus],
+              ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+                .map(([label, value]) => `${label}: ${String(value)}`).join(" · ");
               return <article className="fired-alert-card" key={`summary-${String(row.RuleID)}-${String(row.Ticker)}-${i}`}>
                 <div><strong>{String(row.Ticker ?? "-")}</strong><span>{String(row.Last_Alert ?? "-")}</span></div>
                 <p>{conditionText}</p>
+                {metricText ? <small className="fired-alert-metrics">Indicatori: {metricText}</small> : null}
                 <button className="btn ghost" type="button" onClick={() => onOpenChart?.(String(row.Ticker ?? ""))} disabled={!onOpenChart}>Apri grafico</button>
               </article>;
             })}
