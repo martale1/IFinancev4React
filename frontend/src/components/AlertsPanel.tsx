@@ -132,7 +132,7 @@ export default function AlertsPanel({ market, onOpenChart }: Props) {
               const rule = rulesById.get(normalizeRuleId(row.RuleID));
               const statuses = conditionStatus(row);
               const conditionText = statuses.length
-                ? statuses.map((c) => `${c.field} ${c.op} ${String(c.value)}${c.verified ? " ✓" : ""}`).join(" · ")
+                ? statuses.map((c) => `${c.field} ${c.op} ${String(c.value)} · valore rilevato: ${c.actual == null ? "n/d" : String(c.actual)}${c.verified ? " ✓" : ""}`).join(" · ")
                 : (rule?.when?.all ?? []).map((c) => `${c.field} ${c.op} ${String(c.value)}`).join(" · ") || "Condizione non disponibile";
               return <article className="fired-alert-card" key={`summary-${String(row.RuleID)}-${String(row.Ticker)}-${i}`}>
                 <div><strong>{String(row.Ticker ?? "-")}</strong><span>{String(row.Last_Alert ?? "-")}</span></div>
