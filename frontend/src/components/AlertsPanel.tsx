@@ -5,6 +5,7 @@ import { deleteAlertRule, fetchAlerts, runAlerts, setAlertRuleEnabled } from "..
 
 type Props = {
   market: string;
+  onOpenChart?: (ticker: string) => void;
 };
 
 function asNum(v: unknown): number {
@@ -23,7 +24,7 @@ function normalizeRuleId(v: unknown): string {
     .toUpperCase();
 }
 
-export default function AlertsPanel({ market }: Props) {
+export default function AlertsPanel({ market, onOpenChart }: Props) {
   const qc = useQueryClient();
   const alertsQuery = useQuery({
     queryKey: ["alerts", market],
@@ -122,6 +123,26 @@ export default function AlertsPanel({ market }: Props) {
         </button>
       </div>
       {runMutation.isError ? <p className="err">Run error: {String(runMutation.error)}</p> : null}
+
+      <section className="alert-section alert-fired-summary">
+        <div className="active-alerts-heading"><div><strong>🔔 Alert scattati</strong><span>Ultimi titoli e condizioni che hanno generato un alert</span></div><span className="enabled-badge active">{firedRows.length} attivi</span></div>
+        {!firedRows.length ? <p className="muted">Nessun alert scattato.</p> : (
+          <div className="fired-alert-cards">
+            {firedRows.slice(0, 12).map((row, i) => {
+              const rule = rulesById.get(normalizeRuleId(row.RuleID));
+              const statuses = conditionStatus(row);
+              const conditionText = statuses.length
+                ? statuses.map((c) => `${c.field} ${c.op} ${String(c.value)}${c.verified ? " ✓" : ""}`).join(" · ")
+                : (rule?.when?.all ?? []).map((c) => `${c.field} ${c.op} ${String(c.value)}`).join(" · ") || "Condizione non disponibile";
+              return <article className="fired-alert-card" key={`summary-${String(row.RuleID)}-${String(row.Ticker)}-${i}`}>
+                <div><strong>{String(row.Ticker ?? "-")}</strong><span>{String(row.Last_Alert ?? "-")}</span></div>
+                <p>{conditionText}</p>
+                <button className="btn ghost" type="button" onClick={() => onOpenChart?.(String(row.Ticker ?? ""))} disabled={!onOpenChart}>Apri grafico</button>
+              </article>;
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="alert-section">
         <h3>Alert AI</h3>

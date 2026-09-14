@@ -943,7 +943,11 @@ export default function App() {
         </div>
       ) : null}
 
-      {tab === "Alerts" ? <AlertsPanel market={market} /> : null}
+      {tab === "Alerts" ? <AlertsPanel market={market} onOpenChart={async (ticker) => {
+        const found = await findTickerAcrossMarkets(ticker);
+        if (found) openChart(found);
+        else await handleOpenQuickChart(ticker);
+      }} /> : null}
       {tab === "AI chat" ? <AiChatPanel market={market} /> : null}
       {tab === "🧪 Multi-Pattern Lab" ? (
         <MultiPatternLabPanel

@@ -551,6 +551,11 @@ textarea {
 }
 
 .active-alerts-heading, .active-rule-card-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.fired-alert-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .6rem; margin-top: .75rem; }
+.fired-alert-card { border: 1px solid rgba(56,189,248,.3); border-radius: .65rem; padding: .7rem; background: rgba(8,25,43,.65); }
+.fired-alert-card > div { display:flex; justify-content:space-between; gap:.5rem; align-items:center; }
+.fired-alert-card > div span { color:#8fb1d1; font-size:.72rem; }
+.fired-alert-card p { margin:.45rem 0 .65rem; color:#dbeafe; font-size:.8rem; }
 .active-alerts-heading > div, .active-rule-card-heading > div { display: flex; flex-direction: column; gap: .08rem; }
 .active-alerts-heading strong { color: #e5f2ff; font-size: .94rem; }
 .active-alerts-heading span, .active-rule-card-heading span { color: #8fb1d1; font-size: .7rem; }
