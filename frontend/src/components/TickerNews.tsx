@@ -22,6 +22,17 @@ function linkedText(text: string) {
   });
 }
 
+type QuickSummary = { items: Array<{ label: string; value: string }>; reportText: string };
+function quickSummary(text: string): QuickSummary | null {
+  const match = /^\s*\[SINTESI_RAPIDA\]\s*\n([\s\S]*?)\n\[\/SINTESI_RAPIDA\]\s*/.exec(text);
+  if (!match) return null;
+  const items = match[1].split("\n").map((line) => {
+    const separator = line.indexOf(":");
+    return separator < 0 ? null : { label: line.slice(0, separator).trim(), value: line.slice(separator + 1).trim() };
+  }).filter((item): item is { label: string; value: string } => Boolean(item?.label && item.value));
+  return items.length ? { items, reportText: text.slice(match[0].length).trim() } : null;
+}
+
 export default function TickerNews({ row, market, onChart }: { row: WatchlistRow; market: string; onChart: (row: WatchlistRow) => void }) {
   const ticker = String(row.Ticker ?? "").trim().toUpperCase();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,6 +53,7 @@ export default function TickerNews({ row, market, onChart }: { row: WatchlistRow
   });
   const report = saved.data?.report;
   const date = report ? new Date(report.searched_at).toLocaleString("it-IT") : "";
+  const summary = report ? quickSummary(report.text) : null;
   return <>
     <button className="btn ghost" disabled={!ticker} onClick={() => dialog.current?.showModal()}
       title={report ? `Ricerca salvata: ${date}` : "Notizie, sentiment e target analisti"}>
@@ -62,7 +74,13 @@ export default function TickerNews({ row, market, onChart }: { row: WatchlistRow
       {search.isError && <p role="alert">{search.error.message}</p>}
       {report && <>
         <p className="ticker-news-price">Prezzo della card al momento della ricerca: {report.price ?? "n/d"} · data {report.price_date || "non disponibile"}. Non è una quotazione live.</p>
-        <article className="ticker-news-report">{linkedText(report.text)}</article>
+        {summary ? <section className="ticker-news-summary" aria-label="Sintesi rapida">
+          <h3>In breve</h3>
+          <div className="ticker-news-summary-grid">{summary.items.map((item) => <div key={item.label}>
+            <strong>{item.label}</strong><span>{linkedText(item.value)}</span>
+          </div>)}</div>
+        </section> : null}
+        <article className="ticker-news-report">{linkedText(summary?.reportText ?? report.text)}</article>
         <h3>Fonti consultabili</h3>
         <ul>{report.sources.filter(s => /^https?:\/\//.test(s.url)).map(s => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a></li>)}</ul>
       </>}
