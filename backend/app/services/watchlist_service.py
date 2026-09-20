@@ -29,6 +29,7 @@ NEEDED_COLUMNS = [
     "Trading_State", "Layer1_Action", "Layer2_Label", "Layer2_Score",
     "ADX_Trend", "CE_Long", "Profit_Protect_Level", "Signal6_Trend_Days",
     "Pattern_Type", "Pattern_Days_Ago", "Pattern_S2_Days_Ago", "Pattern_S3_Days_Ago",
+    "Data_Quality", "History_Rows",
 ]
 
 
@@ -99,6 +100,7 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     df["Action"] = df["Action"].astype(str).str.upper()
     df["Market_Phase"] = df["Market_Phase"].astype(str).str.upper()
+    df["Data_Quality"] = df["Data_Quality"].fillna("OK").astype(str).str.upper()
 
     note_u = df["Pullback_Entry_Note"].astype(str).str.upper()
     df["PB_RANK"] = 0

@@ -1,0 +1,14 @@
+.ticker-news-dialog { width: min(880px, 92vw); max-height: 85vh; overflow-y: auto; padding: 26px; border: 1px solid #35536b; border-radius: 18px; background: #0b1b2c; color: #dce7f3; box-shadow: 0 20px 80px #0009; }
+.ticker-news-dialog::backdrop { background: #0009; }
+.ticker-news-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.ticker-news-header h2 { margin-top: 0; }
+.ticker-news-dialog p { line-height: 1.6; }
+.ticker-news-report { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; margin: 24px 0; }
+.ticker-news-dialog a { color: #8fdcfa; text-decoration: underline; }
+.ticker-news-dialog li { margin: 10px 0; overflow-wrap: anywhere; }
+.ticker-news-price { color: #a3b9cb; font-size: .9rem; }
+.ticker-news-dialog [role="alert"] { color: #ffaaa4; }
+.ticker-news-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 28px; padding-top: 18px; border-top: 1px solid #274258; }
+.ticker-news-chart { margin-top: 28px; padding: 18px; border: 1px solid #274258; border-radius: 12px; background: #071421; }
+.ticker-news-chart h3 { margin-top: 0; }
+.ticker-news-chart img { display: block; width: 100%; min-height: 280px; border-radius: 8px; background: #fff; object-fit: contain; }

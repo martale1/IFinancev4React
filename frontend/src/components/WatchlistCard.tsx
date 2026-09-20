@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import TickerNews from "./TickerNews";
 import type { WatchlistRow, QuickAlertField } from "../types";
 
 
@@ -428,6 +429,9 @@ export default function WatchlistCard({
   const [aiAlertBusy, setAiAlertBusy] = useState(false);
   const [aiAlertMsg, setAiAlertMsg] = useState("");
   const ticker = String(row.Ticker ?? "");
+  const dataQuality = String(row.Data_Quality ?? "OK").trim().toUpperCase();
+  const historyRows = toNum(row.History_Rows);
+  const insufficientHistory = dataQuality === "INSUFFICIENT_HISTORY" || (historyRows !== null && historyRows < 40);
   const action = String(row.Action ?? "-");
   const phase = String(row.Market_Phase ?? "-");
   const trendPhaseDetail = String(row.Trend_Phase_Detail ?? "").trim();
@@ -588,6 +592,11 @@ export default function WatchlistCard({
           <div className="quote-date" title="Data della seduta contenuta nell’Excel, distinta dalla data di modifica del file. Non è una quotazione in tempo reale.">
             Dato al {row.Date ? (row.Date instanceof Date ? row.Date.toISOString().slice(0, 10) : String(row.Date).slice(0, 10)) : "non disponibile"} · da analisi
           </div>
+          {insufficientHistory ? (
+            <div className="data-quality-warning" title="Il provider ha restituito poche sedute storiche: gli indicatori tecnici e le variazioni multi-giorno non sono affidabili.">
+              Storico insufficiente{historyRows !== null ? ` · ${num(historyRows, 0)} barre` : ""}
+            </div>
+          ) : null}
         </div>
         <div className="price" style={{ display: "flex", alignItems: "baseline", gap: "0.4rem" }}>
           <span>{num(row.Close, 3)}</span>
@@ -659,6 +668,11 @@ export default function WatchlistCard({
           LIQ: <b style={{ color: String(row.Liquidity ?? "").trim().toUpperCase() === "OK" ? "#22c55e" : "#ef4444" }}>{String(row.Liquidity ?? "-")}</b>
         </span>
       </div>
+      {insufficientHistory ? (
+        <div className="row data-quality-note">
+          Dati limitati dal provider: grafico e statistiche tecniche disponibili solo sull'ultima/e seduta/e scaricata/e.
+        </div>
+      ) : null}
       <div className="pill-row">
         <span className={`pill ${entrySignalClass(entrySignal)}`} title={entryReason}>
           {entrySignal === "ENTRA" ? "✓ ENTRA" : entrySignal === "OSSERVA" ? "◉ OSSERVA" : entrySignal === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}
@@ -775,6 +789,7 @@ export default function WatchlistCard({
         >
           AI{aiActive ? " attiva" : ""}
         </button>
+        <TickerNews row={row} market={sourceMarket} onChart={onChart} />
         <button className="btn ghost" onClick={() => setShowDetails((v) => !v)}>
           {showDetails ? "Nascondi dettagli" : "Dettagli"}
         </button>

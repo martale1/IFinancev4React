@@ -38,6 +38,8 @@ export type WatchlistRow = Record<string, unknown> & {
   Pattern_Combined_Days_Ago?: number;
   Pattern_Type?: string;
   Pattern_Days_Ago?: number;
+  Data_Quality?: string;
+  History_Rows?: number;
 };
 
 export type WatchlistResponse = {

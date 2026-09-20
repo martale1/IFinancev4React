@@ -2185,11 +2185,16 @@ class TechnicalAnalyzer:
         """
         try:
             print(f"[TechnicalAnalyzer] Scaricamento dati da Yahoo Finance per {self.ticker}...")
-            df = yf.Ticker(self.ticker).history(
-                period=self.period,
-                actions=False,
-                auto_adjust=False  # evita warning e mantiene i prezzi non aggiustati
-            )
+            try:
+                from app.services.scanner_service import get_historical_data
+
+                df = get_historical_data(self.ticker, period=self.period)
+            except Exception:
+                df = yf.Ticker(self.ticker).history(
+                    period=self.period,
+                    actions=False,
+                    auto_adjust=False  # evita warning e mantiene i prezzi non aggiustati
+                )
             # Yahoo può pubblicare l'ultima seduta con OHLC parziali e Close/Adj Close
             # ancora vuoti. In quel caso il prezzo ufficiale è già disponibile nella
             # quote: completiamo la candela anziché eliminare l'intera giornata.

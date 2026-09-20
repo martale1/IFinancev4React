@@ -334,6 +334,13 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             print(f"Ticker {ticker} scartato (no dati)")
             scartati += 1
             continue
+        history_rows = len(analyzer.dataframe)
+        data_quality = "OK" if history_rows >= 40 else "INSUFFICIENT_HISTORY"
+        if data_quality != "OK":
+            print(
+                f"[WARN] Storico insufficiente per {ticker}: "
+                f"{history_rows} righe. Indicatori/statistiche limitati."
+            )
 
         # --- Calcolo indicatori principali ---
         analyzer.calculate_TA_Indicators(
@@ -614,6 +621,8 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             "Date": ts,  # <-- già naive
             "Ticker": ticker,
             "Name": name,
+            "Data_Quality": data_quality,
+            "History_Rows": history_rows,
             **ultima_riga
         }
         dati_ultime_righe.append(ultima_riga)

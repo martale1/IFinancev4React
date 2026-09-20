@@ -83,6 +83,8 @@ from app.services.watchlist_service import (
 )
 
 app = FastAPI(title="IFinance v4 React Backend", version="0.1.0")
+from app.services.news_service import router as news_router
+app.include_router(news_router)
 
 ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others", "Crypto"]
 _analysis_lock = threading.Lock()

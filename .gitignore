@@ -11,6 +11,7 @@ venv/
 
 # Cartelle temporanee/cache/log
 cache/
+data/news.sqlite3*
 logs/
 .run/
 telegram_exports/

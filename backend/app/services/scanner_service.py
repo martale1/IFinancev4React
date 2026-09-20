@@ -5,6 +5,7 @@ import re
 import sys
 import time
 import concurrent.futures
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -35,6 +36,68 @@ def _get_vectorbt():
 from app.config import PROJECT_ROOT, ANALYSES_DIR
 from filehandling import fileHandling
 
+_MIN_HISTORY_ROWS_FOR_ANALYSIS = 40
+
+
+def _period_to_days(period: str) -> int:
+    text = str(period or "").strip().lower()
+    match = re.fullmatch(r"(\d+)\s*(d|wk|mo|y)", text)
+    if not match:
+        return 365 * 2
+    value = int(match.group(1))
+    unit = match.group(2)
+    if unit == "d":
+        return value
+    if unit == "wk":
+        return value * 7
+    if unit == "mo":
+        return value * 31
+    return value * 366
+
+
+def _clean_ohlc_history(data: pd.DataFrame) -> pd.DataFrame:
+    if data is None or data.empty:
+        return pd.DataFrame()
+
+    data = data.copy()
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+
+    required_cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+    for col in required_cols:
+        if col not in data.columns:
+            alt_names = [col.lower(), col.replace(" ", "_"), col.replace(" ", "_").lower()]
+            for alt in alt_names:
+                if alt in data.columns:
+                    data.rename(columns={alt: col}, inplace=True)
+                    break
+
+    if "Adj Close" not in data.columns and "Close" in data.columns:
+        data["Adj Close"] = data["Close"]
+
+    if "Close" in data.columns:
+        data.dropna(subset=["Close"], inplace=True)
+
+    if not isinstance(data.index, pd.DatetimeIndex):
+        data.index = pd.to_datetime(data.index)
+
+    return data.sort_index()
+
+
+def _download_with_absolute_dates(ticker: str, period: str, interval: str) -> pd.DataFrame:
+    days = max(_period_to_days(period), 365 * 2)
+    end = datetime.now(timezone.utc).date() + timedelta(days=1)
+    start = end - timedelta(days=days + 10)
+    return yf.download(
+        ticker,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        interval=interval,
+        progress=False,
+        auto_adjust=False,
+    )
+
+
 def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> pd.DataFrame:
     """
     Scarica sempre i dati storici aggiornati per un ticker da Yahoo Finance.
@@ -42,31 +105,22 @@ def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", f
     try:
         yf_ticker = str(ticker).strip()
         data = yf.download(yf_ticker, period=period, interval=interval, progress=False, auto_adjust=False)
-        
+        data = _clean_ohlc_history(data)
+
+        # Alcuni ETF/ETP su Yahoo Finance rispondono a period="2y" con una
+        # sola seduta. Il range start/end recupera lo storico completo.
+        if interval == "1d" and len(data) < _MIN_HISTORY_ROWS_FOR_ANALYSIS:
+            fallback = _clean_ohlc_history(_download_with_absolute_dates(yf_ticker, period, interval))
+            if len(fallback) > len(data):
+                print(
+                    f"[SCANNER] Fallback date-range per {yf_ticker}: "
+                    f"{len(data)} -> {len(fallback)} righe"
+                )
+                data = fallback
+
         if data.empty:
             raise ValueError("Dati scaricati vuoti da Yahoo Finance")
-            
-        # Pulisci le colonne MultiIndex
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-            
-        # Assicura colonne standard
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
-        for col in required_cols:
-            if col not in data.columns:
-                alt_names = [col.lower(), col.replace(" ", "_"), col.replace(" ", "_").lower()]
-                for alt in alt_names:
-                    if alt in data.columns:
-                        data.rename(columns={alt: col}, inplace=True)
-                        break
-                        
-        if 'Adj Close' not in data.columns:
-            if 'Close' in data.columns:
-                data['Adj Close'] = data['Close']
-                    
-        if not isinstance(data.index, pd.DatetimeIndex):
-            data.index = pd.to_datetime(data.index)
-            
+
         return data
     except Exception as e:
         print(f"Errore nello scaricamento dei dati per {ticker}: {e}")

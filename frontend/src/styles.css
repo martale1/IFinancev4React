@@ -415,6 +415,25 @@ textarea {
   font-size: 0.85rem;
 }
 
+.data-quality-warning {
+  margin-top: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 8px;
+  padding: 0.16rem 0.38rem;
+  background: rgba(120, 53, 15, 0.28);
+  color: #fcd34d;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.data-quality-note {
+  color: #fbbf24;
+  font-size: 0.78rem;
+}
+
 .price {
   font-size: 1.1rem;
   font-weight: 800;

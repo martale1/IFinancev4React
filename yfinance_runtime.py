@@ -7,6 +7,14 @@ import os
 import shutil
 from pathlib import Path
 
+# I download finanziari devono collegarsi direttamente a Yahoo Finance.
+# Evita proxy locali ereditati dall'ambiente che possono non essere attivi.
+for _proxy_var in (
+    "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+    "http_proxy", "https_proxy", "all_proxy",
+):
+    os.environ.pop(_proxy_var, None)
+
 import yfinance as yf
 import yfinance.cache as yf_cache
 
