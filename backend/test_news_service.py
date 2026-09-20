@@ -46,6 +46,7 @@ class NewsTests(unittest.TestCase):
             self.assertIn("latest close", call["input"])
             self.assertIn("Reuters MarketWatch London South East", call["input"])
             self.assertIn("Prezzo e movimento recente", call["instructions"])
+            self.assertIn("Non mescolare mai azione ordinaria, ADR", call["instructions"])
             self.assertEqual(news.read_report("ENI.MI"), saved)
             api.responses.create.side_effect = RuntimeError("provider failure")
             self.assertEqual(self.client.post("/api/news/research", json={"ticker": "ENI.MI"}).status_code, 502)
@@ -58,6 +59,12 @@ class NewsTests(unittest.TestCase):
             self.assertEqual(self.client.post("/api/news/research", json={"ticker": "ENI.MI"}).status_code, 409)
         finally:
             news._research_lock.release()
+
+    def test_london_listing_excludes_us_adr(self):
+        brief = news.research_brief(news.ResearchRequest(ticker="VOD.L", name="Vodafone"), "2026-09-20")
+        self.assertIn("London Stock Exchange", brief["listing_context"])
+        self.assertIn("ADR", brief["listing_context"])
+        self.assertIn("USD", brief["listing_context"])
 
 
 if __name__ == "__main__":

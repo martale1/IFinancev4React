@@ -27,9 +27,26 @@ def research_brief(req: ResearchRequest, research_date_utc: str) -> dict:
     ticker = req.ticker.strip().upper()
     name = req.name.strip()
     query_name = name or ticker
+    if ticker.endswith(".L"):
+        listing_context = (
+            f"{ticker} è la quotazione ordinaria London Stock Exchange. Prezzi e target devono riferirsi "
+            "alla stessa azione LSE, normalmente in GBX/pence oppure GBP. Escludi ADR/azioni USA in USD "
+            "(per Vodafone: VOD negli USA è un ADR, non è VOD.L)."
+        )
+    elif ticker.endswith(".MI"):
+        listing_context = (
+            f"{ticker} è la quotazione Borsa Italiana. Usa esclusivamente dati, target e valuta della "
+            "quotazione italiana; escludi ADR o listing esteri con valuta diversa."
+        )
+    else:
+        listing_context = (
+            f"Usa esclusivamente la quotazione identificata dal ticker esatto {ticker}; escludi ADR, "
+            "cross-listing e strumenti con valuta diversa."
+        )
     return {
         "research_date_utc": research_date_utc,
         **req.model_dump(),
+        "listing_context": listing_context,
         "mandatory_search_focus": [
             f"{ticker} latest close daily change volume 52 week high",
             f"{ticker} why shares moved latest news",
@@ -96,6 +113,12 @@ def research(req: ResearchRequest):
                     "MarketWatch, London South East, Investing.com, MarketScreener, Borsa Italiana/LSE o fonti "
                     "equivalenti disponibili. Il sito ufficiale è utile per comunicati e calendario, ma non è "
                     "sufficiente per concludere che non esistono notizie price-sensitive. "
+                    "Integrità della quotazione: lavora soltanto sul ticker/listing esatto indicato nell'input. "
+                    "Non mescolare mai azione ordinaria, ADR, cross-listing o valute differenti. Per ticker .L "
+                    "usa la quotazione London Stock Exchange e prezzi/target in GBX-pence o GBP; non usare target, "
+                    "consenso o prezzi dell'ADR USA in USD. Se non esiste un consenso verificabile per il listing "
+                    "esatto, scrivi 'Non disponibile' invece di sostituirlo con un ADR. Applica lo stesso criterio "
+                    "a ogni exchange e valuta descritti nel listing_context dell'input. "
                     "Prima identifica ultima chiusura disponibile, variazione giornaliera, volume, massimo/minimo "
                     "a 52 settimane se disponibili, e confronta il movimento con l'indice/settore quando possibile. "
                     "Poi cerca esplicitamente notizie che spieghino il movimento: query tipo 'why shares down/up', "
