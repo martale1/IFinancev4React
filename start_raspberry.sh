@@ -29,10 +29,23 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE"
 fi
 
-if [[ ! -f "$ROOT_DIR/frontend/dist/index.html" ]]; then
-  echo "Build frontend non trovata: avvio npm install e npm run build..."
+FRONTEND_DIR="$ROOT_DIR/frontend"
+FRONTEND_INDEX="$FRONTEND_DIR/dist/index.html"
+NEEDS_FRONTEND_BUILD=0
+
+if [[ ! -f "$FRONTEND_INDEX" ]]; then
+  NEEDS_FRONTEND_BUILD=1
+elif find "$FRONTEND_DIR/src" "$FRONTEND_DIR/package.json" "$FRONTEND_DIR/vite.config.ts" \
+  -type f -newer "$FRONTEND_INDEX" -print -quit | grep -q .; then
+  NEEDS_FRONTEND_BUILD=1
+fi
+
+if [[ "$NEEDS_FRONTEND_BUILD" -eq 1 ]]; then
+  echo "Frontend modificato o build assente: avvio npm run build..."
   cd "$ROOT_DIR/frontend"
-  npm install
+  if [[ ! -d node_modules ]]; then
+    npm install
+  fi
   npm run build
 fi
 
