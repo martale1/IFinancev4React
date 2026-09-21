@@ -314,7 +314,16 @@ export default function MultiPatternLabPanel({
       try {
         const url = `/api/scanner/scan-stream?market=${encodeURIComponent(labMarket)}&pattern=${encodeURIComponent(pattern)}&use_sar=${useSar}&use_sma200=${useSma200}&lookback=${lookback}`;
         const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) throw new Error(`Scansione fallita con status: ${res.status}`);
+        if (!res.ok) {
+          let detail = `Scansione fallita con status: ${res.status}`;
+          try {
+            const errorBody = await res.json();
+            if (typeof errorBody?.detail === "string") detail = errorBody.detail;
+          } catch {
+            // Risposta non JSON: conserva il messaggio con lo status HTTP.
+          }
+          throw new Error(detail);
+        }
         if (!res.body) throw new Error("Stream non disponibile");
 
         const reader = res.body.getReader();
@@ -377,7 +386,16 @@ export default function MultiPatternLabPanel({
           `/api/scanner/scan?market=${encodeURIComponent(labMarket)}&pattern=${encodeURIComponent(pattern)}&use_sar=${useSar}&use_sma200=${useSma200}&lookback=${lookback}`,
           { signal: controller.signal }
         );
-        if (!res.ok) throw new Error(`Scansione fallita con status: ${res.status}`);
+        if (!res.ok) {
+          let detail = `Scansione fallita con status: ${res.status}`;
+          try {
+            const errorBody = await res.json();
+            if (typeof errorBody?.detail === "string") detail = errorBody.detail;
+          } catch {
+            // Risposta non JSON: conserva il messaggio con lo status HTTP.
+          }
+          throw new Error(detail);
+        }
         const data = await res.json();
         setScanResults(data.results ?? []);
         setFallbackWarnings(data.fallback_warnings ?? []);

@@ -548,6 +548,9 @@ def api_scanner_scan(
             for rows, diagnostic in executor.map(_scan_one, target_markets):
                 combined_results.extend(rows)
                 scan_sources.append(diagnostic)
+        blocking_errors = [item["blocking_error"] for item in scan_sources if item.get("blocking_error")]
+        if blocking_errors:
+            raise HTTPException(status_code=409, detail=" ".join(blocking_errors))
         fallback_warnings = [f"{item['market']}: {item['reason']}" for item in scan_sources if item.get("fallback")]
         return {"market": market, "markets": target_markets, "pattern": pattern,
                 "results": combined_results, "scan_sources": scan_sources,

@@ -809,6 +809,8 @@ def scan_market(
     """
     Scansiona il mercato caricando i dati pre-calcolati dall'Excel salvato ogni 20 minuti da main.py.
     Se l'Excel non è disponibile o mancano le colonne dei pattern, esegue il fallback in tempo reale.
+    I pattern S9 richiedono invece i dati precalcolati: il fallback Yahoo sarebbe lento e
+    renderebbe la richiesta apparentemente bloccata.
     """
     pattern_mapping = {
         "custom_rsi_oversold": "S5",
@@ -844,6 +846,21 @@ def scan_market(
             diagnostics.update({"market": market, "source": "excel", "fallback": False, "reason": None})
             
     except Exception as exc:
+        if mapped_pattern in {"S9", "S9_EARLY", "S9_CONFIRMED"}:
+            message = (
+                f"L'Excel {market} non contiene ancora i dati S9. "
+                "Esegui l'analisi del mercato per rigenerarlo e riprova."
+            )
+            print(f"[SCANNER] {message} Dettaglio: {type(exc).__name__}: {exc}")
+            if diagnostics is not None:
+                diagnostics.update({
+                    "market": market,
+                    "source": "excel",
+                    "fallback": False,
+                    "reason": message,
+                    "blocking_error": message,
+                })
+            return []
         print(f"[SCANNER] Impossibile usare l'Excel precalcolato per {market} ({exc}). Eseguo scansione in tempo reale...")
         if diagnostics is not None:
             diagnostics.update({"market": market, "source": "yahoo_finance", "fallback": True,
