@@ -47,6 +47,9 @@ class NewsTests(unittest.TestCase):
             self.assertIn("Reuters MarketWatch London South East", call["input"])
             self.assertIn("Prezzo e movimento recente", call["instructions"])
             self.assertIn("Non mescolare mai azione ordinaria, ADR", call["instructions"])
+            self.assertIn("non trasformare 'non trovato' in 'non esiste'", call["instructions"])
+            self.assertEqual(call["tools"][0]["search_context_size"], "high")
+            self.assertEqual(call["max_tool_calls"], 10)
             self.assertEqual(news.read_report("ENI.MI"), saved)
             api.responses.create.side_effect = RuntimeError("provider failure")
             self.assertEqual(self.client.post("/api/news/research", json={"ticker": "ENI.MI"}).status_code, 502)
@@ -65,6 +68,19 @@ class NewsTests(unittest.TestCase):
         self.assertIn("London Stock Exchange", brief["listing_context"])
         self.assertIn("ADR", brief["listing_context"])
         self.assertIn("USD", brief["listing_context"])
+
+    def test_research_brief_requires_recent_news_coverage(self):
+        brief = news.research_brief(
+            news.ResearchRequest(ticker="CPR.MI", name="Campari"),
+            "2026-09-21T12:00:00+00:00",
+        )
+        searches = "\n".join(brief["mandatory_search_focus"])
+        self.assertEqual(brief["required_date_window"], "2026-09-14..2026-09-21")
+        self.assertIn("upgrade downgrade analyst rating price target", searches)
+        self.assertIn("promossa bocciata raccomandazione", searches)
+        self.assertIn("press release expansion partnership", searches)
+        self.assertIn("comunicato stampa espansione partnership", searches)
+        self.assertIn("analyst_upgrades_downgrades_and_target_revisions", brief["coverage_checklist"])
 
 
 if __name__ == "__main__":
