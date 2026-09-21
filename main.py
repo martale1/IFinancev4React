@@ -11,6 +11,7 @@ from messaging import messaging
 from AlertEngine import AlertEngine
 
 import pandas as pd
+import numpy as np
 import os
 from pathlib import Path
 from typing import List, Optional
