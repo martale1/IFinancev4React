@@ -305,10 +305,9 @@ export default function MultiPatternLabPanel({
     setSelectedTicker(null);
     setBacktestResults(null);
 
-    // S9 richiede spesso il fallback live finché il cron non ha rigenerato gli
-    // Excel. Usa quindi lo stream con avanzamento ticker-per-ticker invece di
-    // lasciare la GUI su un'attesa JSON senza feedback.
-    const usesStreamingScan = !BUILTIN_PATTERNS.has(pattern) || pattern.startsWith("S9");
+    // Tutti i pattern built-in, incluso S9, leggono gli Excel precalcolati.
+    // Lo stream Yahoo resta riservato ai pattern personalizzati.
+    const usesStreamingScan = !BUILTIN_PATTERNS.has(pattern);
 
     if (usesStreamingScan) {
       // ── SSE streaming path for custom patterns ──────────────────────────────
