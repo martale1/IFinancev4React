@@ -6,7 +6,7 @@ set "BACKEND_DIR=%ROOT_DIR%backend"
 set "FRONTEND_DIR=%ROOT_DIR%frontend"
 
 echo Avvio backend IFinance sulla porta 8011...
-start "IFinance Backend" /D "%BACKEND_DIR%" cmd /k "call conda activate IFinanceTA && python -m uvicorn app.main:app --host 127.0.0.1 --port 8011 --reload"
+start "IFinance Backend" /D "%BACKEND_DIR%" cmd /k "call C:\Users\theoi\anaconda3\Scripts\activate.bat IFinanceTA && python -m uvicorn app.main:app --host 127.0.0.1 --port 8011"
 
 echo Avvio frontend React/Vite sulla porta 5173...
 start "IFinance Frontend" /D "%FRONTEND_DIR%" cmd /k "npm run dev -- --host 127.0.0.1"
