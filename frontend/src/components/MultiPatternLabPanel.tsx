@@ -62,6 +62,10 @@ type ScanResult = WatchlistRow & {
   Range_Pct?: number;        // posizione 0-100% nel range min-max 1Y
   High_1Y?: number;
   Low_1Y?: number;
+  Red_Candles_6?: number;
+  Selloff_Return_10_Pct?: number;
+  Selloff_Drawdown_20_Pct?: number;
+  Volume_Ratio_MA20?: number;
 };
 
 interface BacktestResults {
@@ -99,6 +103,8 @@ const PATTERN_TABS = [
   { id: "S7_CONFIRMED", label: "🟢 S7 Conf.", desc: "ADX≥20+EMA", color: "#34d399" },
   { id: "S7_STRONG", label: "🟢🟢 S7 Strong", desc: "ADX≥25+Trend+Vol", color: "#22c55e" },
   { id: "S8",       label: "🟪 S8",        desc: "Volume Breakout", color: "#c084fc" },
+  { id: "S9_EARLY", label: "🟠 S9 Early", desc: "Sell-off Rebound", color: "#fb923c" },
+  { id: "S9_CONFIRMED", label: "🟢 S9 Conf.", desc: "Rebound+Vol", color: "#2dd4bf" },
   { id: "Combined", label: "✨ Comb.",      desc: "S2 & S3",      color: "#fbbf24" },
   { id: "S2_or_S3", label: "🔥 Qualsiasi", desc: "S2 o S3",      color: "#f97316" },
 ] as const;
@@ -279,7 +285,7 @@ export default function MultiPatternLabPanel({
 
   // Set of built-in pattern IDs that use the fast pre-calculated Excel path
   const BUILTIN_PATTERNS = new Set([
-    "S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "Combined", "S2_or_S3",
+    "S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "S9", "S9_EARLY", "S9_CONFIRMED", "Combined", "S2_or_S3",
     "custom_rsi_oversold", "custom_golden_cross", "custom_bullish_alligator", "custom_volume_breakout"
   ]);
 
@@ -728,6 +734,13 @@ export default function MultiPatternLabPanel({
                       <li>Strong: ADX ≥ 25, sopra SMA200, volume ≥ MA20</li>
                       <li>Il segnale scatta solo all'ingresso nel livello</li>
                     </ul>
+                    <h4 style={{ color: "#fb923c", margin: "0.6rem 0 0.3rem 0", fontSize: "0.82rem" }}>🟠 S9 (Rebound dopo sell-off)</h4>
+                    <ul style={{ paddingLeft: "1rem", margin: 0 }}>
+                      <li>Almeno 4 candele rosse nelle 6 sedute precedenti</li>
+                      <li>Rendimento 10g ≤ −7% oppure drawdown 20g ≤ −10%</li>
+                      <li>Early: candela verde, RSI e Stoch/MACD in recupero</li>
+                      <li>Confirmed: chiusura sopra il massimo precedente e volume ≥ 1,2× MA20</li>
+                    </ul>
                   </div>
                 </div>
               </details>
@@ -908,6 +921,10 @@ export default function MultiPatternLabPanel({
                       { label: "MACD",       key: "MACD"            },
                       { label: "ADX",        key: "ADX"             },
                       { label: "SAR",        key: "SAR"             },
+                      { label: "Rosse/6",    key: "Red_Candles_6"   },
+                      { label: "Sell-off 10g", key: "Selloff_Return_10_Pct" },
+                      { label: "Drawdown 20g", key: "Selloff_Drawdown_20_Pct" },
+                      { label: "Vol/MA20",   key: "Volume_Ratio_MA20" },
                       { label: "Pos. 1Y%",   key: "Range_Pct"       },
                       { label: "Δ Max 1Y",   key: "Dist_From_High"  },
                     ] as { label: string; key: keyof ScanResult | null }[]).map((col) => (
@@ -975,6 +992,7 @@ export default function MultiPatternLabPanel({
                           : displayPt.includes("Golden") || displayPt.includes("S6") ? "#fbbf24"
                           : displayPt.includes("Alligator") || displayPt.includes("S7") ? "#34d399"
                           : displayPt.includes("Volume") || displayPt.includes("S8") ? "#c084fc"
+                          : displayPt.includes("Rebound") || displayPt.includes("S9") ? "#fb923c"
                           : "#fbbf24";
                         return (
                           <td style={{ fontWeight: "bold", color: ptColor }}>
@@ -994,6 +1012,10 @@ export default function MultiPatternLabPanel({
                       <td>{row.MACD ? row.MACD.toFixed(3) : "-"}</td>
                       <td style={{ color: row.ADX && row.ADX >= 25 ? "#60a5fa" : "#9fb7cf" }}>{row.ADX ? row.ADX.toFixed(1) : "-"}</td>
                       <td style={{ fontSize: "0.8rem", color: "#9fb7cf" }}>{row.SAR ? row.SAR.toFixed(3) : "-"}</td>
+                      <td>{row.Red_Candles_6 != null ? row.Red_Candles_6.toFixed(0) : "-"}</td>
+                      <td style={{ color: (row.Selloff_Return_10_Pct ?? 0) <= -7 ? "#f87171" : "#9fb7cf" }}>{row.Selloff_Return_10_Pct != null ? `${row.Selloff_Return_10_Pct.toFixed(1)}%` : "-"}</td>
+                      <td style={{ color: (row.Selloff_Drawdown_20_Pct ?? 0) <= -10 ? "#f87171" : "#9fb7cf" }}>{row.Selloff_Drawdown_20_Pct != null ? `${row.Selloff_Drawdown_20_Pct.toFixed(1)}%` : "-"}</td>
+                      <td style={{ color: (row.Volume_Ratio_MA20 ?? 0) >= 1.2 ? "#4ade80" : "#9fb7cf" }}>{row.Volume_Ratio_MA20 != null ? `${row.Volume_Ratio_MA20.toFixed(2)}×` : "-"}</td>
                       {/* ── Posizione nel range 1Y ── */}
                       <td style={{ textAlign: "center" }}>
                         {row.Range_Pct !== undefined ? (() => {

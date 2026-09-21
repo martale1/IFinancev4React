@@ -204,6 +204,40 @@ def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.
     # alert "DI_diff > 0" equivale a "DI+ > DI-"
     df['DI_diff'] = df['PLUS_DI'] - df['MINUS_DI']
 
+    # S9 – ripartenza dopo sell-off. Il conteggio considera le sei sedute
+    # precedenti, così la candela verde corrente non altera la misura della caduta.
+    red_candle = df['Close'] < df['Open']
+    df['Red_Candles_6'] = red_candle.shift(1).rolling(6, min_periods=6).sum()
+    prior_close = df['Close'].shift(1)
+    prior_high_20 = df['High'].shift(1).rolling(20, min_periods=10).max()
+    df['Selloff_Return_10_Pct'] = (prior_close / df['Close'].shift(11) - 1.0) * 100.0
+    df['Selloff_Drawdown_20_Pct'] = (prior_close / prior_high_20 - 1.0) * 100.0
+    df['Volume_Ratio_MA20'] = df['Volume'] / df['Volume_MA20'].replace(0, np.nan)
+
+    selloff = (
+        (df['Red_Candles_6'] >= 4)
+        & ((df['Selloff_Return_10_Pct'] <= -7.0) | (df['Selloff_Drawdown_20_Pct'] <= -10.0))
+    )
+    bullish_reversal = (
+        (df['Close'] > df['Open'])
+        & (df['Close'] > df['Close'].shift(1))
+    )
+    recent_oversold = df['RSI'].shift(1).rolling(5, min_periods=2).min() <= 40.0
+    rsi_recovery = recent_oversold & (df['RSI'] > df['RSI_shift1'])
+    stoch_recovery = (
+        (df['Stoch_K'] > df['Stoch_D'])
+        & ((df['Stoch_K_shift1'] <= df['Stoch_D_shift1']) | (df['Stoch_K'] > df['Stoch_K_shift1']))
+    )
+    macd_recovery = df['MACD_Hist'] > df['MACD_Hist_shift1']
+    s9_early_state = selloff & bullish_reversal & rsi_recovery & (stoch_recovery | macd_recovery)
+    s9_confirmed_state = (
+        s9_early_state
+        & (df['Close'] > df['High'].shift(1))
+        & (df['Volume_Ratio_MA20'] >= 1.2)
+    )
+    df['Selloff_Rebound_Early_Trigger'] = s9_early_state
+    df['Selloff_Rebound_Confirmed_Trigger'] = s9_confirmed_state
+
     # Alligator lines (Jaw 13 shift 8, Teeth 8 shift 5, Lips 5 shift 3)
     df['Alligator_Jaw'] = pd.Series(talib.WMA(close, timeperiod=13), index=df.index).shift(8)
     df['Alligator_Teeth'] = pd.Series(talib.WMA(close, timeperiod=8), index=df.index).shift(5)
@@ -303,6 +337,9 @@ def get_pattern_label(pattern: str) -> str:
         "S7_EARLY": "S7 Early",
         "S7_CONFIRMED": "S7 Confirmed",
         "S7_STRONG": "S7 Strong",
+        "S9": "S9 Rebound Confirmed",
+        "S9_EARLY": "S9 Rebound Early",
+        "S9_CONFIRMED": "S9 Rebound Confirmed",
     }.get(pattern, pattern)
 
 
@@ -314,6 +351,9 @@ def get_builtin_pattern_rule(pattern: str) -> str | None:
         "S7_CONFIRMED": "(Alligator_Bull_Confirmed_Trigger == True)",
         "S7_STRONG": "(Alligator_Bull_Strong_Trigger == True)",
         "S8": "(Close > Open) & (Volume > Volume_MA20 * 1.5)",
+        "S9": "(Selloff_Rebound_Confirmed_Trigger == True)",
+        "S9_EARLY": "(Selloff_Rebound_Early_Trigger == True)",
+        "S9_CONFIRMED": "(Selloff_Rebound_Confirmed_Trigger == True)",
     }.get(pattern)
 
 
@@ -407,6 +447,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
         vol_ma20_s8 = df_calc['Volume_MA20'] if 'Volume_MA20' in df_calc.columns else pd.Series(1.0, index=df_calc.index)
         s8_active_series = (df_calc['Close'] > open_s8) & (df_calc['Volume'] > (vol_ma20_s8 * 1.5))
 
+        # 8. Pattern S9 – candela di ripartenza dopo una caduta misurabile.
+        s9_early_series = df_calc['Selloff_Rebound_Early_Trigger']
+        s9_confirmed_series = df_calc['Selloff_Rebound_Confirmed_Trigger']
+
         custom_query = get_pattern_rule(pattern)
         if custom_query:
             try:
@@ -434,6 +478,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
             active_series = s7_strong_series
         elif pattern == "S8":
             active_series = s8_active_series
+        elif pattern == "S9_EARLY":
+            active_series = s9_early_series
+        elif pattern in ("S9", "S9_CONFIRMED"):
+            active_series = s9_confirmed_series
         elif pattern == "Combined":
             active_series = s2_active_series & s3_active_series
         elif pattern == "S2_or_S3":
@@ -563,6 +611,10 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
                 "Stoch_D": float(row_t['Stoch_D']) if 'Stoch_D' in row_t and not pd.isna(row_t['Stoch_D']) else None,
                 "Williams_R": float(row_t['Williams_R']) if 'Williams_R' in row_t and not pd.isna(row_t['Williams_R']) else None,
                 "MACD": float(row_t['MACD']) if 'MACD' in row_t and not pd.isna(row_t['MACD']) else None,
+                "Red_Candles_6": float(row_t['Red_Candles_6']) if 'Red_Candles_6' in row_t and not pd.isna(row_t['Red_Candles_6']) else None,
+                "Selloff_Return_10_Pct": float(row_t['Selloff_Return_10_Pct']) if 'Selloff_Return_10_Pct' in row_t and not pd.isna(row_t['Selloff_Return_10_Pct']) else None,
+                "Selloff_Drawdown_20_Pct": float(row_t['Selloff_Drawdown_20_Pct']) if 'Selloff_Drawdown_20_Pct' in row_t and not pd.isna(row_t['Selloff_Drawdown_20_Pct']) else None,
+                "Volume_Ratio_MA20": float(row_t['Volume_Ratio_MA20']) if 'Volume_Ratio_MA20' in row_t and not pd.isna(row_t['Volume_Ratio_MA20']) else None,
                 "ADX": float(row_t['ADX']) if 'ADX' in row_t and not pd.isna(row_t['ADX']) else None,
                 "PLUS_DI": float(row_t['PLUS_DI']) if 'PLUS_DI' in row_t and not pd.isna(row_t['PLUS_DI']) else None,
                 "MINUS_DI": float(row_t['MINUS_DI']) if 'MINUS_DI' in row_t and not pd.isna(row_t['MINUS_DI']) else None,
@@ -762,7 +814,7 @@ def scan_market(
     }
     mapped_pattern = pattern_mapping.get(pattern, pattern)
 
-    if mapped_pattern not in ["S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "Combined", "S2_or_S3"]:
+    if mapped_pattern not in ["S2", "S3", "S4", "S5", "S6", "S7", "S7_EARLY", "S7_CONFIRMED", "S7_STRONG", "S8", "S9", "S9_EARLY", "S9_CONFIRMED", "Combined", "S2_or_S3"]:
         # È un pattern personalizzato reale, esegui direttamente la scansione in tempo reale
         if diagnostics is not None:
             diagnostics.update({"market": market, "source": "yahoo_finance", "fallback": True,
@@ -919,6 +971,10 @@ def scan_market(
             "MINUS_DI": _clean(row.get("MINUS_DI")),
             "MACD_Signal": _clean(row.get("MACD_Signal")),
             "MACD_Hist": _clean(row.get("MACD_Hist")),
+            "Red_Candles_6": _clean(row.get("Red_Candles_6")),
+            "Selloff_Return_10_Pct": _clean(row.get("Selloff_Return_10_Pct")),
+            "Selloff_Drawdown_20_Pct": _clean(row.get("Selloff_Drawdown_20_Pct")),
+            "Volume_Ratio_MA20": _clean(row.get("Volume_Ratio_MA20")),
             "MACDH_Trend": _clean_str(row.get("MACDH_Trend")),
             "RSI_Trend": _clean_str(row.get("RSI_Trend")),
             "EMA_30": _clean(row.get("EMA_30")),

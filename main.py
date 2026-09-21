@@ -541,6 +541,39 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             open_s8     = df_tmp['Open']        if 'Open'        in df_tmp.columns else df_tmp['Close']
             vol_ma20_s8 = df_tmp['Volume_MA20'] if 'Volume_MA20' in df_tmp.columns else pd.Series(1.0, index=df_tmp.index)
             s8_active   = (df_tmp['Close'] > open_s8) & (df_tmp['Volume'] > (vol_ma20_s8 * 1.5))
+
+            # S9 – ripartenza dopo sell-off: almeno 4 rosse nelle 6 sedute
+            # precedenti, caduta significativa e successiva candela verde.
+            red_candle_s9 = df_tmp['Close'] < df_tmp['Open']
+            df_tmp['Red_Candles_6'] = red_candle_s9.shift(1).rolling(6, min_periods=6).sum()
+            prior_close_s9 = df_tmp['Close'].shift(1)
+            prior_high_20_s9 = df_tmp['High'].shift(1).rolling(20, min_periods=10).max()
+            df_tmp['Selloff_Return_10_Pct'] = (prior_close_s9 / df_tmp['Close'].shift(11) - 1.0) * 100.0
+            df_tmp['Selloff_Drawdown_20_Pct'] = (prior_close_s9 / prior_high_20_s9 - 1.0) * 100.0
+            df_tmp['Volume_Ratio_MA20'] = df_tmp['Volume'] / df_tmp['Volume_MA20'].replace(0, np.nan)
+
+            selloff_s9 = (
+                (df_tmp['Red_Candles_6'] >= 4)
+                & ((df_tmp['Selloff_Return_10_Pct'] <= -7.0) | (df_tmp['Selloff_Drawdown_20_Pct'] <= -10.0))
+            )
+            bullish_reversal_s9 = (
+                (df_tmp['Close'] > df_tmp['Open'])
+                & (df_tmp['Close'] > df_tmp['Close'].shift(1))
+            )
+            recent_oversold_s9 = rsi_series.shift(1).rolling(5, min_periods=2).min() <= 40.0
+            rsi_recovery_s9 = recent_oversold_s9 & (rsi_series > rsi_shift1)
+            stoch_recovery_s9 = (
+                (k > d)
+                & ((k_shift1 <= d_shift1) | (k > k_shift1))
+            )
+            hist_s9 = df_tmp['MACD_Hist'] if 'MACD_Hist' in df_tmp.columns else (macd - signal)
+            macd_recovery_s9 = hist_s9 > hist_s9.shift(1)
+            s9_early = selloff_s9 & bullish_reversal_s9 & rsi_recovery_s9 & (stoch_recovery_s9 | macd_recovery_s9)
+            s9_confirmed = (
+                s9_early
+                & (df_tmp['Close'] > df_tmp['High'].shift(1))
+                & (df_tmp['Volume_Ratio_MA20'] >= 1.2)
+            )
             
             def _days_since(s: pd.Series) -> int:
                 true_indices = s[s].index
@@ -561,6 +594,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S7_CONFIRMED_Days_Ago'] = _days_since(s7_confirmed)
             df_tmp['Pattern_S7_STRONG_Days_Ago'] = _days_since(s7_strong)
             df_tmp['Pattern_S8_Days_Ago'] = _days_since(s8_active)
+            df_tmp['Pattern_S9_Days_Ago'] = _days_since(s9_confirmed)
+            df_tmp['Pattern_S9_EARLY_Days_Ago'] = _days_since(s9_early)
+            df_tmp['Pattern_S9_CONFIRMED_Days_Ago'] = _days_since(s9_confirmed)
 
             df_tmp['Pattern_S2_Match'] = s2_active.astype(int)
             df_tmp['Pattern_S3_Match'] = s3_active.astype(int)
@@ -573,6 +609,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S7_CONFIRMED_Match'] = s7_confirmed.astype(int)
             df_tmp['Pattern_S7_STRONG_Match'] = s7_strong.astype(int)
             df_tmp['Pattern_S8_Match'] = s8_active.astype(int)
+            df_tmp['Pattern_S9_Match'] = s9_confirmed.astype(int)
+            df_tmp['Pattern_S9_EARLY_Match'] = s9_early.astype(int)
+            df_tmp['Pattern_S9_CONFIRMED_Match'] = s9_confirmed.astype(int)
             
             # Filtri di Sicurezza
             if 'SAR' in df_tmp.columns:
@@ -592,6 +631,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S7_CONFIRMED_Match'] = 0
             df_tmp['Pattern_S7_STRONG_Match'] = 0
             df_tmp['Pattern_S8_Match'] = 0
+            df_tmp['Pattern_S9_Match'] = 0
+            df_tmp['Pattern_S9_EARLY_Match'] = 0
+            df_tmp['Pattern_S9_CONFIRMED_Match'] = 0
             df_tmp['Pattern_S2_Days_Ago'] = 999
             df_tmp['Pattern_S3_Days_Ago'] = 999
             df_tmp['Pattern_Combined_Days_Ago'] = 999
@@ -603,6 +645,9 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             df_tmp['Pattern_S7_CONFIRMED_Days_Ago'] = 999
             df_tmp['Pattern_S7_STRONG_Days_Ago'] = 999
             df_tmp['Pattern_S8_Days_Ago'] = 999
+            df_tmp['Pattern_S9_Days_Ago'] = 999
+            df_tmp['Pattern_S9_EARLY_Days_Ago'] = 999
+            df_tmp['Pattern_S9_CONFIRMED_Days_Ago'] = 999
             df_tmp['SAR_Filter_Ok'] = 0
             df_tmp['SMA200'] = df_tmp['Close']
             df_tmp['SMA200_Filter_Ok'] = 0
