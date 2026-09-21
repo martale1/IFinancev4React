@@ -353,6 +353,7 @@ export default function ChartModal(props: Props) {
   const [newsReport, setNewsReport] = useState<NewsReport | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState<string | null>(null);
+  const [showNewsDetails, setShowNewsDetails] = useState(false);
 
   // AI state variables
   const [aiLoading, setAiLoading] = useState(false);
@@ -493,6 +494,7 @@ export default function ChartModal(props: Props) {
   useEffect(() => {
     if (!props.open || !props.ticker) return;
     let cancelled = false;
+    setShowNewsDetails(false);
     setNewsError(null);
     fetchNews(props.ticker).then((result) => {
       if (!cancelled) setNewsReport(result.report);
@@ -727,6 +729,7 @@ export default function ChartModal(props: Props) {
         price_date: String(props.row?.Date ?? ""),
       });
       setNewsReport(result.report);
+      setShowNewsDetails(true);
       await queryClient.invalidateQueries({ queryKey: ["ticker-news", props.ticker.trim().toUpperCase()] });
       await queryClient.invalidateQueries({ queryKey: ["ticker-news-history", props.ticker.trim().toUpperCase()] });
     } catch (error) {
@@ -996,15 +999,24 @@ export default function ChartModal(props: Props) {
         <section className="chart-news-panel" aria-label={`News ${props.ticker}`}>
           <div className="chart-news-panel-head">
             <div><strong>📰 News collegate al grafico</strong><span>{newsReport ? `Ultima ricerca: ${new Date(newsReport.searched_at).toLocaleString("it-IT")}` : "Nessuna ricerca salvata per questo titolo"}</span></div>
-            <button className="btn" type="button" disabled={newsLoading} onClick={handleSearchNews}>
-              {newsLoading ? "Ricerca news…" : newsReport ? "Nuova ricerca news" : "Cerca news"}
-            </button>
+            <div className="chart-news-actions">
+              {newsReport ? <button className="btn ghost" type="button" onClick={() => setShowNewsDetails((value) => !value)} aria-expanded={showNewsDetails}>
+                {showNewsDetails ? "Nascondi news" : "Leggi news"}
+              </button> : null}
+              <button className="btn" type="button" disabled={newsLoading} onClick={handleSearchNews}>
+                {newsLoading ? "Ricerca news…" : newsReport ? "Nuova ricerca news" : "Cerca news"}
+              </button>
+            </div>
           </div>
           {newsError ? <p className="chart-news-error">{newsError}</p> : null}
-          {newsReport ? <>
-            <p className="chart-news-preview">{newsReport.text.slice(0, 900)}{newsReport.text.length > 900 ? "…" : ""}</p>
-            <small>{newsReport.sources.length} fonti salvate. La ricerca sarà disponibile anche nella card del titolo e nell'Archivio News.</small>
-          </> : <p className="chart-news-empty">Cerca le news da qui: il risultato verrà salvato e ritrovato nella card del titolo.</p>}
+          {newsReport && showNewsDetails ? <div className="chart-news-reader">
+            <p className="chart-news-report">{newsReport.text}</p>
+            {newsReport.sources.length ? <div className="chart-news-sources">
+              <strong>Fonti</strong>
+              <ul>{newsReport.sources.map((source, index) => <li key={`${source.url}-${index}`}><a href={source.url} target="_blank" rel="noreferrer">{source.title || source.url}</a></li>)}</ul>
+            </div> : null}
+          </div> : null}
+          {newsReport ? <small>{newsReport.sources.length} fonti salvate. La ricerca è disponibile anche nella card del titolo e nell'Archivio News.</small> : <p className="chart-news-empty">Cerca le news da qui: il risultato verrà salvato e ritrovato nella card del titolo.</p>}
         </section>
 
         {/* Alert and AI actions row in Modal */}

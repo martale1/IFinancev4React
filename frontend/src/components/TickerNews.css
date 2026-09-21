@@ -22,6 +22,12 @@
 .chart-news-panel { margin-top: 18px; padding: 16px; border: 1px solid #2b6474; border-radius: 12px; background: linear-gradient(135deg, rgba(12,48,66,.7), rgba(16,40,58,.7)); }
 .chart-news-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
 .chart-news-panel-head div { display: grid; gap: 4px; }
+.chart-news-actions { display: flex !important; grid-auto-flow: column; gap: 8px !important; }
 .chart-news-panel-head span, .chart-news-panel small, .chart-news-empty { color: #a3b9cb; }
-.chart-news-preview { margin: 14px 0 8px; max-height: 132px; overflow: hidden; white-space: pre-wrap; line-height: 1.5; }
+.chart-news-reader { margin: 14px 0 10px; max-height: min(46vh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px 8px 0; scrollbar-gutter: stable; border-top: 1px solid rgba(143,220,250,.18); border-bottom: 1px solid rgba(143,220,250,.18); }
+.chart-news-report { margin: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; }
+.chart-news-sources { margin-top: 18px; }
+.chart-news-sources ul { margin: 8px 0 0; padding-left: 22px; }
+.chart-news-sources li { margin: 7px 0; overflow-wrap: anywhere; }
+.chart-news-sources a { color: #8fdcfa; text-decoration: underline; }
 .chart-news-error { color: #ffaaa4; }
