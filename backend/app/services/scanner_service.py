@@ -95,6 +95,7 @@ def _download_with_absolute_dates(ticker: str, period: str, interval: str) -> pd
         interval=interval,
         progress=False,
         auto_adjust=False,
+        timeout=15,
     )
 
 
@@ -104,7 +105,10 @@ def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", f
     """
     try:
         yf_ticker = str(ticker).strip()
-        data = yf.download(yf_ticker, period=period, interval=interval, progress=False, auto_adjust=False)
+        data = yf.download(
+            yf_ticker, period=period, interval=interval,
+            progress=False, auto_adjust=False, timeout=15,
+        )
         data = _clean_ohlc_history(data)
 
         # Alcuni ETF/ETP su Yahoo Finance rispondono a period="2y" con una

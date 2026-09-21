@@ -305,9 +305,12 @@ export default function MultiPatternLabPanel({
     setSelectedTicker(null);
     setBacktestResults(null);
 
-    const isCustomPattern = !BUILTIN_PATTERNS.has(pattern);
+    // S9 richiede spesso il fallback live finché il cron non ha rigenerato gli
+    // Excel. Usa quindi lo stream con avanzamento ticker-per-ticker invece di
+    // lasciare la GUI su un'attesa JSON senza feedback.
+    const usesStreamingScan = !BUILTIN_PATTERNS.has(pattern) || pattern.startsWith("S9");
 
-    if (isCustomPattern) {
+    if (usesStreamingScan) {
       // ── SSE streaming path for custom patterns ──────────────────────────────
       try {
         const url = `/api/scanner/scan-stream?market=${encodeURIComponent(labMarket)}&pattern=${encodeURIComponent(pattern)}&use_sar=${useSar}&use_sma200=${useSma200}&lookback=${lookback}`;
@@ -412,6 +415,7 @@ export default function MultiPatternLabPanel({
   function handlePatternChange(newPattern: string) {
     if (newPattern === pattern) return;
     setPattern(newPattern);
+    if (newPattern.startsWith("S9") && lookback < 5) setLookback(5);
     setScanResults(null);
     setScanError(null);
     setSelectedTicker(null);
