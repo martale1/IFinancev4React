@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WatchlistRow, QuickAlertField, AiProposedCondition, AiCriticalLevel } from "../types";
-import { analyzeChartImage, createAiAlert, createAiLevelAlert, deleteAlertRule, fetchAlerts } from "../api";
+import { analyzeChartImage, createAiAlert, createAiLevelAlert, deleteAlertRule, fetchAlerts, fetchNews, searchNews, type NewsReport } from "../api";
 
 type ChartAiAlertInfo = {
   ruleId: string; enabled: boolean; verified: number; total: number;
@@ -350,6 +350,9 @@ export default function ChartModal(props: Props) {
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
   const [alertValue, setAlertValue] = useState("");
   const [alertMsg, setAlertMsg] = useState("");
+  const [newsReport, setNewsReport] = useState<NewsReport | null>(null);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState<string | null>(null);
 
   // AI state variables
   const [aiLoading, setAiLoading] = useState(false);
@@ -486,6 +489,18 @@ export default function ChartModal(props: Props) {
     setRetryCount(0);
     setForceLineFallback(false);
   }, [props.open, props.ticker, props.bars, props.chartType, props.imageUrl]);
+
+  useEffect(() => {
+    if (!props.open || !props.ticker) return;
+    let cancelled = false;
+    setNewsError(null);
+    fetchNews(props.ticker).then((result) => {
+      if (!cancelled) setNewsReport(result.report);
+    }).catch((error) => {
+      if (!cancelled) setNewsError(String(error));
+    });
+    return () => { cancelled = true; };
+  }, [props.open, props.ticker]);
 
   // 2. Alert form values and AI states reset only on ticker/open change
   useEffect(() => {
@@ -696,6 +711,28 @@ export default function ChartModal(props: Props) {
       setAiError(String(e));
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function handleSearchNews() {
+    if (!props.ticker) return;
+    setNewsLoading(true);
+    setNewsError(null);
+    try {
+      const result = await searchNews({
+        ticker: props.ticker,
+        market: props.sourceMarket ?? "",
+        name: String(props.row?.Name ?? ""),
+        price: close,
+        price_date: String(props.row?.Date ?? ""),
+      });
+      setNewsReport(result.report);
+      await queryClient.invalidateQueries({ queryKey: ["ticker-news", props.ticker.trim().toUpperCase()] });
+      await queryClient.invalidateQueries({ queryKey: ["ticker-news-history", props.ticker.trim().toUpperCase()] });
+    } catch (error) {
+      setNewsError(String(error));
+    } finally {
+      setNewsLoading(false);
     }
   }
 
@@ -955,6 +992,20 @@ export default function ChartModal(props: Props) {
             }}
           />
         </div>
+
+        <section className="chart-news-panel" aria-label={`News ${props.ticker}`}>
+          <div className="chart-news-panel-head">
+            <div><strong>📰 News collegate al grafico</strong><span>{newsReport ? `Ultima ricerca: ${new Date(newsReport.searched_at).toLocaleString("it-IT")}` : "Nessuna ricerca salvata per questo titolo"}</span></div>
+            <button className="btn" type="button" disabled={newsLoading} onClick={handleSearchNews}>
+              {newsLoading ? "Ricerca news…" : newsReport ? "Nuova ricerca news" : "Cerca news"}
+            </button>
+          </div>
+          {newsError ? <p className="chart-news-error">{newsError}</p> : null}
+          {newsReport ? <>
+            <p className="chart-news-preview">{newsReport.text.slice(0, 900)}{newsReport.text.length > 900 ? "…" : ""}</p>
+            <small>{newsReport.sources.length} fonti salvate. La ricerca sarà disponibile anche nella card del titolo e nell'Archivio News.</small>
+          </> : <p className="chart-news-empty">Cerca le news da qui: il risultato verrà salvato e ritrovato nella card del titolo.</p>}
+        </section>
 
         {/* Alert and AI actions row in Modal */}
         {props.row && props.onCreateAlert && props.onRemoveAlert && props.sourceMarket ? (

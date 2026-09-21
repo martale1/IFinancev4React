@@ -1,19 +1,9 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { chartUrl } from "../api";
+import { chartUrl, fetchNews, fetchNewsHistory, searchNews } from "../api";
 import type { WatchlistRow } from "../types";
 import "./TickerNews.css";
-
-type Report = { ticker: string; searched_at: string; text: string; price: number | null;
-  price_date: string; sources: { title: string; url: string }[] };
-type Result = { report: Report | null };
-async function request(url: string, options?: RequestInit): Promise<Result> {
-  const response = await fetch(url, options);
-  const data = await response.json();
-  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Errore nel caricamento News.");
-  return data;
-}
 
 function linkedText(text: string) {
   return text.split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g).map((part, i) => {
@@ -41,15 +31,17 @@ export default function TickerNews({ row, market, onChart }: { row: WatchlistRow
   const client = useQueryClient();
   const key = ["ticker-news", ticker];
   const saved = useQuery({ queryKey: key,
-    queryFn: () => request(`/api/news?ticker=${encodeURIComponent(ticker)}`),
+    queryFn: () => fetchNews(ticker),
     enabled: !!ticker, staleTime: Infinity, retry: false });
+  const history = useQuery({ queryKey: ["ticker-news-history", ticker],
+    queryFn: () => fetchNewsHistory({ ticker, limit: 50 }), enabled: !!ticker, staleTime: Infinity, retry: false });
   const search = useMutation({
-    mutationFn: () => request("/api/news/research", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker, market, name: String(row.Name ?? ""),
+    mutationFn: () => searchNews({ ticker, market, name: String(row.Name ?? ""),
         price: row.Close == null ? null : Number(row.Close), price_date: String(row.Date ?? "") }),
-    }),
-    onSuccess: (result) => { client.setQueryData(key, result); },
+    onSuccess: (result) => {
+      client.setQueryData(key, result);
+      client.invalidateQueries({ queryKey: ["ticker-news-history", ticker] });
+    },
   });
   const report = saved.data?.report;
   const date = report ? new Date(report.searched_at).toLocaleString("it-IT") : "";
@@ -57,15 +49,15 @@ export default function TickerNews({ row, market, onChart }: { row: WatchlistRow
   return <>
     <button className="btn ghost" disabled={!ticker} onClick={() => dialog.current?.showModal()}
       title={report ? `Ricerca salvata: ${date}` : "Notizie, sentiment e target analisti"}>
-      {report ? "News ●" : "News"}
+      {report ? `News ●${history.data?.reports.length ? ` (${history.data.reports.length})` : ""}` : "News"}
     </button>
     {createPortal(<dialog ref={dialog} className="ticker-news-dialog" aria-label={`News ${ticker}`}>
       <header className="ticker-news-header">
         <div><h2>{ticker} · News e sentiment</h2><p>{String(row.Name ?? "")}</p></div>
         <button className="btn ghost" onClick={() => dialog.current?.close()}>Chiudi</button>
       </header>
-      <p>{report ? `Ricerca salvata il ${date}.` : "Nessuna ricerca salvata per questo titolo."}
-        {" "}Il risultato resta disponibile fino alla prossima ricerca manuale.</p>
+      <p>{report ? `Ultima ricerca salvata il ${date}.` : "Nessuna ricerca salvata per questo titolo."}
+        {" "}{history.data?.reports.length ? `${history.data.reports.length} ricerche archiviate.` : "Le ricerche riuscite verranno archiviate automaticamente."}</p>
       <button className="btn" disabled={search.isPending || saved.isPending || saved.isError}
         onClick={() => search.mutate()}>{search.isPending ? "Ricerca in corso…" : report ? "Nuova ricerca" : "Cerca notizie"}</button>
       {search.isPending && <p role="status">Ricerca delle fonti e analisi in corso. Puoi chiudere questo pannello; il risultato sarà salvato dal server.</p>}

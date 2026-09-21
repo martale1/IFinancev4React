@@ -84,6 +84,10 @@ def connection():
     try:
         with db:
             db.execute("CREATE TABLE IF NOT EXISTS reports (ticker TEXT PRIMARY KEY, payload TEXT NOT NULL)")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS report_history ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL, searched_at TEXT NOT NULL, payload TEXT NOT NULL)"
+            )
             yield db
     finally:
         db.close()
@@ -99,11 +103,43 @@ def save_report(ticker, report):
     with connection() as db:
         db.execute("INSERT OR REPLACE INTO reports VALUES (?, ?)",
                    (ticker.strip().upper(), json.dumps(report, ensure_ascii=False)))
+        db.execute(
+            "INSERT INTO report_history (ticker, searched_at, payload) VALUES (?, ?, ?)",
+            (ticker.strip().upper(), report.get("searched_at", ""), json.dumps(report, ensure_ascii=False)),
+        )
+
+
+def list_reports(ticker: str | None = None, limit: int = 100):
+    query = "SELECT id, ticker, searched_at, payload FROM report_history"
+    params: list[object] = []
+    if ticker:
+        query += " WHERE ticker = ?"
+        params.append(ticker.strip().upper())
+    query += " ORDER BY searched_at DESC, id DESC LIMIT ?"
+    params.append(max(1, min(int(limit), 500)))
+    with connection() as db:
+        rows = db.execute(query, params).fetchall()
+    reports = []
+    for report_id, saved_ticker, searched_at, payload in rows:
+        report = json.loads(payload)
+        report["history_id"] = report_id
+        report["ticker"] = report.get("ticker") or saved_ticker
+        report["searched_at"] = report.get("searched_at") or searched_at
+        reports.append(report)
+    return reports
 
 
 @router.get("")
 def get_news(ticker: str = Query(min_length=1, max_length=60)):
     return {"report": read_report(ticker)}
+
+
+@router.get("/history")
+def get_news_history(
+    ticker: str | None = Query(default=None, min_length=1, max_length=60),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    return {"reports": list_reports(ticker=ticker, limit=limit)}
 
 
 @router.post("/research")

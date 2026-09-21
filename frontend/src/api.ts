@@ -16,6 +16,18 @@ import type {
 
 const API_BASE = "/api";
 
+export type NewsSource = { title: string; url: string };
+export type NewsReport = {
+  history_id?: number;
+  ticker: string;
+  name?: string;
+  searched_at: string;
+  text: string;
+  price: number | null;
+  price_date: string;
+  sources: NewsSource[];
+};
+
 async function parseJson<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
     let detail = `${resp.status} ${resp.statusText}`;
@@ -34,6 +46,34 @@ export async function fetchMarkets(): Promise<string[]> {
   const resp = await fetch(`${API_BASE}/markets`);
   const data = await parseJson<{ markets: string[] }>(resp);
   return data.markets;
+}
+
+export async function fetchNews(ticker: string): Promise<{ report: NewsReport | null }> {
+  const resp = await fetch(`${API_BASE}/news?ticker=${encodeURIComponent(ticker)}`, { cache: "no-store" });
+  return parseJson<{ report: NewsReport | null }>(resp);
+}
+
+export async function searchNews(input: {
+  ticker: string;
+  market?: string;
+  name?: string;
+  price?: number | null;
+  price_date?: string;
+}): Promise<{ report: NewsReport }> {
+  const resp = await fetch(`${API_BASE}/news/research`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseJson<{ report: NewsReport }>(resp);
+}
+
+export async function fetchNewsHistory(input?: { ticker?: string; limit?: number }): Promise<{ reports: NewsReport[] }> {
+  const query = new URLSearchParams();
+  if (input?.ticker) query.set("ticker", input.ticker);
+  if (input?.limit) query.set("limit", String(input.limit));
+  const resp = await fetch(`${API_BASE}/news/history?${query.toString()}`, { cache: "no-store" });
+  return parseJson<{ reports: NewsReport[] }>(resp);
 }
 
 export async function fetchCustomWatchlists(): Promise<CustomWatchlistsResponse> {

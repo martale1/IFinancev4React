@@ -19,3 +19,9 @@
 .ticker-news-chart { margin-top: 28px; padding: 18px; border: 1px solid #274258; border-radius: 12px; background: #071421; }
 .ticker-news-chart h3 { margin-top: 0; }
 .ticker-news-chart img { display: block; width: 100%; min-height: 280px; border-radius: 8px; background: #fff; object-fit: contain; }
+.chart-news-panel { margin-top: 18px; padding: 16px; border: 1px solid #2b6474; border-radius: 12px; background: linear-gradient(135deg, rgba(12,48,66,.7), rgba(16,40,58,.7)); }
+.chart-news-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
+.chart-news-panel-head div { display: grid; gap: 4px; }
+.chart-news-panel-head span, .chart-news-panel small, .chart-news-empty { color: #a3b9cb; }
+.chart-news-preview { margin: 14px 0 8px; max-height: 132px; overflow: hidden; white-space: pre-wrap; line-height: 1.5; }
+.chart-news-error { color: #ffaaa4; }

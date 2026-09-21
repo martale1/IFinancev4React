@@ -28,6 +28,16 @@ class NewsTests(unittest.TestCase):
             self.assertEqual(self.client.get("/api/news?ticker=eni.mi").json()["report"], report)
             ai.assert_not_called()
 
+    def test_history_keeps_each_successful_research(self):
+        first = {"searched_at": "2026-09-20T10:00:00+00:00", "text": "first"}
+        second = {"searched_at": "2026-09-21T10:00:00+00:00", "text": "second"}
+        news.save_report("CPR.MI", first)
+        news.save_report("CPR.MI", second)
+        response = self.client.get("/api/news/history?ticker=cpr.mi")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["text"] for item in response.json()["reports"]], ["second", "first"])
+        self.assertEqual(self.client.get("/api/news?ticker=CPR.MI").json()["report"]["text"], "second")
+
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test"})
     def test_refresh_saves_and_failed_refresh_preserves(self):
         response = NS(status="completed", output_text="News fonte", output=[
