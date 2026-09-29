@@ -526,8 +526,9 @@ Il **Multi-Pattern Lab** è il modulo di screening avanzato. Permette di:
 
 Durante l'esecuzione, `main.py` calcola S2–S8 sull'intera serie storica di ogni ticker e salva nell'Excel di mercato le colonne:
 
-- `Pattern_S2_Days_Ago` … `Pattern_S8_Days_Ago`: numero di sedute trascorse dall'ultimo segnale (`999` se assente)
-- `Pattern_S2_Match` … `Pattern_S8_Match`: presenza del segnale sulla singola riga storica
+- `Pattern_S2_Days_Ago` … `Pattern_S9_CONFIRMED_Days_Ago`: numero di sedute trascorse dall'ultimo segnale (`999` se assente)
+- `Pattern_S2_Match` … `Pattern_S9_CONFIRMED_Match`: presenza del segnale sulla singola riga storica
+- S9 aggiunge `Red_Candles_6`, `Selloff_Return_10_Pct`, `Selloff_Drawdown_20_Pct` e `Volume_Ratio_MA20` per riconoscere ripartenze dopo una caduta.
 - `Pattern_Combined_Days_Ago`: ultimo segnale congiunto S2 e S3
 - `SAR_Filter_Ok` e `SMA200_Filter_Ok`: filtri tecnici pre-calcolati
 

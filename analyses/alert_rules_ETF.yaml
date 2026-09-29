@@ -5,35 +5,58 @@ defaults:
   max_per_day: 3
   min_gap_minutes: 0
 rules:
-- id: CARD_ALERT_3LCO_MI
+- id: AI_SOLR_MI
   enabled: true
+  source: ai
   scope:
     tickers:
-    - 3LCO.MI
+    - SOLR.MI
   when:
     all:
-    - field: Williams_R
-      op: <
-      value: -60
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: RSI
+      op: '>'
+      value: 50
+  ai_conditions:
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: MACD sopra il segnale
+  - field: RSI
+    op: '>'
+    value: 50
+    description: RSI sopra 50
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
   message:
-    title: 🔔 Alert {{Ticker}}
-    body: 'Close: {{Close}}
+    title: 🤖 Alert AI SOLR.MI
+    body: 'Tutte le condizioni AI sono verificate.
 
-      RSI: {{RSI}}
+      Close: {{Close}}'
+- id: AI_LEVEL_SOLR_MI_RESISTANCE_21_0
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - SOLR.MI
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 21.0
+  ai_level:
+    type: resistance
+    price: 21.0
+    trigger: '>'
+    description: Superamento della resistenza critica
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 21.0.
 
-      willR: {{Williams_R}}
-
-      SARMA: {{SIG_MA_SAR}}
-
-      MACD: {{MACD}}
-
-      S3: {{MACD_vs_Signal}}
-
-      Action: {{Action}}
-
-      TECH: {{TECH_SCORE}}
-
-      Alligator: {{Signal6}}'
+      Close: {{Close}}'

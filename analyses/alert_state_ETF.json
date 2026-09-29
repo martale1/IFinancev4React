@@ -1,10 +1,18 @@
 {
-  "CARD_ALERT_3LCO_MI__3LCO.MI": {
+  "AI_SOLR_MI__SOLR.MI": {
     "was_true": false,
     "last_sent_ts": 0,
-    "sent_day": "2026-08-25",
+    "sent_day": "2026-09-29",
     "sent_count": 0,
     "sent_total": 0,
-    "updated_at": "2026-08-25T08:27:20.498225+00:00"
+    "updated_at": "2026-09-29T11:52:07.058852+00:00"
+  },
+  "AI_LEVEL_SOLR_MI_RESISTANCE_21_0__SOLR.MI": {
+    "was_true": false,
+    "last_sent_ts": 0,
+    "sent_day": "2026-09-29",
+    "sent_count": 0,
+    "sent_total": 0,
+    "updated_at": "2026-09-29T11:52:07.058909+00:00"
   }
 }

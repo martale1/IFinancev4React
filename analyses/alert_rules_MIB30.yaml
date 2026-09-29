@@ -5,229 +5,165 @@ defaults:
   max_per_day: 3
   min_gap_minutes: 0
 rules:
-- id: CARD_ALERT_IG_MI
+- id: AI_FCT_MI
   enabled: true
+  source: ai
   scope:
     tickers:
-    - IG.MI
+    - FCT.MI
   when:
     all:
-    - field: Close
+    - field: MACD_vs_Signal
       op: '>'
-      value: 8
+      value: 0
+    - field: RSI
+      op: '>'
+      value: 50
+  ai_conditions:
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: MACD sopra il segnale
+  - field: RSI
+    op: '>'
+    value: 50
+    description: RSI sopra 50
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
   message:
-    title: 🔔 Alert {{Ticker}}
-    body: 'Close: {{Close}}
+    title: 🤖 Alert AI FCT.MI
+    body: 'Tutte le condizioni AI sono verificate.
 
-      RSI: {{RSI}}
-
-      willR: {{Williams_R}}
-
-      SARMA: {{SIG_MA_SAR}}
-
-      MACD: {{MACD}}
-
-      S3: {{MACD_vs_Signal}}
-
-      Action: {{Action}}
-
-      TECH: {{TECH_SCORE}}
-
-      Alligator: {{Signal6}}'
-- id: CARD_ALERT_ENI_MI
+      Close: {{Close}}'
+- id: AI_AZM_MI
   enabled: true
+  source: ai
+  scope:
+    tickers:
+    - AZM.MI
+  when:
+    all:
+    - field: MACD_vs_Signal
+      op: '>'
+      value: 0
+    - field: RSI
+      op: '>'
+      value: 50
+  ai_conditions:
+  - field: MACD_vs_Signal
+    op: '>'
+    value: 0
+    description: MACD sopra il segnale
+  - field: RSI
+    op: '>'
+    value: 50
+    description: RSI sopra 50
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Alert AI AZM.MI
+    body: 'Tutte le condizioni AI sono verificate.
+
+      Close: {{Close}}'
+- id: AI_ENI_MI
+  enabled: true
+  source: ai
   scope:
     tickers:
     - ENI.MI
   when:
     all:
-    - field: Close
-      op: '>'
-      value: 24
-  cooldown_minutes: 0
-  max_per_day: 3
-  min_gap_minutes: 0
-  message:
-    title: 🔔 Alert {{Ticker}}
-    body: 'Close: {{Close}}
-
-      RSI: {{RSI}}
-
-      willR: {{Williams_R}}
-
-      SARMA: {{SIG_MA_SAR}}
-
-      MACD: {{MACD}}
-
-      S3: {{MACD_vs_Signal}}
-
-      Action: {{Action}}
-
-      TECH: {{TECH_SCORE}}
-
-      Alligator: {{Signal6}}'
-- id: AI_LEVEL_BMPS_MI_SUPPORT_11_3
-  enabled: false
-  source: ai_level
-  scope:
-    tickers:
-    - BMPS.MI
-  when:
-    all:
-    - field: Close
-      op: <
-      value: 11.3
-  ai_level:
-    type: support
-    price: 11.3
-    trigger: <
-    description: Supporto inferiore visibile in area congestione recente
-  cooldown_minutes: 0
-  max_per_day: 3
-  min_gap_minutes: 0
-  message:
-    title: 🤖 Supporto AI {Ticker}
-    body: 'Supporto critico < 11.3.
-
-      Close: {{Close}}'
-- id: AI_LEVEL_BMPS_MI_SUPPORT_11_6
-  enabled: true
-  source: ai_level
-  scope:
-    tickers:
-    - BMPS.MI
-  when:
-    all:
-    - field: Close
-      op: <
-      value: 11.6
-  ai_level:
-    type: support
-    price: 11.6
-    trigger: <
-    description: Primo supporto dinamico e area di appoggio recente
-  cooldown_minutes: 0
-  max_per_day: 3
-  min_gap_minutes: 0
-  message:
-    title: 🤖 Supporto AI {Ticker}
-    body: 'Supporto critico < 11.6.
-
-      Close: {{Close}}'
-- id: AI_MB_MI
-  enabled: true
-  source: ai
-  scope:
-    tickers:
-    - MB.MI
-  when:
-    all:
-    - field: Close
-      op: '>'
-      value: 29.1
     - field: MACD_vs_Signal
       op: '>'
       value: 0
-    - field: ADX
-      op: '>='
-      value: 25
+    - field: RSI
+      op: '>'
+      value: 55
     - field: Vol_Perc_vs_MA10
       op: '>'
       value: 0
   ai_conditions:
-  - field: Close
-    op: '>'
-    value: 29.1
-    description: Chiusura sopra la resistenza 29.1
   - field: MACD_vs_Signal
     op: '>'
     value: 0
     description: MACD sopra il segnale
-  - field: ADX
-    op: '>='
-    value: 25
-    description: ADX almeno pari a 25
+  - field: RSI
+    op: '>'
+    value: 55
+    description: RSI sopra 55
   - field: Vol_Perc_vs_MA10
     op: '>'
     value: 0
-    description: Volumi sopra la media mobile a 10 periodi
+    description: Volume sopra la media a 10 giorni
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
   message:
-    title: 🤖 Alert AI MB.MI
+    title: 🤖 Alert AI ENI.MI
     body: 'Tutte le condizioni AI sono verificate.
 
       Close: {{Close}}'
-- id: AI_LEVEL_MB_MI_RESISTANCE_29_4
+- id: AI_LEVEL_FCT_MI_RESISTANCE_12_0
   enabled: true
   source: ai_level
   scope:
     tickers:
-    - MB.MI
+    - FCT.MI
   when:
     all:
     - field: Close
       op: '>'
-      value: 29.4
+      value: 12.0
   ai_level:
     type: resistance
-    price: 29.4
+    price: 12.0
     trigger: '>'
-    description: Superamento della resistenza successiva
+    description: Superamento della resistenza critica a 12.00
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
   message:
     title: 🤖 Resistenza AI {Ticker}
-    body: 'Resistenza critico > 29.4.
+    body: 'Resistenza critico > 12.0.
 
       Close: {{Close}}'
-- id: AI_INW_MI
+- id: AI_CBK_DE
   enabled: true
   source: ai
   scope:
     tickers:
-    - INW.MI
+    - CBK.DE
   when:
     all:
     - field: Close
       op: '>'
-      value: 6.6
+      value: 42.65
     - field: MACD_vs_Signal
       op: '>'
       value: 0
-    - field: ADX
-      op: '>='
-      value: 20
     - field: Vol_Perc_vs_MA10
       op: '>'
       value: 0
   ai_conditions:
   - field: Close
     op: '>'
-    value: 6.6
-    description: Chiusura sopra la resistenza
+    value: 42.65
+    description: Close superiore a 42.65
   - field: MACD_vs_Signal
     op: '>'
     value: 0
-    description: MACD sopra il segnale
-  - field: ADX
-    op: '>='
-    value: 20
-    description: ADX almeno a 20
+    description: MACD_vs_Signal superiore a 0
   - field: Vol_Perc_vs_MA10
     op: '>'
     value: 0
-    description: Volumi sopra la media mobile a 10 periodi
+    description: Vol_Perc_vs_MA10 superiore a 0
   cooldown_minutes: 0
   max_per_day: 3
   min_gap_minutes: 0
   message:
-    title: 🤖 Alert AI INW.MI
+    title: 🤖 Alert AI CBK.DE
     body: 'Tutte le condizioni AI sono verificate.
 
       Close: {{Close}}'
