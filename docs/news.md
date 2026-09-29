@@ -7,7 +7,7 @@ Il punto accanto a News segnala un report disponibile. Data e ora sono mostrate
 nel pannello e nel suggerimento del pulsante.
 
 Configurazione backend: `OPENAI_API_KEY` nel `.env` del progetto, come per le
-altre funzioni AI. `OPENAI_NEWS_MODEL` è opzionale (default `gpt-4.1`);
+altre funzioni AI. `OPENAI_NEWS_MODEL` è opzionale (default `gpt-4o-mini`);
 il modello deve supportare Responses API e lo strumento `web_search`.
 Ogni ricerca manuale utilizza l'API OpenAI a pagamento; leggere i report salvati
 non genera chiamate AI. La ricerca richiede connessione e credito API.

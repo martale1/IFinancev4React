@@ -207,6 +207,7 @@ export async function analyzeChartImage(input: {
   model?: string;
   analysis_type?: string;
   current_price?: number | null;
+  snapshot?: Record<string, unknown> | null;
 }): Promise<{ ticker: string; analysis: string }> {
   const resp = await fetch(`${API_BASE}/ai/analyze-chart`, {
     method: "POST",

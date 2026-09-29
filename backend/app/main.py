@@ -941,6 +941,90 @@ class AnalyzeChartRequest(BaseModel):
     model: str | None = None
     analysis_type: str | None = "detailed" # "detailed" or "concise"
     current_price: float | None = None
+    snapshot: dict[str, Any] | None = None
+
+
+def _num_snapshot(snapshot: dict[str, Any] | None, key: str) -> float | None:
+    if not snapshot:
+        return None
+    value = snapshot.get(key)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.replace(",", ".").strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _snapshot_text(snapshot: dict[str, Any] | None) -> str:
+    if not snapshot:
+        return "SNAPSHOT TECNICO NUMERICO: non disponibile; usa solo il grafico e dichiara le incertezze.\n"
+    keys = [
+        "Close", "PCTV_1D", "PCTV_5D", "PCTV_10D", "PCTV_30D",
+        "RSI", "Stoch_K", "Stoch_D", "Williams_R", "MACD", "MACD_Signal",
+        "MACD_Hist", "MACD_vs_Signal", "ADX", "PLUS_DI", "MINUS_DI", "DI_diff",
+        "Volume", "Vol_Perc_vs_MA5", "Vol_Perc_vs_MA10", "Vol_Perc_vs_MA20",
+        "SIG_MA_SAR", "Trend_Stop_Level", "CE_Long", "Pullback_Stop_Level", "Profit_Protect_Level",
+        "Market_Phase", "Trend_Phase_Detail", "Entry_Signal", "Entry_Reason",
+    ]
+    lines = ["SNAPSHOT TECNICO NUMERICO OSSERVATO DALLA CARD, prevale sulla stima visuale del grafico:"]
+    for key in keys:
+        value = snapshot.get(key)
+        if value not in (None, ""):
+            lines.append(f"- {key}: {value}")
+    macd_vs_signal = _num_snapshot(snapshot, "MACD_vs_Signal")
+    if macd_vs_signal is not None:
+        if macd_vs_signal > 0:
+            lines.append("- FATTO: MACD è già sopra la Signal; non scrivere 'vicino al cross' e non proporre MACD_vs_Signal > 0 come condizione futura.")
+        elif macd_vs_signal < 0:
+            lines.append("- FATTO: MACD è ancora sotto la Signal; puoi parlare di cross futuro solo se visivamente vicino.")
+    rsi = _num_snapshot(snapshot, "RSI")
+    if rsi is not None and rsi > 50:
+        lines.append("- FATTO: RSI è già sopra 50; non proporre RSI > 50 come condizione futura.")
+    return "\n".join(lines) + "\n"
+
+
+def _already_satisfied_conditions(text: str, snapshot: dict[str, Any] | None) -> list[str]:
+    import json
+    import re
+    issues: list[str] = []
+    if not snapshot:
+        return issues
+    blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)```", text or "", re.IGNORECASE)
+    payloads = []
+    for block in blocks:
+        try:
+            payload = json.loads(block)
+        except ValueError:
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("conditions"), list):
+            payloads.append(payload)
+    if not payloads:
+        return issues
+    for condition in payloads[0]["conditions"]:
+        if not isinstance(condition, dict):
+            continue
+        field = str(condition.get("field") or condition.get("indicator") or "")
+        op = str(condition.get("op") or "")
+        value = condition.get("value")
+        current = _num_snapshot(snapshot, field)
+        if current is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        satisfied = (
+            (op == ">" and current > value) or
+            (op == ">=" and current >= value) or
+            (op == "<" and current < value) or
+            (op == "<=" and current <= value) or
+            (op == "==" and current == value) or
+            (op == "!=" and current != value)
+        )
+        if satisfied:
+            issues.append(f"{field} {op} {value} è già vera: valore corrente {current}.")
+    return issues
 
 @app.post("/api/ai/analyze-chart")
 def api_analyze_chart(req: AnalyzeChartRequest):
@@ -967,12 +1051,17 @@ def api_analyze_chart(req: AnalyzeChartRequest):
         
         # 3. Instantiate OpenAI client
         client = OpenAI(api_key=api_key)
+        snapshot_context = _snapshot_text(req.snapshot)
         
         # 4. Call multimodal model
         if req.analysis_type == "concise":
             prompt_text = (
                 f"Analizza l'immagine del grafico tecnico allegata per il titolo '{req.ticker}' (Mercato: {req.market}).\n\n"
                 f"PREZZO CORRENTE DI RIFERIMENTO: {req.current_price if req.current_price is not None else 'non disponibile'}.\n"
+                f"{snapshot_context}\n"
+                "I dati numerici dello snapshot prevalgono sulla stima visiva del grafico quando c'è conflitto. "
+                "Se MACD_vs_Signal è positivo, scrivi che il MACD è già sopra la Signal; non scrivere che è sotto o solo vicino al cross. "
+                "Le condizioni future devono essere trigger non ancora verificati, non stati già veri nello snapshot.\n"
                 "Confronta obbligatoriamente ogni livello e trigger di prezzo con questo valore. Un supporto deve essere strettamente sotto il prezzo corrente e una resistenza strettamente sopra. Non proporre come condizione futura un confronto di prezzo già verificato; sostituiscilo con una soglia futura ancora non raggiunta o con una conferma tecnica misurabile.\n\n"
                 "RISPONDI ESCLUSIVAMENTE IN ITALIANO con la seguente struttura FISSA e OBBLIGATORIA in markdown. Sii estremamente sintetico, conciso e operativo (da farsi nell'immediato).\n\n"
                 "NON racchiudere l'intera risposta in un blocco ```markdown```: usa il markdown direttamente. Racchiudi nei backtick tripli esclusivamente il singolo blocco JSON richiesto.\n\n"
@@ -1008,6 +1097,10 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             prompt_text = (
                 f"Analizza l'immagine del grafico tecnico allegata per il titolo '{req.ticker}' (Mercato: {req.market}).\n\n"
                 f"PREZZO CORRENTE DI RIFERIMENTO: {req.current_price if req.current_price is not None else 'non disponibile'}.\n"
+                f"{snapshot_context}\n"
+                "I dati numerici dello snapshot prevalgono sulla stima visiva del grafico quando c'è conflitto. "
+                "Se MACD_vs_Signal è positivo, scrivi che il MACD è già sopra la Signal; non scrivere che è sotto o solo vicino al cross. "
+                "Le condizioni future devono essere trigger non ancora verificati, non stati già veri nello snapshot.\n"
                 "Confronta obbligatoriamente ogni livello e trigger di prezzo con questo valore. Un supporto deve essere strettamente sotto il prezzo corrente e una resistenza strettamente sopra. Non proporre come condizione futura un confronto di prezzo già verificato; sostituiscilo con una soglia futura ancora non raggiunta o con una conferma tecnica misurabile.\n\n"
                 "Il grafico è composto da 5 pannelli (dall'alto in basso):\n"
                 "1. Prezzo con Candele e medie Bill Williams Alligator (Jaw blu, Teeth rosso, Lips verde), più eventuali linee di stop (SL1, SL2).\n"
@@ -1074,7 +1167,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             )
         
         from app.ai.alert_contract import ALERT_CONTRACT, validate_alert_analysis
-        model_name = req.model or "gpt-4o"
+        model_name = req.model or "gpt-4o-mini"
         kwargs_completions = {
             "model": model_name,
             "messages": [
@@ -1083,6 +1176,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
                     "content": (
                         "Sei un analista tecnico e risk manager professionista specializzato nell'analisi grafica avanzata per IFinance. "
                         "Rispondi SEMPRE in italiano, SEMPRE con la struttura markdown richiesta, e NON saltare mai nessuna sezione. "
+                        "I dati numerici forniti nello snapshot prevalgono sulla lettura visuale dell'immagine. "
                         "Quando la decisione è NON ENTRARE ORA, devi SEMPRE includere il blocco JSON con le condizioni future, "
                         "con i valori trigger personalizzati sul grafico specifico analizzato, non valori generici. "
                         + ALERT_CONTRACT
@@ -1115,6 +1209,13 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             output_text = response.choices[0].message.content or ""
             try:
                 validate_alert_analysis(output_text)
+                already_true = _already_satisfied_conditions(output_text, req.snapshot)
+                if already_true:
+                    raise ValueError(
+                        "Le seguenti condizioni future sono gia' verificate nello snapshot e non sono trigger validi: "
+                        + " ".join(already_true)
+                        + " Sostituiscile con livelli di prezzo o soglie future non ancora raggiunte."
+                    )
                 break
             except ValueError as error:
                 if attempt == 2:

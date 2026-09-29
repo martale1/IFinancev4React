@@ -138,7 +138,14 @@ export default function AiChatPanel({ market }: Props) {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [model, setModel] = useState(() => window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini");
+  const [model, setModel] = useState(() => {
+    const saved = window.localStorage.getItem("ifinance-openai-model");
+    if (!saved || saved === "gpt-5.5" || saved === "gpt-4o") {
+      window.localStorage.setItem("ifinance-openai-model", "gpt-4o-mini");
+      return "gpt-4o-mini";
+    }
+    return saved;
+  });
   const [readerOpen, setReaderOpen] = useState(false);
 
   useEffect(() => {
@@ -227,8 +234,6 @@ export default function AiChatPanel({ market }: Props) {
             <option value="o1-mini">o1 Mini (Ragionamento)</option>
             <option value="o3-mini">o3 Mini (Nuovo Ragionamento)</option>
             <option value="o1">o1 (Ragionamento Completo)</option>
-            <option value="gpt-5.5">GPT-5.5</option>
-            <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
             <option value="gpt-5.4">GPT-5.4</option>
             <option value="gpt-5.4-pro">GPT-5.4 Pro</option>
             <option value="gpt-5.4-mini">GPT-5.4 Mini</option>

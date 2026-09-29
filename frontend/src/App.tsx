@@ -146,9 +146,7 @@ export default function App() {
   const [showStateFilters, setShowStateFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
-  const [watchlistView, setWatchlistView] = useState<"cards" | "table">(() =>
-    window.localStorage.getItem("ifinance-watchlist-view") === "table" ? "table" : "cards"
-  );
+  const [watchlistView, setWatchlistView] = useState<"cards" | "table">("cards");
   const [rankN] = useState(15);
 
   const [chartTicker, setChartTicker] = useState("");

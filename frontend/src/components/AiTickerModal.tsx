@@ -3,9 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { analyzeChartImage, createAiAlert, createAiLevelAlert, sendAiChat } from "../api";
 import type { AiChatMessage, AiCriticalLevel, AiProposedCondition, WatchlistRow } from "../types";
 
-const ANALYSIS_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"];
+const ANALYSIS_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"];
 function savedAnalysisModel(): string {
-  const saved = window.localStorage.getItem("ifinance-openai-model") || "gpt-4o-mini";
+  const saved = window.localStorage.getItem("ifinance-openai-model");
+  if (!saved || saved === "gpt-5.5" || saved === "gpt-4o") {
+    window.localStorage.setItem("ifinance-openai-model", "gpt-4o-mini");
+    return "gpt-4o-mini";
+  }
   return ANALYSIS_MODELS.includes(saved) ? saved : "gpt-4o-mini";
 }
 
@@ -78,6 +82,20 @@ function toNum(v: unknown): number | null {
     return Number.isNaN(x) ? null : x;
   }
   return null;
+}
+
+function chartAiSnapshot(row: WatchlistRow | null): Record<string, unknown> | null {
+  if (!row) return null;
+  const keys = [
+    "Close", "PCTV_1D", "PCTV_5D", "PCTV_10D", "PCTV_30D",
+    "RSI", "Stoch_K", "Stoch_D", "Williams_R", "MACD", "MACD_Signal",
+    "MACD_Hist", "MACD_vs_Signal", "ADX", "PLUS_DI", "MINUS_DI", "DI_diff",
+    "Volume", "Vol_Perc_vs_MA5", "Vol_Perc_vs_MA10", "Vol_Perc_vs_MA20",
+    "SIG_MA_SAR", "Trend_Stop_Level", "CE_Long", "Pullback_Stop_Level",
+    "Profit_Protect_Level", "Market_Phase", "Trend_Phase_Detail",
+    "Entry_Signal", "Entry_Reason",
+  ];
+  return Object.fromEntries(keys.map((key) => [key, row[key]]).filter(([, value]) => value !== undefined && value !== null && value !== ""));
 }
 
 function field(row: WatchlistRow, key: string): string {
@@ -412,7 +430,8 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
         },
         model,
         analysis_type: analysisType,
-        current_price: toNum(row.Close)
+        current_price: toNum(row.Close),
+        snapshot: chartAiSnapshot(row)
       });
       
       appendMessage(sessionKey, sessionForRequest, {
@@ -504,7 +523,6 @@ export default function AiTickerModal({ open, row, market, onClose, onChatActivi
             >
               <option value="gpt-4o-mini">GPT-4o Mini (Default)</option>
               <option value="gpt-4o">GPT-4o (Completo)</option>
-              <option value="gpt-5.5">GPT-5.5</option>
               <option value="gpt-5.4">GPT-5.4</option>
               <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
               <option value="gpt-5.4-nano">GPT-5.4 Nano</option>
