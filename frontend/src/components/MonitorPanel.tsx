@@ -14,6 +14,71 @@ type Props = {
   onAlert: (row: WatchlistRow) => void;
 };
 
+function toNum(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function num(v: unknown, digits = 1): string {
+  const n = toNum(v);
+  if (n === null) return "-";
+  return n.toLocaleString("it-IT", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function pct(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "-";
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function pctColor(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "#9fb7cf";
+  if (n > 0) return "#22c55e";
+  if (n < 0) return "#ff4d5a";
+  return "#cfe5fa";
+}
+
+function techColor(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "#9fb7cf";
+  if (n >= 60) return "#22c55e";
+  if (n <= 40) return "#ff4d5a";
+  return "#f59e0b";
+}
+
+function s3Color(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "#9fb7cf";
+  if (n > 0) return "#22c55e";
+  if (n < 0) return "#ff4d5a";
+  return "#9fb7cf";
+}
+
+function alligatorColor(v: unknown): string {
+  const s = String(v ?? "").toLowerCase();
+  if (s.includes("uptrend") || s.includes("wakeup")) return "#22c55e";
+  if (s.includes("downtrend")) return "#ff4d5a";
+  if (s.includes("sleep")) return "#9fb7cf";
+  return "#f59e0b";
+}
+
+function fmtVol(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "-";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2).replace(".", ",")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", ",")}K`;
+  return String(Math.round(n));
+}
+
+function entrySignalClass(sig: unknown): string {
+  const s = String(sig ?? "").trim().toUpperCase();
+  if (s === "ENTRA") return "action-buy";
+  if (s === "OSSERVA") return "action-add";
+  if (s === "EVITA") return "action-sell";
+  return "action-wait";
+}
+
 export default function MonitorPanel({
   monitorData,
   isLoading,
@@ -68,23 +133,6 @@ export default function MonitorPanel({
     } finally {
       setAdding(false);
     }
-  };
-
-  const formatPct = (val: unknown) => {
-    const num = Number(val);
-    if (!Number.isFinite(num)) return "-";
-    const sign = num > 0 ? "+" : "";
-    const color = num > 0 ? "var(--color-up, #4caf50)" : num < 0 ? "var(--color-down, #f44336)" : "inherit";
-    return <span style={{ color, fontWeight: 600 }}>{sign}{num.toFixed(2)}%</span>;
-  };
-
-  const getSignalBadge = (sig?: string) => {
-    const s = String(sig || "").toUpperCase();
-    if (s === "ENTRA") return <span className="badge badge-success" style={{ background: "#2e7d32", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.75rem" }}>ENTRA</span>;
-    if (s === "OSSERVA") return <span className="badge badge-info" style={{ background: "#0288d1", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.75rem" }}>OSSERVA</span>;
-    if (s === "ATTENDI") return <span className="badge badge-warning" style={{ background: "#ed6c02", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.75rem" }}>ATTENDI</span>;
-    if (s === "EVITA") return <span className="badge badge-danger" style={{ background: "#d32f2f", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: "0.75rem" }}>EVITA</span>;
-    return <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>-</span>;
   };
 
   return (
@@ -174,7 +222,7 @@ export default function MonitorPanel({
         </div>
       )}
 
-      {/* Main Table */}
+      {/* Monitor cards */}
       {isLoading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
           Caricamento dati monitor in corso...
@@ -188,127 +236,72 @@ export default function MonitorPanel({
           </p>
         </div>
       ) : (
-        <div className="table-responsive" style={{ overflowX: "auto" }}>
-          <table className="watchlist-table" style={{ width: "max-content", minWidth: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--bg-table-header, #1f1f1f)", borderBottom: "2px solid #333", textAlign: "left", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                <th style={{ padding: "10px 12px" }}>TICKER / NOME</th>
-                <th style={{ padding: "10px 12px" }}>MERCATO</th>
-                <th style={{ padding: "10px 12px" }}>PREZZO</th>
-                <th style={{ padding: "10px 12px" }}>1D %</th>
-                <th style={{ padding: "10px 12px" }}>5D %</th>
-                <th style={{ padding: "10px 12px" }}>30D %</th>
-                <th style={{ padding: "10px 12px" }}>SEGNALE</th>
-                <th style={{ padding: "10px 12px" }}>SCORE</th>
-                <th style={{ padding: "10px 12px" }}>INDICATORI</th>
-                <th style={{ padding: "10px 12px", width: 240, minWidth: 240 }}>NOTA OPERATIVA MANUAL</th>
-                <th style={{ padding: "10px 12px", textAlign: "right", width: 230, minWidth: 230 }}>AZIONI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((row) => {
-                const tk = String(row.Ticker || "").trim();
-                const nm = String(row.Name || tk);
-                const src = String(row.WL_Source_Market || "MIB30");
-                const close = Number(row.Close);
-                const note = String(row.Monitor_Note || "").trim();
-                const techScore = Number(row.TECH_SCORE);
+        <div className="monitor-card-grid">
+          {filteredItems.map((row) => {
+            const tk = String(row.Ticker || "").trim();
+            const nm = String(row.Name || tk);
+            const src = String(row.WL_Source_Market || "MIB30");
+            const note = String(row.Monitor_Note || "").trim();
+            const phase = String(row.Market_Phase || "-");
+            const detail = String(row.Trend_Phase_Detail || "").replace(/_/g, " ");
+            const entry = String(row.Entry_Signal || "ATTENDI").toUpperCase();
+            const date = row.Date ? (row.Date instanceof Date ? row.Date.toISOString().slice(0, 10) : String(row.Date).slice(0, 10)) : "non disponibile";
 
-                return (
-                  <tr key={`${src}-${tk}`} style={{ borderBottom: "1px solid var(--border-color, #2a2a2a)", fontSize: "0.88rem" }}>
-                    {/* Ticker & Name */}
-                    <td style={{ padding: "10px 12px" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{tk}</div>
-                      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>
-                        {nm}
-                      </div>
-                    </td>
+            return (
+              <article className="monitor-card" key={`${src}-${tk}`}>
+                <header className="monitor-card-head">
+                  <div>
+                    <strong>{tk}</strong>
+                    <span>{nm}</span>
+                    <small>Dato al {date} · {src}</small>
+                  </div>
+                  <div className="monitor-card-price">
+                    <b>{num(row.Close, 3)}</b>
+                    <em style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</em>
+                  </div>
+                </header>
 
-                    {/* Mercato */}
-                    <td style={{ padding: "10px 12px" }}>
-                      <span className="quick-bar" style={{ fontSize: "0.75rem", padding: "2px 6px" }}>{src}</span>
-                    </td>
+                <div className="monitor-card-metrics">
+                  <span>1D: <b style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</b></span>
+                  <span>5D: <b style={{ color: pctColor(row.PCTV_5D) }}>{pct(row.PCTV_5D)}</b></span>
+                  <span>10D: <b style={{ color: pctColor(row.PCTV_10D) }}>{pct(row.PCTV_10D)}</b></span>
+                  <span>30D: <b style={{ color: pctColor(row.PCTV_30D) }}>{pct(row.PCTV_30D)}</b></span>
+                  <span>180D: <b style={{ color: pctColor(row.PCTV_180D) }}>{pct(row.PCTV_180D)}</b></span>
+                  <span>TECH: <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b></span>
+                  <span>S2: <b>{num(row.Pattern_S2_Days_Ago, 0)}d</b></span>
+                  <span>S3: <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b></span>
+                  <span>S3_Pat: <b>{num(row.Pattern_S3_Days_Ago, 0)}d</b></span>
+                  <span>SARMA: <b style={{ color: (toNum(row.SIG_MA_SAR) ?? 0) >= 0 ? "#22c55e" : "#ff4d5a" }}>{num(row.SIG_MA_SAR, 0)}</b></span>
+                  <span>RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b></span>
+                  <span>ADX: <b style={{ color: techColor(row.ADX) }}>{num(row.ADX, 1)}</b></span>
+                  <span>DI+: <b style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</b></span>
+                  <span>DI-: <b style={{ color: "#ff4d5a" }}>{num(row.MINUS_DI, 1)}</b></span>
+                  <span>willR: <b style={{ color: s3Color(row.Williams_R) }}>{num(row.Williams_R, 0)}</b></span>
+                  <span>Sk: <b>{num(row.Stoch_K, 0)}</b></span>
+                  <span>Sd: <b>{num(row.Stoch_D, 0)}</b></span>
+                  <span>Alligator: <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")} {row.Signal6_Trend_Days !== undefined ? `(${row.Signal6_Trend_Days}d)` : ""}</b></span>
+                  <span>LIQ: <b style={{ color: String(row.Liquidity ?? "").toUpperCase() === "OK" ? "#22c55e" : "#ff4d5a" }}>{String(row.Liquidity ?? "-")}</b></span>
+                </div>
 
-                    {/* Prezzo */}
-                    <td style={{ padding: "10px 12px", fontWeight: 600 }}>
-                      {Number.isFinite(close) ? close.toFixed(2) : "-"}
-                    </td>
+                <div className="monitor-card-context">
+                  <span className={`pill ${entrySignalClass(entry)}`}>{entry === "ENTRA" ? "✓ ENTRA" : entry === "OSSERVA" ? "◉ OSSERVA" : entry === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}</span>
+                  <p>Contesto tecnico: <b>{phase}</b>{detail && detail !== phase ? ` · ${detail}` : ""}</p>
+                  {row.Entry_Reason ? <p>{String(row.Entry_Reason)}</p> : null}
+                  <p>VOL: {fmtVol(row.Volume)}</p>
+                  {note ? <p className="monitor-note">Nota: {note}</p> : null}
+                </div>
 
-                    {/* Variazioni */}
-                    <td style={{ padding: "10px 12px" }}>{formatPct(row.PCTV_1D)}</td>
-                    <td style={{ padding: "10px 12px" }}>{formatPct(row.PCTV_5D)}</td>
-                    <td style={{ padding: "10px 12px" }}>{formatPct(row.PCTV_30D)}</td>
-
-                    {/* Segnale */}
-                    <td style={{ padding: "10px 12px" }}>{getSignalBadge(row.Entry_Signal)}</td>
-
-                    {/* Score */}
-                    <td style={{ padding: "10px 12px", fontWeight: 600 }}>
-                      {Number.isFinite(techScore) ? (
-                        <span style={{ color: techScore >= 60 ? "#4caf50" : techScore <= 40 ? "#f44336" : "#ff9800" }}>
-                          {techScore.toFixed(0)}
-                        </span>
-                      ) : "-"}
-                    </td>
-
-                    {/* Indicatori */}
-                    <td style={{ padding: "10px 12px", fontSize: "0.78rem" }}>
-                      <div>RSI: <strong>{Number.isFinite(Number(row.RSI)) ? Number(row.RSI).toFixed(0) : "-"}</strong></div>
-                      <div>ADX: <strong>{Number.isFinite(Number(row.ADX)) ? Number(row.ADX).toFixed(0) : "-"}</strong></div>
-                    </td>
-
-                    {/* Nota Operativa Manuale */}
-                    <td style={{ padding: "10px 12px", width: 240, minWidth: 240 }}>
-                      <div
-                        onClick={() => onOpenNoteModal(row)}
-                        style={{
-                          background: note ? "rgba(2, 136, 209, 0.1)" : "rgba(255, 255, 255, 0.03)",
-                          border: note ? "1px solid rgba(2, 136, 209, 0.3)" : "1px dashed #444",
-                          borderRadius: 6,
-                          padding: "6px 10px",
-                          fontSize: "0.82rem",
-                          color: note ? "#e0e0e0" : "var(--text-muted)",
-                          cursor: "pointer",
-                          minHeight: 32,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 6,
-                        }}
-                        title="Clicca per modificare la nota"
-                      >
-                        <span style={{ fontStyle: note ? "normal" : "italic", flex: 1 }}>
-                          {note || "+ Aggiungi nota..."}
-                        </span>
-                        <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>✏️</span>
-                      </div>
-                    </td>
-
-                    {/* Azioni */}
-                    <td style={{ padding: "10px 12px", textAlign: "right", width: 230, minWidth: 230 }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
-                        <button type="button" className="btn ghost" onClick={() => onChart(row)} title="Grafico" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                          📈
-                        </button>
-                        <button type="button" className="btn ghost" onClick={() => onAi(row)} title="Analisi AI" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                          🤖
-                        </button>
-                        <button type="button" className="btn ghost" onClick={() => onNews(tk)} title="News" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                          📰
-                        </button>
-                        <button type="button" className="btn ghost" onClick={() => onAlert(row)} title="Alert" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                          🔔
-                        </button>
-                        <button type="button" className="btn ghost danger" onClick={() => onRemoveMonitor(tk, src)} title="Rimuovi da Monitor" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                <div className="monitor-card-actions">
+                  <button type="button" className="btn primary" onClick={() => onChart(row)}>Grafico</button>
+                  <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                  <button type="button" className="btn ghost" onClick={() => onNews(tk)}>News</button>
+                  <button type="button" className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
+                  <button type="button" className="btn ghost" onClick={() => onAlert(row)}>Alert</button>
+                  <button type="button" className="btn ghost danger" onClick={() => onRemoveMonitor(tk, src)}>Rimuovi</button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

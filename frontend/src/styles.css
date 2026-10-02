@@ -2540,6 +2540,97 @@ td {
   padding: 1rem;
 }
 
+.monitor-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 1rem;
+}
+
+.monitor-card {
+  border: 1px solid rgba(174, 216, 249, 0.18);
+  border-radius: 14px;
+  background: #050e1d;
+  padding: 1rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.monitor-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.monitor-card-head strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.monitor-card-head span,
+.monitor-card-head small {
+  display: block;
+  color: #9fb7cf;
+  margin-top: 0.25rem;
+}
+
+.monitor-card-price {
+  display: grid;
+  justify-items: end;
+  gap: 0.18rem;
+  white-space: nowrap;
+}
+
+.monitor-card-price b {
+  font-size: 1.25rem;
+}
+
+.monitor-card-price em {
+  font-style: normal;
+  font-weight: 800;
+}
+
+.monitor-card-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin: 1rem 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.monitor-card-metrics span {
+  white-space: nowrap;
+}
+
+.monitor-card-context {
+  display: grid;
+  gap: 0.45rem;
+  color: #9fb7cf;
+}
+
+.monitor-card-context p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.monitor-note {
+  border: 1px dashed rgba(125, 211, 252, 0.35);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.monitor-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.monitor-card-actions .btn {
+  min-height: 38px;
+}
+
 @media (max-width: 1280px) {
   .monitor-panel {
     gap: 16px !important;
