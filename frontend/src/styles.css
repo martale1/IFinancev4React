@@ -2540,7 +2540,7 @@ td {
   padding: 1rem;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 980px) {
   .monitor-panel {
     gap: 16px !important;
     overflow-x: hidden;
@@ -2616,7 +2616,9 @@ td {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
   }
+}
 
+@media (max-width: 760px) {
   .indicators-heading {
     display: grid;
   }
