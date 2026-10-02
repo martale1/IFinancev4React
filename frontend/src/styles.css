@@ -2541,6 +2541,82 @@ td {
 }
 
 @media (max-width: 760px) {
+  .monitor-panel {
+    gap: 16px !important;
+    overflow-x: hidden;
+  }
+
+  .monitor-panel .panel-header {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    align-items: stretch !important;
+  }
+
+  .monitor-panel .panel-header h2 {
+    font-size: clamp(1.35rem, 7vw, 2rem);
+    line-height: 1.08;
+    align-items: flex-start !important;
+  }
+
+  .monitor-panel .panel-header > div:first-child > div {
+    font-size: 0.98rem !important;
+    line-height: 1.24;
+  }
+
+  .monitor-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+    width: 100%;
+  }
+
+  .monitor-stats-grid .stat-card {
+    min-width: 0;
+    padding: 10px 8px !important;
+  }
+
+  .monitor-add-form {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .monitor-add-label,
+  .monitor-ticker-input,
+  .monitor-market-select,
+  .monitor-note-input,
+  .monitor-add-button {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .monitor-filter-row {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch !important;
+  }
+
+  .monitor-filter-input {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .monitor-filter-count {
+    text-align: left;
+    line-height: 1.25;
+  }
+
+  .monitor-panel .table-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .indicators-heading {
     display: grid;
   }

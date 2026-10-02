@@ -100,7 +100,7 @@ export default function MonitorPanel({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="monitor-stats-grid" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div className="stat-card" style={{ background: "var(--bg-card, #262626)", padding: "8px 16px", borderRadius: 8, textAlign: "center", border: "1px solid var(--border-color, #333)" }}>
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Totale Monitor</div>
             <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{totalCount}</div>
@@ -121,9 +121,10 @@ export default function MonitorPanel({
       </div>
 
       {/* Quick Add Bar */}
-      <form onSubmit={handleQuickAdd} style={{ background: "var(--bg-card, #262626)", padding: 14, borderRadius: 10, border: "1px solid var(--border-color, #333)", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Aggiungi Ticker:</span>
+      <form className="monitor-add-form" onSubmit={handleQuickAdd} style={{ background: "var(--bg-card, #262626)", padding: 14, borderRadius: 10, border: "1px solid var(--border-color, #333)", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        <span className="monitor-add-label" style={{ fontWeight: 600, fontSize: "0.9rem" }}>Aggiungi Ticker:</span>
         <input
+          className="monitor-ticker-input"
           type="text"
           placeholder="es. AMP.MI, ERG.MI"
           value={newTicker}
@@ -132,6 +133,7 @@ export default function MonitorPanel({
           required
         />
         <select
+          className="monitor-market-select"
           value={newMarket}
           onChange={(e) => setNewMarket(e.target.value)}
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", fontSize: "0.88rem" }}
@@ -141,13 +143,14 @@ export default function MonitorPanel({
           ))}
         </select>
         <input
+          className="monitor-note-input"
           type="text"
           placeholder="Nota opzionale (es. breakout sopra 12.20)"
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", flex: 1, minWidth: 200, fontSize: "0.88rem" }}
         />
-        <button type="submit" className="btn primary" disabled={adding || !newTicker.trim()} style={{ padding: "6px 16px", fontSize: "0.88rem" }}>
+        <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()} style={{ padding: "6px 16px", fontSize: "0.88rem" }}>
           {adding ? "Aggiungo..." : "+ Aggiungi a Monitor"}
         </button>
       </form>
@@ -156,15 +159,16 @@ export default function MonitorPanel({
 
       {/* Filter / Search inside Monitor */}
       {items.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="monitor-filter-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <input
+            className="monitor-filter-input"
             type="text"
             placeholder="🔍 Filtra nei titoli monitorati..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: 260, fontSize: "0.85rem" }}
           />
-          <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+          <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
             Visualizzati {filteredItems.length} di {totalCount} titoli
           </div>
         </div>
