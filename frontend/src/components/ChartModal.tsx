@@ -327,6 +327,8 @@ type Props = {
     value: number | string;
   }) => Promise<string>;
   onRemoveAlert?: (input: { row: WatchlistRow; source_market: string }) => Promise<string>;
+  isMonitored?: boolean;
+  onOpenMonitorModal?: (row: WatchlistRow) => void;
 };
 
 export default function ChartModal(props: Props) {
@@ -909,9 +911,10 @@ export default function ChartModal(props: Props) {
         <div className="chart-levels">
           {!props.isQuickChart && (
             <>
-              <span className="level-chip close">Close: {fmtPrice(props.snapshotClose)}</span>
+              <span className="level-chip close">Close: {fmtPrice(close)}</span>
               {props.row ? (
                 <>
+                  {props.row.Chart_Data_Source ? <span className="level-chip">Yahoo delayed · {String(props.row.Date ?? "").slice(0, 10)}</span> : null}
                   {[
                     { label: "1D", val: props.row.PCTV_1D },
                     { label: "5D", val: props.row.PCTV_5D },
@@ -1033,6 +1036,15 @@ export default function ChartModal(props: Props) {
               title={props.alertSet ? "Alert presente: apri per modificare o rimuovere" : "Apri opzioni alert"}
             >
               {props.alertBusy ? "..." : props.alertSet ? "🔔 Alert ON" : "🔔 Imposta Alert"}
+            </button>
+
+            <button
+              className={props.isMonitored ? "btn active" : "btn ghost"}
+              disabled={!props.row}
+              onClick={() => props.row && props.onOpenMonitorModal?.({ ...props.row, WL_Source_Market: String(props.row.WL_Source_Market || props.sourceMarket) })}
+              title={props.isMonitored ? "In monitoraggio attivo: clicca per modificare nota o rimuovere" : "Aggiungi questo titolo al Monitor"}
+            >
+              {props.isMonitored ? "🎯 ✓ Monitor" : "🎯 + Monitor"}
             </button>
 
             {/* Ask AI Button */}
@@ -1400,3 +1412,4 @@ export default function ChartModal(props: Props) {
     </div>
   );
 }
+

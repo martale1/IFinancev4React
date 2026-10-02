@@ -39,6 +39,7 @@ from app.schemas import (
     ExportPdfRequest,
     AiChatRequest,
     AiChatResponse,
+    MonitorUpsertRequest,
     RunEngineRequest,
     WatchlistResponse,
 )
@@ -70,6 +71,14 @@ from app.services.custom_watchlists_service import (
     delete_custom_watchlist,
 )
 from app.services.export_service import generate_buy_pdf_for_market
+from app.services.quote_service import latest_quote, chart_snapshot
+from app.services.monitor_service import (
+    list_monitor_items,
+    monitor_records,
+    monitor_source_info,
+    remove_monitor_item,
+    upsert_monitor_item,
+)
 from app.services.watchlist_service import (
     analysis_source_info_for_market,
     apply_search_and_volume_filters,
@@ -153,8 +162,8 @@ def watchlist(
     trend_phase_detail: str = Query(default=""),
     entry_signal: str = Query(default=""),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
-    rank_n: int = Query(default=15, ge=5, le=100),
+    page_size: int = Query(default=50, ge=1, le=2000),
+    rank_n: int = Query(default=15, ge=5, le=2000),
     only_neg_in_worst: bool = Query(default=True),
     sort_key: str = Query(default=""),
     sort_dir: str = Query(default=""),
@@ -234,6 +243,26 @@ def watchlist_focus(market: str, ticker: str) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
+
+
+@app.get("/api/quote/{ticker}")
+def quote(ticker: str) -> dict[str, Any]:
+    try:
+        return latest_quote(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.get("/api/charts/{ticker}/snapshot")
+def chart_data_snapshot(ticker: str) -> dict[str, Any]:
+    try:
+        return chart_snapshot(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 @app.get("/api/charts/{ticker}")
 def chart(
@@ -367,6 +396,59 @@ def run_alerts(req: RunEngineRequest):
 def access_log_status():
     return access_log_health()
 
+
+
+@app.get("/api/monitor")
+def get_monitor() -> dict[str, Any]:
+    try:
+        source_info = monitor_source_info()
+        items = monitor_records()
+        return {
+            "items": items,
+            "raw_items": list_monitor_items(),
+            "source_file": source_info.get("source_file"),
+            "source_path": source_info.get("source_path"),
+            "source_updated_at": source_info.get("source_updated_at"),
+        }
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/monitor")
+def post_monitor(req: MonitorUpsertRequest) -> dict[str, Any]:
+    try:
+        return upsert_monitor_item(
+            ticker=req.ticker,
+            source_market=req.source_market,
+            name=req.name,
+            note=req.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.delete("/api/monitor/{source_market}/{ticker}")
+def delete_monitor(source_market: str, ticker: str) -> dict[str, Any]:
+    try:
+        return remove_monitor_item(ticker=ticker, source_market=source_market)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.delete("/api/monitor/{ticker}")
+def delete_monitor_by_ticker(ticker: str) -> dict[str, Any]:
+    try:
+        return remove_monitor_item(ticker=ticker, source_market=None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 @app.get("/api/custom-watchlists")
 def get_custom_watchlists():
@@ -969,7 +1051,7 @@ def api_analyze_chart(req: AnalyzeChartRequest):
         base64_image = base64.b64encode(img_bytes).decode('utf-8')
         
         # 3. Instantiate OpenAI client
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=75, max_retries=0)
         
         # 4. Call multimodal model
         if req.analysis_type == "concise":
@@ -1113,14 +1195,14 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             kwargs_completions["max_tokens"] = 2500
             kwargs_completions["temperature"] = 0.15
 
-        for attempt in range(3):
+        for attempt in range(2):
             response = client.chat.completions.create(**kwargs_completions)
             output_text = response.choices[0].message.content or ""
             try:
                 validate_alert_analysis(output_text)
                 break
             except ValueError as error:
-                if attempt == 2:
+                if attempt == 1:
                     raise ValueError("L'AI non ha prodotto condizioni attivabili. Riprova l'analisi.") from error
                 kwargs_completions["messages"].extend([
                     {"role": "assistant", "content": output_text},
@@ -1161,3 +1243,4 @@ def _mount_frontend() -> None:
 
 
 _mount_frontend()
+

@@ -178,3 +178,21 @@ export type QuickAlertField =
   | "MINUS_DI"
   | "DI_diff"
   | "Signal6";
+
+export type MonitorRawItem = {
+  ticker: string;
+  source_market: string;
+  name?: string;
+  note?: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: string;
+};
+
+export type MonitorResponse = {
+  items: WatchlistRow[];
+  raw_items: MonitorRawItem[];
+  source_file?: string | null;
+  source_path?: string | null;
+  source_updated_at?: string | null;
+};

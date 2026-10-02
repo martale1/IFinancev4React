@@ -67,6 +67,13 @@ class CustomWatchlistRemoveItemRequest(BaseModel):
     source_market: str | None = None
 
 
+class MonitorUpsertRequest(BaseModel):
+    ticker: str
+    source_market: str | None = None
+    name: str | None = None
+    note: str | None = None
+
+
 class AiChatRequest(BaseModel):
     message: str
     session_id: str = "default"

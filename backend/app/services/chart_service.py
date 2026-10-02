@@ -35,7 +35,12 @@ def _set_headless_matplotlib() -> None:
         pass
 
 def _merge_latest_snapshot(ta, latest_close: float | None, latest_pct_1d: float | None, latest_date: str | None) -> None:
-    """Integra la quotazione della watchlist quando la serie daily di Yahoo è indietro."""
+    """Integra la quotazione Yahoo più recente nella serie usata dal grafico.
+
+    Se la quotazione è della stessa seduta dell'ultima candela, aggiorna quella
+    candela. Se è di una seduta successiva, aggiunge una nuova candela sintetica.
+    Così prezzo e variazioni nel grafico derivano dalla stessa serie dati.
+    """
     if latest_close is None or ta.dataframe is None or ta.dataframe.empty:
         return
 
@@ -43,27 +48,40 @@ def _merge_latest_snapshot(ta, latest_close: float | None, latest_pct_1d: float 
 
     df = ta.dataframe.copy()
     close = float(latest_close)
+    last_index = pd.Timestamp(df.index[-1])
     last_close = float(df["Close"].dropna().iloc[-1])
     if abs(close - last_close) < 1e-9:
-        return
-
-    recent_closes = df["Close"].dropna().tail(5).astype(float)
-    if any(abs(close - value) < 1e-9 for value in recent_closes):
         return
 
     previous_close = last_close
     if latest_pct_1d is not None and abs(100.0 + float(latest_pct_1d)) > 1e-9:
         previous_close = close / (1.0 + float(latest_pct_1d) / 100.0)
 
-    last_index = pd.Timestamp(df.index[-1])
     if latest_date:
         target_index = pd.Timestamp(latest_date)
         if last_index.tzinfo is not None and target_index.tzinfo is None:
             target_index = target_index.tz_localize(last_index.tzinfo)
-        if target_index.normalize() <= last_index.normalize():
-            return
     else:
-        target_index = last_index + pd.offsets.BDay(1)
+        target_index = last_index
+
+    if target_index.normalize() < last_index.normalize():
+        return
+
+    if target_index.normalize() == last_index.normalize():
+        existing_open = float(df.at[last_index, "Open"]) if "Open" in df.columns and pd.notna(df.at[last_index, "Open"]) else previous_close
+        existing_high = float(df.at[last_index, "High"]) if "High" in df.columns and pd.notna(df.at[last_index, "High"]) else max(existing_open, last_close)
+        existing_low = float(df.at[last_index, "Low"]) if "Low" in df.columns and pd.notna(df.at[last_index, "Low"]) else min(existing_open, last_close)
+        if "Open" in df.columns:
+            df.at[last_index, "Open"] = existing_open
+        if "High" in df.columns:
+            df.at[last_index, "High"] = max(existing_high, close)
+        if "Low" in df.columns:
+            df.at[last_index, "Low"] = min(existing_low, close)
+        df.at[last_index, "Close"] = close
+        if "Adj Close" in df.columns:
+            df.at[last_index, "Adj Close"] = close
+        ta.dataframe = df.sort_index()
+        return
 
     new_row = {column: float("nan") for column in df.columns}
     new_row.update({

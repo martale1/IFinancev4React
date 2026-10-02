@@ -11,10 +11,26 @@ import type {
   AiProposedCondition,
   AiCriticalLevel,
   RunAlertsResponse,
-  WatchlistResponse
+  WatchlistResponse,
+  MonitorResponse
 } from "./types";
 
 const API_BASE = "/api";
+
+export type ChartSnapshot = {
+  ticker: string;
+  close: number;
+  date?: string | null;
+  previous_close?: number | null;
+  PCTV_1D?: number | null;
+  PCTV_5D?: number | null;
+  PCTV_10D?: number | null;
+  PCTV_30D?: number | null;
+  PCTV_180D?: number | null;
+  source?: string;
+  fetched_at?: string;
+  delayed?: boolean;
+};
 
 export type NewsSource = { title: string; url: string };
 export type NewsReport = {
@@ -196,6 +212,11 @@ export async function sendAiChat(input: { session_id: string; message: string; m
   return parseJson<AiChatResponse>(resp);
 }
 
+export async function fetchChartSnapshot(ticker: string): Promise<ChartSnapshot> {
+  const resp = await fetch(`${API_BASE}/charts/${encodeURIComponent(ticker)}/snapshot`, { cache: "no-store" });
+  return parseJson<ChartSnapshot>(resp);
+}
+
 export function chartUrl(
   ticker: string,
   bars: number,
@@ -248,11 +269,53 @@ export async function analyzeChartImage(input: {
   analysis_type?: string;
   current_price?: number | null;
 }): Promise<{ ticker: string; analysis: string }> {
-  const resp = await fetch(`${API_BASE}/ai/analyze-chart`, {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 90_000);
+  try {
+    const resp = await fetch(`${API_BASE}/ai/analyze-chart`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: controller.signal,
+    });
+    return parseJson<{ ticker: string; analysis: string }>(resp);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Timeout analisi AI dopo 90 secondi. Riprova o usa Analisi Semplificata.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export async function fetchMonitor(): Promise<MonitorResponse> {
+  const resp = await fetch(`${API_BASE}/monitor`, { cache: "no-store" });
+  return parseJson<MonitorResponse>(resp);
+}
+
+export async function upsertMonitorItem(input: {
+  ticker: string;
+  source_market?: string;
+  name?: string;
+  note?: string;
+}): Promise<{ status: string; ticker: string; source_market: string; note: string }> {
+  const resp = await fetch(`${API_BASE}/monitor`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
-  return parseJson<{ ticker: string; analysis: string }>(resp);
+  return parseJson<{ status: string; ticker: string; source_market: string; note: string }>(resp);
+}
+
+export async function removeMonitorItem(input: {
+  ticker: string;
+  source_market?: string;
+}): Promise<{ status: string; ticker: string; source_market?: string; removed: number }> {
+  const url = input.source_market
+    ? `${API_BASE}/monitor/${encodeURIComponent(input.source_market)}/${encodeURIComponent(input.ticker)}`
+    : `${API_BASE}/monitor/${encodeURIComponent(input.ticker)}`;
+  const resp = await fetch(url, { method: "DELETE" });
+  return parseJson<{ status: string; ticker: string; source_market?: string; removed: number }>(resp);
 }
 

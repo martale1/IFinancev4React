@@ -13,6 +13,9 @@ import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
 import MarketHeatmapPanel from "./components/MarketHeatmapPanel";
 import NewsArchive from "./components/NewsArchive";
+import IndicatorsTablePanel from "./components/IndicatorsTablePanel";
+import MonitorPanel from "./components/MonitorPanel";
+import MonitorNoteModal from "./components/MonitorNoteModal";
 import type { AlertRule, WatchlistRow, QuickAlertField } from "./types";
 
 import {
@@ -27,12 +30,18 @@ import {
   removeTickerFromCustomWatchlist,
   setAlertRuleEnabled,
   upsertAlertRule,
+  fetchMonitor,
+  fetchChartSnapshot,
+  upsertMonitorItem,
+  removeMonitorItem,
 } from "./api";
 
 const tabs = [
+  "🎯 Monitor",
   "All",
   "📰 Archivio News",
   "📊 Highlights",
+  "📈 Indicatori",
   "Analizza",
   "🔥 Heatmap",
   "Alerts",
@@ -139,8 +148,47 @@ export default function App() {
   const qc = useQueryClient();
   const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: fetchMarkets });
   const customWatchlistsQuery = useQuery({ queryKey: ["custom-watchlists"], queryFn: fetchCustomWatchlists });
+  const monitorQuery = useQuery({ queryKey: ["monitor"], queryFn: fetchMonitor });
+
+  const monitoredSet = useMemo(() => {
+    const set = new Set<string>();
+    const rawItems = monitorQuery.data?.raw_items || [];
+    for (const item of rawItems) {
+      if (item.ticker) set.add(item.ticker.toUpperCase());
+    }
+    return set;
+  }, [monitorQuery.data]);
+
+  const monitoredNotesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const rawItems = monitorQuery.data?.raw_items || [];
+    for (const item of rawItems) {
+      if (item.ticker) map.set(item.ticker.toUpperCase(), item.note || "");
+    }
+    return map;
+  }, [monitorQuery.data]);
+
+  const [monitorModalRow, setMonitorModalRow] = useState<WatchlistRow | null>(null);
+
+  const upsertMonitorMutation = useMutation({
+    mutationFn: upsertMonitorItem,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monitor"] });
+    },
+  });
+
+  const removeMonitorMutation = useMutation({
+    mutationFn: removeMonitorItem,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monitor"] });
+    },
+  });
   const [market, setMarket] = useState("MIB30");
-  const [tab, setTab] = useState("All");
+  const [tab, setTabState] = useState<string>(() => window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor");
+  const setTab = (newTab: string) => {
+    setTabState(newTab);
+    window.localStorage.setItem("ifinance-active-tab", newTab);
+  };
   const [minVolume, setMinVolume] = useState(2000);
   const [entrySignalFilter, setEntrySignalFilter] = useState("");
   const [marketPhaseFilter, setMarketPhaseFilter] = useState("");
@@ -376,7 +424,26 @@ export default function App() {
       sortDir
     }),
     refetchInterval: 60_000,
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "🔥 Heatmap"
+    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
+  });
+  const indicatorsQuery = useQuery({
+    queryKey: ["indicators", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
+    queryFn: () => fetchWatchlist({
+      market,
+      tab: "All",
+      search: "",
+      minVolume,
+      entrySignal: entrySignalFilter,
+      marketPhase: marketPhaseFilter,
+      trendPhaseDetail: effectiveTrendPhaseDetailFilter,
+      page: 1,
+      pageSize: 2000,
+      rankN: 2000,
+      sortKey: null,
+      sortDir: null,
+    }),
+    refetchInterval: 60_000,
+    enabled: tab === "📈 Indicatori",
   });
 
   const heatmapQuery = useQuery({
@@ -421,6 +488,34 @@ export default function App() {
       ]);
     },
   });
+
+  // chart-snapshot-refresh: ricalcola Close e performance dalla stessa fonte dati del grafico.
+  useEffect(() => {
+    if (!chartTicker) return;
+    let cancelled = false;
+    fetchChartSnapshot(chartTicker).then((snapshot) => {
+      if (cancelled) return;
+      setChartSnapshot({ date: snapshot.date ?? null, close: toNum(snapshot.close) });
+      setChartRow((current) => {
+        if (!current || String(current.Ticker ?? "").toUpperCase() !== chartTicker.toUpperCase()) return current;
+        return {
+          ...current,
+          Close: snapshot.close,
+          Date: snapshot.date ?? current.Date,
+          PCTV_1D: snapshot.PCTV_1D ?? current.PCTV_1D,
+          PCTV_5D: snapshot.PCTV_5D ?? current.PCTV_5D,
+          PCTV_10D: snapshot.PCTV_10D ?? current.PCTV_10D,
+          PCTV_30D: snapshot.PCTV_30D ?? current.PCTV_30D,
+          PCTV_180D: snapshot.PCTV_180D ?? current.PCTV_180D,
+          Chart_Data_Source: snapshot.source,
+          Chart_Data_Fetched_At: snapshot.fetched_at,
+        };
+      });
+    }).catch(() => {
+      // Se Yahoo/yfinance non risponde, resta visibile lo snapshot salvato dalla watchlist.
+    });
+    return () => { cancelled = true; };
+  }, [chartTicker]);
 
   const chartImage = useMemo(() => {
     if (!chartTicker) return "";
@@ -838,6 +933,8 @@ export default function App() {
                 onAddToWatchlist={handleAddToWatchlist}
                 currentWatchlistName={parseCurrentWatchlistName(String(globalSearchRow.WL_Source_Market ?? market))}
                 onRemoveFromWatchlist={handleRemoveFromWatchlist}
+                isMonitored={monitoredSet.has(String(globalSearchRow.Ticker ?? "").toUpperCase())}
+                onOpenMonitorModal={(r) => setMonitorModalRow(r)}
               />
             </div>
           ) : null}
@@ -962,8 +1059,28 @@ export default function App() {
           </button>
         ))}
       </nav>
+      {tab === "🎯 Monitor" ? (
+        <MonitorPanel
+          monitorData={monitorQuery.data}
+          isLoading={monitorQuery.isLoading}
+          markets={marketsQuery.data ?? ["MIB30", "ETF", "ETC", "USA"]}
+          onAddMonitor={async (tk, mkt, note) => {
+            await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt, note });
+          }}
+          onRemoveMonitor={async (tk, mkt) => {
+            await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });
+          }}
+          onOpenNoteModal={(row) => setMonitorModalRow(row)}
+          onChart={openChart}
+          onAi={openTickerAi}
+          onNews={() => {
+            setTab("📰 Archivio News");
+          }}
+          onAlert={(row) => openChart(row)}
+        />
+      ) : null}
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && watchlistQuery.data ? (
+      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
           <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
@@ -1035,6 +1152,16 @@ export default function App() {
           onChart={openChart}
         />
       ) : null}
+      {tab === "📈 Indicatori" ? <IndicatorsTablePanel
+        rows={indicatorsQuery.data?.items ?? []}
+        market={market}
+        loading={indicatorsQuery.isLoading}
+        error={indicatorsQuery.isError ? String(indicatorsQuery.error) : undefined}
+        sourcePath={indicatorsQuery.data?.source_path ?? indicatorsQuery.data?.source_file ?? null}
+        sourceUpdatedAt={indicatorsQuery.data?.source_updated_at ?? null}
+        onChart={openChart}
+        onAi={openTickerAi}
+      /> : null}
       {tab === "📊 Highlights" && watchlistQuery.data ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
         <p className="muted">Una lettura rapida dei segnali principali del mercato corrente.</p>
@@ -1052,10 +1179,10 @@ export default function App() {
         <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
       </section> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
+      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
@@ -1137,6 +1264,8 @@ export default function App() {
                 onAddToWatchlist={handleAddToWatchlist}
                 currentWatchlistName={parseCurrentWatchlistName(market)}
                 onRemoveFromWatchlist={handleRemoveFromWatchlist}
+                isMonitored={monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
+                onOpenMonitorModal={(r) => setMonitorModalRow(r)}
               />
             ))}
           </section> : (
@@ -1195,6 +1324,8 @@ export default function App() {
         aiAlertInfo={chartRow ? (aiAlertCardMap[alertKey(String(chartRow.WL_Source_Market ?? market), String(chartRow.Ticker ?? ""))] ?? null) : null}
         onCreateAlert={handleCreateQuickAlert}
         onRemoveAlert={handleRemoveQuickAlert}
+        isMonitored={Boolean(chartRow && monitoredSet.has(String(chartRow.Ticker ?? "").toUpperCase()))}
+        onOpenMonitorModal={(row) => setMonitorModalRow(row)}
         onClose={() => {
           setChartTicker("");
           setChartRow(null);
@@ -1214,6 +1345,19 @@ export default function App() {
           setAiTickerRow(null);
           setAiTickerMarket("");
         }}
+      />
+      <MonitorNoteModal
+        open={Boolean(monitorModalRow)}
+        row={monitorModalRow}
+        existingNote={monitorModalRow ? (monitoredNotesMap.get(String(monitorModalRow.Ticker || "").toUpperCase()) || "") : ""}
+        isMonitored={Boolean(monitorModalRow && monitoredSet.has(String(monitorModalRow.Ticker || "").toUpperCase()))}
+        onSave={async (tk, mkt, note, name) => {
+          await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt, note, name });
+        }}
+        onRemove={async (tk, mkt) => {
+          await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });
+        }}
+        onClose={() => setMonitorModalRow(null)}
       />
     </main>
   );
