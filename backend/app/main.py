@@ -21,6 +21,7 @@ from datetime import datetime
 from io import BytesIO
 import traceback
 from typing import Any
+import threading
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +79,7 @@ from app.services.monitor_service import (
     monitor_source_info,
     remove_monitor_item,
     upsert_monitor_item,
+    warm_monitor_cache,
 )
 from app.services.watchlist_service import (
     analysis_source_info_for_market,
@@ -94,6 +96,11 @@ from app.services.watchlist_service import (
 app = FastAPI(title="IFinance v4 React Backend", version="0.1.0")
 from app.services.news_service import router as news_router
 app.include_router(news_router)
+
+
+@app.on_event("startup")
+def warm_monitor_data_on_startup() -> None:
+    threading.Thread(target=warm_monitor_cache, daemon=True).start()
 
 ANALYSIS_MARKETS = ["MIB30", "ETC", "ETF", "Preferite", "DAX", "US_Others", "Crypto"]
 _analysis_lock = threading.Lock()
@@ -405,6 +412,22 @@ def get_monitor() -> dict[str, Any]:
         items = monitor_records()
         return {
             "items": items,
+            "raw_items": list_monitor_items(),
+            "source_file": source_info.get("source_file"),
+            "source_path": source_info.get("source_path"),
+            "source_updated_at": source_info.get("source_updated_at"),
+        }
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.get("/api/monitor/items")
+def get_monitor_items() -> dict[str, Any]:
+    try:
+        source_info = monitor_source_info()
+        return {
             "raw_items": list_monitor_items(),
             "source_file": source_info.get("source_file"),
             "source_path": source_info.get("source_path"),
@@ -1195,20 +1218,28 @@ def api_analyze_chart(req: AnalyzeChartRequest):
             kwargs_completions["max_tokens"] = 2500
             kwargs_completions["temperature"] = 0.15
 
+        validation_warning = None
         for attempt in range(2):
             response = client.chat.completions.create(**kwargs_completions)
             output_text = response.choices[0].message.content or ""
             try:
                 validate_alert_analysis(output_text)
+                validation_warning = None
                 break
             except ValueError as error:
+                validation_warning = str(error)
                 if attempt == 1:
-                    raise ValueError("L'AI non ha prodotto condizioni attivabili. Riprova l'analisi.") from error
+                    break
                 kwargs_completions["messages"].extend([
                     {"role": "assistant", "content": output_text},
                     {"role": "user", "content": f"Correggi l'intera analisi: {error} Rispetta il contratto delle condizioni attivabili."},
                 ])
-        return {"ticker": req.ticker, "analysis": output_text}
+        if validation_warning:
+            output_text = (
+                f"**Nota:** analisi generata, ma le condizioni automatiche per alert non sono risultate attivabili: {validation_warning}\n\n"
+                + output_text
+            )
+        return {"ticker": req.ticker, "analysis": output_text, "validation_warning": validation_warning}
         
     except Exception as exc:
         traceback.print_exc()

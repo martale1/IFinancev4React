@@ -12,6 +12,7 @@ import type {
   AiCriticalLevel,
   RunAlertsResponse,
   WatchlistResponse,
+  MonitorItemsResponse,
   MonitorResponse
 } from "./types";
 
@@ -292,6 +293,11 @@ export async function analyzeChartImage(input: {
 export async function fetchMonitor(): Promise<MonitorResponse> {
   const resp = await fetch(`${API_BASE}/monitor`, { cache: "no-store" });
   return parseJson<MonitorResponse>(resp);
+}
+
+export async function fetchMonitorItems(): Promise<MonitorItemsResponse> {
+  const resp = await fetch(`${API_BASE}/monitor/items`, { cache: "no-store" });
+  return parseJson<MonitorItemsResponse>(resp);
 }
 
 export async function upsertMonitorItem(input: {

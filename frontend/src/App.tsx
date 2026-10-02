@@ -31,6 +31,7 @@ import {
   setAlertRuleEnabled,
   upsertAlertRule,
   fetchMonitor,
+  fetchMonitorItems,
   fetchChartSnapshot,
   upsertMonitorItem,
   removeMonitorItem,
@@ -38,24 +39,24 @@ import {
 
 const tabs = [
   "🎯 Monitor",
+  "Analizza",
+  "🧪 Multi-Pattern Lab",
   "All",
   "📰 Archivio News",
   "📊 Highlights",
   "📈 Indicatori",
-  "Analizza",
   "🔥 Heatmap",
   "Alerts",
+  "Migliori (1D)",
+  "Peggiori (1D)",
   "AI chat",
-  "🧪 Multi-Pattern Lab",
   "🔧 Gestione Pattern",
   "Liste",
   "Opportunità",
   "Da osservare",
   "Attendi",
   "Da evitare",
-  "Migliori (1D)",
   "Migliori (5D)",
-  "Peggiori (1D)",
   "Peggiori (5D)"
 ];
 
@@ -148,25 +149,44 @@ export default function App() {
   const qc = useQueryClient();
   const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: fetchMarkets });
   const customWatchlistsQuery = useQuery({ queryKey: ["custom-watchlists"], queryFn: fetchCustomWatchlists });
-  const monitorQuery = useQuery({ queryKey: ["monitor"], queryFn: fetchMonitor });
+  const [market, setMarket] = useState("MIB30");
+  const [tab, setTabState] = useState<string>(() => window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor");
+  const setTab = (newTab: string) => {
+    setTabState(newTab);
+    window.localStorage.setItem("ifinance-active-tab", newTab);
+  };
+  const monitorItemsQuery = useQuery({
+    queryKey: ["monitor-items"],
+    queryFn: fetchMonitorItems,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const monitorQuery = useQuery({
+    queryKey: ["monitor"],
+    queryFn: fetchMonitor,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: tab === "🎯 Monitor",
+  });
 
+  const monitorRawItems = monitorQuery.data?.raw_items ?? monitorItemsQuery.data?.raw_items ?? [];
   const monitoredSet = useMemo(() => {
     const set = new Set<string>();
-    const rawItems = monitorQuery.data?.raw_items || [];
-    for (const item of rawItems) {
+    for (const item of monitorRawItems) {
       if (item.ticker) set.add(item.ticker.toUpperCase());
     }
     return set;
-  }, [monitorQuery.data]);
+  }, [monitorRawItems]);
 
   const monitoredNotesMap = useMemo(() => {
     const map = new Map<string, string>();
-    const rawItems = monitorQuery.data?.raw_items || [];
-    for (const item of rawItems) {
+    for (const item of monitorRawItems) {
       if (item.ticker) map.set(item.ticker.toUpperCase(), item.note || "");
     }
     return map;
-  }, [monitorQuery.data]);
+  }, [monitorRawItems]);
 
   const [monitorModalRow, setMonitorModalRow] = useState<WatchlistRow | null>(null);
 
@@ -174,6 +194,7 @@ export default function App() {
     mutationFn: upsertMonitorItem,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monitor"] });
+      qc.invalidateQueries({ queryKey: ["monitor-items"] });
     },
   });
 
@@ -181,14 +202,9 @@ export default function App() {
     mutationFn: removeMonitorItem,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monitor"] });
+      qc.invalidateQueries({ queryKey: ["monitor-items"] });
     },
   });
-  const [market, setMarket] = useState("MIB30");
-  const [tab, setTabState] = useState<string>(() => window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor");
-  const setTab = (newTab: string) => {
-    setTabState(newTab);
-    window.localStorage.setItem("ifinance-active-tab", newTab);
-  };
   const [minVolume, setMinVolume] = useState(2000);
   const [entrySignalFilter, setEntrySignalFilter] = useState("");
   const [marketPhaseFilter, setMarketPhaseFilter] = useState("");
@@ -424,7 +440,7 @@ export default function App() {
       sortDir
     }),
     refetchInterval: 60_000,
-    enabled: tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
+    enabled: tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
   });
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],

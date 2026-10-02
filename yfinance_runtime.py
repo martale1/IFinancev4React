@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import atexit
 import ctypes
+from ctypes import wintypes
 import os
 import shutil
 from pathlib import Path
@@ -40,20 +41,29 @@ def _process_exists(pid: int) -> bool:
         # processo senza inviare alcun segnale.
         process_query_limited_information = 0x1000
         still_active = 259
-        handle = ctypes.windll.kernel32.OpenProcess(
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(
             process_query_limited_information, False, pid
         )
         if not handle:
-            return False
+            # Only ERROR_INVALID_PARAMETER proves the PID no longer exists.
+            # Access denied (or another failure) must not delete a live cache.
+            return ctypes.get_last_error() != 87
         try:
-            exit_code = ctypes.c_ulong()
-            if not ctypes.windll.kernel32.GetExitCodeProcess(
+            exit_code = wintypes.DWORD()
+            if not kernel32.GetExitCodeProcess(
                 handle, ctypes.byref(exit_code)
             ):
-                return False
+                return True
             return exit_code.value == still_active
         finally:
-            ctypes.windll.kernel32.CloseHandle(handle)
+            kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
         return True
@@ -86,6 +96,12 @@ def _clear_runtime_storage() -> None:
 
 _clear_runtime_storage()
 yf.set_tz_cache_location(str(_runtime_dir))
+
+# Initialise before request workers can race on yfinance's lazy cache setup.
+for _cache_getter in ("get_tz_cache", "get_cookie_cache", "get_isin_cache"):
+    _getter = getattr(yf_cache, _cache_getter, None)
+    if _getter is not None:
+        _getter().initialise()
 
 
 @atexit.register

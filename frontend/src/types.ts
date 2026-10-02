@@ -196,3 +196,10 @@ export type MonitorResponse = {
   source_path?: string | null;
   source_updated_at?: string | null;
 };
+
+export type MonitorItemsResponse = {
+  raw_items: MonitorRawItem[];
+  source_file?: string | null;
+  source_path?: string | null;
+  source_updated_at?: string | null;
+};
