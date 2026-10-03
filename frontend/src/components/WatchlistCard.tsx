@@ -683,7 +683,7 @@ export default function WatchlistCard({
         </span>
         {row.Pattern_Type && (
           <span className="pill" style={{ backgroundColor: "rgba(167, 139, 250, 0.2)", color: "#c084fc", border: "1px solid rgba(167, 139, 250, 0.4)", fontWeight: "bold" }}>
-            🧪 {String(row.Pattern_Type)} ({row.Pattern_Days_Ago === 0 ? "Oggi" : row.Pattern_Days_Ago === 1 ? "Ieri" : `${row.Pattern_Days_Ago}d fa`})
+            🧪 {String(row.Pattern_Type)}{Number(row.Pattern_Days_Ago) > 0 ? " recente" : ""} ({row.Pattern_Days_Ago === 0 ? "Oggi" : row.Pattern_Days_Ago === 1 ? "Ieri" : `${row.Pattern_Days_Ago}d fa`})
           </span>
         )}
       </div>

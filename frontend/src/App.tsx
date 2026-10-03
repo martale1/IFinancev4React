@@ -39,9 +39,9 @@ import {
 
 const tabs = [
   "🎯 Monitor",
-  "Analizza",
-  "🧪 Multi-Pattern Lab",
   "All",
+  "🧪 Multi-Pattern Lab",
+  "Analizza",
   "📰 Archivio News",
   "📊 Highlights",
   "📈 Indicatori",

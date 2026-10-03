@@ -460,14 +460,21 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             williams_bullish = (w > -80) & (w > w_shift1)
             stoch_trigger = ((k > 20) & (k_shift1 <= 20)) | ((k > d) & (k_shift1 <= d_shift1))
             williams_trigger = (w > -80) & (w_shift1 <= -80)
-            stoch_low = k_shift1 < 35
+            stoch_low = (k_shift1 < 35) & (k < 50)
             s2_active = stoch_bullish & williams_bullish & (stoch_trigger | williams_trigger) & stoch_low
             
             # S3 Pattern
             macd_cross = (macd > signal) & (macd_shift1 <= signal_shift1)
             macd_rose = macd > macd_shift1
             hist_ok = (hist > 0) & (hist > hist_shift1)
-            s3_active = macd_cross & macd_rose & hist_ok
+            vol_s3 = df_tmp['Volume'] if 'Volume' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
+            vol_ma20_s3 = (
+                df_tmp['Volume_MA20']
+                if 'Volume_MA20' in df_tmp.columns
+                else vol_s3.rolling(20, min_periods=20).mean()
+            )
+            s3_vol_ok = vol_s3 > (vol_ma20_s3 * 1.2)
+            s3_active = macd_cross & macd_rose & hist_ok & s3_vol_ok
 
             # S4 Pattern – EMA Momentum Confermato con Volume
             import talib
@@ -1109,7 +1116,7 @@ if _requested_markets:
             f"Valori ammessi: {', '.join(SUPPORTED_ANALYSIS_MARKETS)}"
         )
 else:
-    markets_to_run = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'Crypto']
+    markets_to_run = ['MIB30']#, 'Preferite', 'DAX', 'ETC', 'ETF', 'Crypto']
 
 print(f"[ANALISI] Mercati selezionati: {', '.join(markets_to_run)}", flush=True)
 #,'MIB30','ETC','ETF']

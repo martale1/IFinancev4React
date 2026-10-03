@@ -391,29 +391,30 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
         williams_bullish = (w > -80) & (w > w_shift1)
         stoch_trigger = ((k > 20) & (k_shift1 <= 20)) | ((k > d) & (k_shift1 <= d_shift1))
         williams_trigger = (w > -80) & (w_shift1 <= -80)
-        stoch_low = k_shift1 < 35
+        stoch_low = (k_shift1 < 35) & (k < 50)
         s2_active_series = stoch_bullish & williams_bullish & (stoch_trigger | williams_trigger) & stoch_low
         
         # 2. Pattern S3 (MACD)
+        vol      = df_calc['Volume']      if 'Volume'      in df_calc.columns else pd.Series(0.0, index=df_calc.index)
+        vol_ma20 = df_calc['Volume_MA20'] if 'Volume_MA20' in df_calc.columns else pd.Series(1.0, index=df_calc.index)
         macd = df_calc['MACD']
         signal = df_calc['MACD_Signal']
         macd_shift1 = df_calc['MACD_shift1']
         signal_shift1 = df_calc['MACD_Signal_shift1']
         hist = df_calc['MACD_Hist']
         hist_shift1 = df_calc['MACD_Hist_shift1']
-        
+
         macd_cross = (macd > signal) & (macd_shift1 <= signal_shift1)
         macd_rose = macd > macd_shift1
         hist_ok = (hist > 0) & (hist > hist_shift1)
-        s3_active_series = macd_cross & macd_rose & hist_ok
+        s3_vol_ok = vol > (vol_ma20 * 1.2)  # volume conferma il cross
+        s3_active_series = macd_cross & macd_rose & hist_ok & s3_vol_ok
 
         # 3. Pattern S4 (EMA Momentum Confermato con Volume)
         rsi      = df_calc['RSI']        if 'RSI'        in df_calc.columns else pd.Series(50.0, index=df_calc.index)
         rsi_sh1  = df_calc['RSI_shift1'] if 'RSI_shift1' in df_calc.columns else rsi.shift(1)
         ema9     = df_calc['EMA_9']      if 'EMA_9'      in df_calc.columns else pd.Series(0.0,  index=df_calc.index)
         ema21    = df_calc['EMA_21']     if 'EMA_21'     in df_calc.columns else pd.Series(0.0,  index=df_calc.index)
-        vol      = df_calc['Volume']     if 'Volume'     in df_calc.columns else pd.Series(0.0,  index=df_calc.index)
-        vol_ma20 = df_calc['Volume_MA20']if 'Volume_MA20'in df_calc.columns else pd.Series(1.0,  index=df_calc.index)
 
         s4_ema    = ema9 > ema21
         s4_rsi    = (rsi >= 55) & (rsi <= 70) & (rsi > rsi_sh1)
@@ -627,6 +628,7 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
                 "SAR": float(row_t['SAR']) if 'SAR' in row_t and not pd.isna(row_t['SAR']) else None,
                 "SMA200": float(row_t['SMA200']) if 'SMA200' in row_t and not pd.isna(row_t['SMA200']) else None,
                 "Pattern_Days_Ago": int(days_ago),
+                "Pattern_Match_Today": days_ago == 0,
                 "Signal_Var_Pct": float(signal_var),
                 "Daily_Var_Pct": float(daily_var),
                 "Is_Daily_Var": (days_ago == 0),
@@ -964,6 +966,7 @@ def scan_market(
             "SAR": _clean(row.get("SAR")),
             "SMA200": _clean(row.get("SMA200")),
             "Pattern_Days_Ago": days_ago,
+            "Pattern_Match_Today": days_ago == 0,
             "Signal_Var_Pct": float(signal_var_pct),
             "Daily_Var_Pct": float(daily_var_pct),
             "Is_Daily_Var": (days_ago == 0),
@@ -1054,12 +1057,12 @@ def run_vectorbt_backtest(
         pattern_conditions = []
         if pattern in ["S2", "Combined", "S2_or_S3"]:
             pattern_conditions.append(
-                "(Stoch_K > Stoch_D) & (Stoch_K > 20) & "
+                 "(Stoch_K > Stoch_D) & (Stoch_K > 20) & "
                 "(Williams_R > -80) & (Williams_R > Williams_R_shift1) & "
                 "(((Stoch_K > 20) & (Stoch_K_shift1 <= 20)) | "
                 "((Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)) | "
                 "((Williams_R > -80) & (Williams_R_shift1 <= -80))) & "
-                "(Stoch_K_shift1 < 35)"
+                "(Stoch_K_shift1 < 35) & (Stoch_K < 50)"
             )
         if pattern in ["S3", "Combined", "S2_or_S3"]:
             pattern_conditions.append(
