@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -295,6 +295,29 @@ def sort_watchlist(df: pd.DataFrame, sort_key: str, sort_dir: str) -> pd.DataFra
     return df.sort_values(sort_key, ascending=ascending, na_position="last", kind="mergesort")
 
 
+def _json_safe_value(value: Any) -> Any:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except (TypeError, ValueError):
+            pass
+    return value
+
+
 def records(df: pd.DataFrame) -> list[dict[str, Any]]:
     clean = df.where(pd.notna(df), None)
-    return clean.to_dict(orient="records")
+    return [
+        {key: _json_safe_value(value) for key, value in row.items()}
+        for row in clean.to_dict(orient="records")
+    ]
