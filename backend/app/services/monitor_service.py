@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from datetime import datetime
@@ -34,6 +35,14 @@ def _normalize_market(market: str) -> str:
     return str(market or "").strip()
 
 
+def _valid_or_found_market(ticker: str, source_market: str) -> tuple[str, str | None]:
+    src = _normalize_market(source_market)
+    if src in MARKETS:
+        return src, None
+    found_src, found_name = find_ticker_market(ticker)
+    return found_src, found_name
+
+
 def ensure_monitor_file(path: Path) -> None:
     if path.exists():
         return
@@ -55,8 +64,13 @@ def read_monitor() -> dict[str, Any]:
 def write_monitor(data: dict[str, Any]) -> None:
     path = monitor_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
 
 
 def list_monitor_items() -> list[dict[str, Any]]:
@@ -64,13 +78,14 @@ def list_monitor_items() -> list[dict[str, Any]]:
     out = []
     for item in items:
         tk = _normalize_ticker(item.get("ticker", ""))
-        src = _normalize_market(item.get("source_market", ""))
-        if not tk or src not in MARKETS:
+        if not tk:
             continue
+        src, found_name = _valid_or_found_market(tk, item.get("source_market", ""))
+        name = str(item.get("name") or found_name or tk)
         out.append({
             "ticker": tk,
             "source_market": src,
-            "name": str(item.get("name") or ""),
+            "name": name,
             "note": str(item.get("note") or ""),
             "created_at": item.get("created_at"),
             "updated_at": item.get("updated_at"),
