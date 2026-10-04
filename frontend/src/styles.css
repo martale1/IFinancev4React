@@ -2479,6 +2479,21 @@ td {
   min-width: 0;
 }
 
+.indicators-toolbar .indicator-column-count {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  margin-left: auto;
+  color: #9fb7cf;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.indicators-toolbar .indicator-column-count strong {
+  color: #67e8f9;
+  margin-right: 0.25rem;
+}
+
 .indicators-table-wrap {
   max-height: 68vh;
   overflow: auto;
@@ -2536,8 +2551,139 @@ td {
   z-index: 4;
 }
 
+/* Con tutte le colonne visibili la tabella scorre: Ticker resta ancorato a
+   sinistra come riferimento di riga. */
+.indicators-table .sticky-ticker {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #081728;
+}
+
+.indicators-table thead th.sticky-ticker {
+  z-index: 5;
+  background: #0b1b2d;
+}
+
 .empty-indicators {
   padding: 1rem;
+}
+
+/* ── Guida indicatori (fondo del pannello Indicatori) ───────────────────── */
+.indicators-guide {
+  margin-top: 1rem;
+  background: rgba(8, 18, 34, 0.4);
+  border: 1px solid rgba(184, 216, 246, 0.1);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+
+.indicators-guide > summary {
+  display: grid;
+  gap: 0.2rem;
+  cursor: pointer;
+  user-select: none;
+  color: #cfe5fa;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.indicators-guide > summary small {
+  color: #7ea6c8;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.indicators-guide[open] > summary {
+  margin-bottom: 0.85rem;
+}
+
+.indicators-guide-body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.indicators-guide-block {
+  background: rgba(4, 12, 24, 0.5);
+  border: 1px solid rgba(174, 216, 249, 0.12);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+
+.indicators-guide-block h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.84rem;
+  color: #67e8f9;
+}
+
+.indicators-guide-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 0.8rem;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.indicators-guide-details dt {
+  color: #7ea6c8;
+  font-weight: 700;
+}
+
+.indicators-guide-details dd {
+  margin: 0;
+  color: #cfe5fa;
+}
+
+.indicators-guide-details dd.indicators-guide-note {
+  color: #fbbf24;
+}
+
+.indicators-guide code {
+  background: rgba(96, 165, 250, 0.12);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  color: #bfe3ff;
+  font-size: 0.74rem;
+}
+
+.indicators-guide-conventions,
+.indicators-guide-order,
+.indicators-guide-suffixes {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #cfe5fa;
+}
+
+.indicators-guide-conventions li,
+.indicators-guide-suffixes li {
+  margin-bottom: 0.2rem;
+}
+
+.indicators-guide-conventions strong {
+  color: #67e8f9;
+  margin-right: 0.25rem;
+}
+
+.indicators-guide-intro {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #9fb7cf;
+}
+
+.indicators-toolbar .indicator-column-hidden {
+  color: #fbbf24;
+  font-style: normal;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .indicators-guide-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .monitor-card-grid {
