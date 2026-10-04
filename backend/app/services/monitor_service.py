@@ -50,6 +50,87 @@ def _base_symbol(ticker: str) -> str:
     return _fold(ticker).split(" ")[0].split(".")[0]
 
 
+def _is_fund(name: str, ticker: str) -> bool:
+    """Gli ETF/fondi hanno nomi lunghissimi che rubano i match ai titoli azionari."""
+    text = f"{name} {ticker}".upper()
+    return any(tag in text for tag in ("ETF", "UCITS", "ETP", "ETC", "SICAV", "FONDO", " FUND"))
+
+
+# Indice di ricerca leggero: solo Ticker e Name, normalizzati una volta sola.
+# Serve a non preparare l'intero dataframe (decine di colonne) per una ricerca.
+_search_index: dict[str, dict[str, list]] = {}
+_search_index_time: dict[str, float] = {}
+SEARCH_INDEX_TTL_SECONDS = 600
+_search_index_lock = threading.Lock()
+
+
+def _market_search_index(market: str) -> dict[str, list] | None:
+    now = time.monotonic()
+    cached_at = _search_index_time.get(market)
+    if cached_at is not None and now - cached_at < SEARCH_INDEX_TTL_SECONDS:
+        return _search_index.get(market)
+
+    with _search_index_lock:
+        cached_at = _search_index_time.get(market)
+        if cached_at is not None and time.monotonic() - cached_at < SEARCH_INDEX_TTL_SECONDS:
+            return _search_index.get(market)
+        try:
+            df = load_market_dataframe(market)
+        except Exception:
+            return None
+        if df.empty or "Ticker" not in df.columns:
+            return None
+        tickers = df["Ticker"].astype(str).str.strip()
+        names = df["Name"].astype(str).str.strip() if "Name" in df.columns else pd.Series([""] * len(df), index=df.index)
+        index = {
+            "ticker": tickers.tolist(),
+            "ticker_fold": tickers.map(_fold).tolist(),
+            "name": names.tolist(),
+            "name_fold": names.map(_fold).tolist(),
+            "base_fold": [part.split(".")[0] for part in tickers.map(_fold).tolist()],
+        }
+        _search_index[market] = index
+        _search_index_time[market] = time.monotonic()
+        return index
+
+
+def _scan_market(query: str, market: str, candidates: list[dict[str, Any]]) -> None:
+    """Cerca `query` in un mercato usando l'indice leggero.
+
+    Un ciclo riga per riga sui mercati grandi costava secondi: qui i confronti
+    sono su liste già normalizzate.
+    """
+    index = _market_search_index(market)
+    if not index:
+        return
+
+    long_enough = len(query) >= 3
+    for ticker, ticker_fold, name, name_fold, base_fold in zip(
+        index["ticker"], index["ticker_fold"], index["name"], index["name_fold"], index["base_fold"]
+    ):
+        if not ticker:
+            continue
+        if query == ticker_fold:
+            score = 100
+        elif query == name_fold:
+            score = 95
+        elif query == base_fold:
+            score = 90
+        elif long_enough and (name_fold.startswith(query) or ticker_fold.startswith(query) or base_fold.startswith(query)):
+            score = 70
+        elif long_enough and query in name_fold:
+            score = 55
+        else:
+            continue
+        candidates.append({
+            "ticker": ticker,
+            "name": name or ticker,
+            "source_market": market,
+            "score": score,
+            "is_fund": _is_fund(name, ticker),
+        })
+
+
 # Alias per i nomi che in banca dati non contengono la parola cercata.
 COMMON_ALIASES: dict[str, str] = {
     "GENERALI": "G.MI",
@@ -78,51 +159,13 @@ def resolve_input(text: str, source_market: str | None = None) -> dict[str, Any]
     markets = [source_market] if source_market in MARKETS else MARKETS
     candidates: list[dict[str, Any]] = []
 
-    def _scan(scan_markets: list[str]) -> list[dict[str, Any]]:
-        found: list[dict[str, Any]] = []
-        for market in scan_markets:
-            try:
-                df = _prepared_market_dataframe(market)
-            except Exception:
-                continue
-            if df.empty:
-                continue
-            for row in df.to_dict("records"):
-                ticker = str(row.get("Ticker") or "").strip()
-                if not ticker:
-                    continue
-                name = str(row.get("Name") or "").strip()
-                ticker_fold = _fold(ticker)
-                name_fold = _fold(name)
-                base = _base_symbol(ticker)
-
-                if query == ticker_fold:
-                    score = 100
-                elif query == name_fold:
-                    score = 95
-                elif query == base:
-                    score = 90
-                elif len(query) >= 3 and (name_fold.startswith(query) or ticker_fold.startswith(query) or base.startswith(query)):
-                    score = 70
-                elif len(query) >= 3 and query in name_fold:
-                    score = 55
-                else:
-                    score = 0
-
-                if score:
-                    found.append({
-                        "ticker": ticker,
-                        "name": name or ticker,
-                        "source_market": market,
-                        "score": score,
-                    })
-        return found
-
-    candidates = _scan(markets)
+    for market in markets:
+        _scan_market(query, market, candidates)
     # Il mercato indicato è solo un suggerimento: se lì non c'è nulla, si allarga
     # la ricerca a tutti i mercati invece di dichiarare "non trovato".
     if not candidates and markets != MARKETS:
-        candidates = _scan(MARKETS)
+        for market in MARKETS:
+            _scan_market(query, market, candidates)
 
     if not candidates:
         alias = COMMON_ALIASES.get(query)
@@ -135,18 +178,22 @@ def resolve_input(text: str, source_market: str | None = None) -> dict[str, Any]
                 hit = df[df["Ticker"].astype(str).str.strip().str.upper() == alias]
                 if not hit.empty:
                     row = hit.iloc[0]
+                    name = str(row.get("Name") or alias)
                     candidates.append({
                         "ticker": alias,
-                        "name": str(row.get("Name") or alias),
+                        "name": name,
                         "source_market": market,
                         "score": 80,
+                        "is_fund": _is_fund(name, alias),
                     })
                     break
 
     if not candidates:
         return {"found": False, "query": raw, "item": None, "matches": []}
 
-    candidates.sort(key=lambda c: (-c["score"], c["ticker"]))
+    # Ordine: punteggio, poi titoli azionari prima dei fondi (gli ETF hanno nomi
+    # lunghi che altrimenti rubano il match a una società), poi ticker.
+    candidates.sort(key=lambda c: (-int(c["score"]), bool(c.get("is_fund")), c["ticker"]))
     return {
         "found": True,
         "query": raw,
