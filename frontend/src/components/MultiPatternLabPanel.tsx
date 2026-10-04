@@ -136,7 +136,10 @@ export default function MultiPatternLabPanel({
   const [pattern, setPattern] = useState<string>("S2");
   const [labMarkets, setLabMarkets] = useState<string[]>(DEFAULT_SCAN_MARKETS);
   const labMarket = labMarkets.length === SCAN_MARKETS.length ? "ALL" : labMarkets.join(",");
-  const [useSar, setUseSar] = useState(true);
+  // Filtro "Richiedi Close > SAR" disattivato di default: resta disponibile
+  // nel pannello Configurazione, ma non restringe la scansione a meno che
+  // non venga attivato esplicitamente.
+  const [useSar, setUseSar] = useState(false);
   const [useSma200, setUseSma200] = useState(false);
   const [lookback, setLookback] = useState<number>(3);
   const [configOpen, setConfigOpen] = useState(false);
