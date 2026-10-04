@@ -43,7 +43,7 @@ class TechnicalAnalyzer:
         self.ma_params = {'timeperiod': 20, 'matype': 0}
         self.rsi_period = 14
         self.williams_period = 14  # Aggiunto qui per essere sicuri
-        self.stoch_params = {'fastk_period': 14, 'slowk_period': 3, 'slowd_period': 3}
+        self.stoch_params = {'fastk_period': 5, 'slowk_period': 3, 'slowd_period': 3}
         self.alligator_params = {'jaw_period': 13, 'teeth_period': 8, 'lips_period': 5,
                                  'shift_jaw': 8, 'shift_teeth': 5, 'shift_lips': 3}
         self.pctv_periods = {

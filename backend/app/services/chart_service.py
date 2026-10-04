@@ -379,12 +379,13 @@ def chart_backtest_png_bytes(
                         "(((Stoch_K > 20) & (Stoch_K_shift1 <= 20)) | "
                         "((Stoch_K > Stoch_D) & (Stoch_K_shift1 <= Stoch_D_shift1)) | "
                         "((Williams_R > -80) & (Williams_R_shift1 <= -80))) & "
-                        "(Stoch_K_shift1 < 35)"
+                        "(Stoch_K_shift1 < 35) & (Stoch_K < 50)"
                     )
                 if pattern in ["S3", "Combined", "S2_or_S3"]:
                     pattern_conditions.append(
                         "(MACD > MACD_Signal) & (MACD_shift1 <= MACD_Signal_shift1) & (MACD > MACD_shift1) & "
-                        "(MACD_Hist > 0) & (MACD_Hist > MACD_Hist_shift1)"
+                        "(MACD_Hist > 0) & (MACD_Hist > MACD_Hist_shift1) & "
+                        "(Volume > Volume_MA20 * 1.2)"
                     )
                 if pattern == "S4":
                     pattern_conditions.append(

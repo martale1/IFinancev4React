@@ -523,14 +523,17 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
             minus_di_s7 = df_tmp['MINUS_DI'] if 'MINUS_DI' in df_tmp.columns else pd.Series(0.0, index=df_tmp.index)
             vol_ma20_s7 = df_tmp['Volume_MA20'] if 'Volume_MA20' in df_tmp.columns else pd.Series(np.nan, index=df_tmp.index)
 
+            # `Uptrend*` è il PRIMO giorno di uptrend (TechnicalAnalyzer marca con
+            # l'asterisco l'ingresso nella famiglia Uptrend): escluderlo spostava il
+            # segnale di una seduta rispetto allo scanner realtime.
             s7_early_state = (
                 (df_tmp['Close'] > sar_s7)
-                & signal6_s7.isin(['Uptrend', 'Uptrend-'])
+                & signal6_s7.isin(['Uptrend', 'Uptrend*', 'Uptrend-'])
                 & (plus_di_s7 > minus_di_s7)
             )
             s7_confirmed_state = (
                 s7_early_state
-                & signal6_s7.eq('Uptrend')
+                & signal6_s7.isin(['Uptrend', 'Uptrend*'])
                 & (ema30_s6 > ema50_s6)
                 & (adx_s6 >= 20)
             )

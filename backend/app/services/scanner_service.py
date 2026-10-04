@@ -654,8 +654,6 @@ def scan_single_ticker(ticker: str, pattern: str, use_sar: bool, use_sma200: boo
                 "MACD_Hist": float(row_t['MACD_Hist']) if 'MACD_Hist' in row_t and not pd.isna(row_t['MACD_Hist']) else 0.0,
                 "MACDH_Trend": "Up" if macd_vs_sig > 0 else "Down",
                 "RSI_Trend": "Up" if tech_score > 50 else "Down",
-                "EMA_30": float(row_t['SMA200']) if has_sma200 else p_current, # fallback simple
-                "EMA_50": float(row_t['SMA200']) if has_sma200 else p_current,
                 "SAR_Above_Price": sar_val > p_current,
                 "Trend_Stop_Level": sar_val,
                 "CE_Long": sar_val,
@@ -1067,7 +1065,8 @@ def run_vectorbt_backtest(
         if pattern in ["S3", "Combined", "S2_or_S3"]:
             pattern_conditions.append(
                 "(MACD > MACD_Signal) & (MACD_shift1 <= MACD_Signal_shift1) & (MACD > MACD_shift1) & "
-                "(MACD_Hist > 0) & (MACD_Hist > MACD_Hist_shift1)"
+                "(MACD_Hist > 0) & (MACD_Hist > MACD_Hist_shift1) & "
+                "(Volume > Volume_MA20 * 1.2)"
             )
         if pattern == "S4":
             pattern_conditions.append(
