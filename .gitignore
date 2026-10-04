@@ -28,3 +28,9 @@ out.txt
 # Liste ticker di input necessarie a main.py e al backend
 !validTickersXLS/
 !validTickersXLS/*.xlsx
+
+# Artefatti di build: generati da "npm run build", non versionati.
+# Il backend serve frontend/dist da disco: la cartella deve esistere, ma non
+# deve stare in git (altrimenti l'hash dei bundle cambia a ogni build).
+frontend/dist/
+frontend/*.tsbuildinfo
