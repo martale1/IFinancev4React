@@ -300,18 +300,43 @@ export async function fetchMonitorItems(): Promise<MonitorItemsResponse> {
   return parseJson<MonitorItemsResponse>(resp);
 }
 
+export type MonitorLookupItem = {
+  ticker: string;
+  name: string;
+  source_market: string;
+  score: number;
+};
+
+export type MonitorLookupResponse = {
+  found: boolean;
+  query: string;
+  item: MonitorLookupItem | null;
+  matches: MonitorLookupItem[];
+};
+
+/** Risolve un ticker o un nome aziendale nel titolo corrispondente. */
+export async function lookupMonitorTicker(input: {
+  q: string;
+  market?: string;
+}): Promise<MonitorLookupResponse> {
+  const query = new URLSearchParams({ q: input.q });
+  if (input.market) query.set("market", input.market);
+  const resp = await fetch(`${API_BASE}/monitor/lookup?${query.toString()}`, { cache: "no-store" });
+  return parseJson<MonitorLookupResponse>(resp);
+}
+
 export async function upsertMonitorItem(input: {
   ticker: string;
   source_market?: string;
   name?: string;
   note?: string;
-}): Promise<{ status: string; ticker: string; source_market: string; note: string }> {
+}): Promise<{ status: string; ticker: string; name?: string; source_market: string; note: string; moved_from_market?: string | null }> {
   const resp = await fetch(`${API_BASE}/monitor`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
-  return parseJson<{ status: string; ticker: string; source_market: string; note: string }>(resp);
+  return parseJson<{ status: string; ticker: string; name?: string; source_market: string; note: string; moved_from_market?: string | null }>(resp);
 }
 
 export async function removeMonitorItem(input: {

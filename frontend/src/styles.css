@@ -2790,6 +2790,17 @@ td {
   align-self: center;
 }
 
+/* Conferma dell'aggiunta al monitor: mostra il ticker risolto dal nome. */
+.monitor-added-banner {
+  padding: 0.6rem 0.9rem;
+  border-radius: 9px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 @media (max-width: 1280px) {
   .monitor-panel {
     gap: 16px !important;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from datetime import datetime
@@ -33,6 +34,125 @@ def _normalize_ticker(ticker: str) -> str:
 
 def _normalize_market(market: str) -> str:
     return str(market or "").strip()
+
+
+def _fold(value: Any) -> str:
+    """Testo normalizzato per confronti: maiuscolo, senza accenti e punteggiatura."""
+    text = str(value or "").strip().upper()
+    for accent, plain in (("À", "A"), ("È", "E"), ("É", "E"), ("Ì", "I"), ("Ò", "O"), ("Ù", "U")):
+        text = text.replace(accent, plain)
+    text = re.sub(r"[^A-Z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _base_symbol(ticker: str) -> str:
+    """LTMC.MI -> LTMC (per riconoscere il ticker scritto senza suffisso di borsa)."""
+    return _fold(ticker).split(" ")[0].split(".")[0]
+
+
+# Alias per i nomi che in banca dati non contengono la parola cercata.
+COMMON_ALIASES: dict[str, str] = {
+    "GENERALI": "G.MI",
+    "ASSICURAZIONI GENERALI": "G.MI",
+    "FERRARI": "RACE.MI",
+    "TELECOM ITALIA": "TIT.MI",
+    "TIM": "TIT.MI",
+    "UNICREDIT": "UCG.MI",
+    "UNIPOL": "UNI.MI",
+    "POSTE": "PST.MI",
+}
+
+
+def resolve_input(text: str, source_market: str | None = None) -> dict[str, Any]:
+    """Trova il ticker di un titolo a partire da un ticker o da un nome.
+
+    Cerca in tutti i mercati disponibili (o solo in quello indicato) e restituisce
+    ticker, nome, mercato, punteggio e le alternative. Serve a non salvare mai una
+    stringa che non corrisponde a nessun titolo delle liste.
+    """
+    raw = str(text or "").strip()
+    query = _fold(raw)
+    if not query:
+        raise ValueError("Scrivi un ticker o il nome del titolo.")
+
+    markets = [source_market] if source_market in MARKETS else MARKETS
+    candidates: list[dict[str, Any]] = []
+
+    def _scan(scan_markets: list[str]) -> list[dict[str, Any]]:
+        found: list[dict[str, Any]] = []
+        for market in scan_markets:
+            try:
+                df = _prepared_market_dataframe(market)
+            except Exception:
+                continue
+            if df.empty:
+                continue
+            for row in df.to_dict("records"):
+                ticker = str(row.get("Ticker") or "").strip()
+                if not ticker:
+                    continue
+                name = str(row.get("Name") or "").strip()
+                ticker_fold = _fold(ticker)
+                name_fold = _fold(name)
+                base = _base_symbol(ticker)
+
+                if query == ticker_fold:
+                    score = 100
+                elif query == name_fold:
+                    score = 95
+                elif query == base:
+                    score = 90
+                elif len(query) >= 3 and (name_fold.startswith(query) or ticker_fold.startswith(query) or base.startswith(query)):
+                    score = 70
+                elif len(query) >= 3 and query in name_fold:
+                    score = 55
+                else:
+                    score = 0
+
+                if score:
+                    found.append({
+                        "ticker": ticker,
+                        "name": name or ticker,
+                        "source_market": market,
+                        "score": score,
+                    })
+        return found
+
+    candidates = _scan(markets)
+    # Il mercato indicato è solo un suggerimento: se lì non c'è nulla, si allarga
+    # la ricerca a tutti i mercati invece di dichiarare "non trovato".
+    if not candidates and markets != MARKETS:
+        candidates = _scan(MARKETS)
+
+    if not candidates:
+        alias = COMMON_ALIASES.get(query)
+        if alias:
+            for market in MARKETS:
+                try:
+                    df = _prepared_market_dataframe(market)
+                except Exception:
+                    continue
+                hit = df[df["Ticker"].astype(str).str.strip().str.upper() == alias]
+                if not hit.empty:
+                    row = hit.iloc[0]
+                    candidates.append({
+                        "ticker": alias,
+                        "name": str(row.get("Name") or alias),
+                        "source_market": market,
+                        "score": 80,
+                    })
+                    break
+
+    if not candidates:
+        return {"found": False, "query": raw, "item": None, "matches": []}
+
+    candidates.sort(key=lambda c: (-c["score"], c["ticker"]))
+    return {
+        "found": True,
+        "query": raw,
+        "item": candidates[0],
+        "matches": candidates[:10],
+    }
 
 
 def _valid_or_found_market(ticker: str, source_market: str) -> tuple[str, str | None]:
@@ -110,16 +230,34 @@ def find_ticker_market(ticker: str) -> tuple[str, str]:
 
 
 def upsert_monitor_item(ticker: str, source_market: str | None = None, note: str | None = None, name: str | None = None) -> dict[str, Any]:
-    tk = _normalize_ticker(ticker)
-    if not tk:
+    tk_input = _normalize_ticker(ticker)
+    if not tk_input:
         raise ValueError("Ticker is required")
 
     src = _normalize_market(source_market or "")
-    if not src or src not in MARKETS:
-        found_src, found_name = find_ticker_market(tk)
-        src = found_src
-        if not name:
-            name = found_name
+
+    # Il testo inserito può essere un ticker oppure il nome del titolo: va sempre
+    # risolto contro le liste, altrimenti si salva una stringa senza dati.
+    market_hint = src if src in MARKETS else None
+    resolution = resolve_input(tk_input, market_hint)
+    if not resolution["found"]:
+        raise LookupError(
+            f"'{tk_input}' non corrisponde a nessun titolo nei database dei mercati. "
+            "Controlla il nome o il ticker."
+        )
+
+    best = resolution["item"]
+    tk = _normalize_ticker(best["ticker"])
+    found_name = str(best.get("name") or tk)
+
+    # Il mercato scelto nel form è solo un suggerimento: se il titolo esiste in un
+    # altro mercato lo aggiungiamo lì (segnalandolo), invece di bloccare l'utente
+    # o salvarlo nel mercato sbagliato.
+    src = str(best["source_market"])
+    moved_market = market_hint if (market_hint and market_hint != src) else None
+
+    if not name:
+        name = found_name
 
     data = read_monitor()
     items = data.get("items", []) or []
@@ -136,7 +274,8 @@ def upsert_monitor_item(ticker: str, source_market: str | None = None, note: str
             item["status"] = "active"
             item["updated_at"] = now
             write_monitor(data)
-            return {"status": "updated", "ticker": tk, "source_market": src, "note": item["note"]}
+            return {"status": "updated", "ticker": tk, "name": name_text or found_name,
+                    "source_market": src, "note": item["note"], "input": tk_input}
 
     items.append({
         "ticker": tk,
@@ -149,7 +288,9 @@ def upsert_monitor_item(ticker: str, source_market: str | None = None, note: str
     })
     data["items"] = items
     write_monitor(data)
-    return {"status": "added", "ticker": tk, "source_market": src, "note": note_text}
+    return {"status": "added", "ticker": tk, "name": name_text or found_name,
+            "source_market": src, "note": note_text, "input": tk_input,
+            "moved_from_market": moved_market}
 
 
 def remove_monitor_item(ticker: str, source_market: str | None = None) -> dict[str, Any]:

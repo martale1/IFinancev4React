@@ -109,7 +109,13 @@ type Props = {
   monitorData: MonitorResponse | undefined;
   isLoading: boolean;
   markets: string[];
-  onAddMonitor: (ticker: string, sourceMarket?: string, note?: string) => Promise<void>;
+  onAddMonitor: (ticker: string, sourceMarket?: string, note?: string) => Promise<{
+    status: string;
+    ticker: string;
+    name?: string;
+    source_market: string;
+    moved_from_market?: string | null;
+  }>;
   onRemoveMonitor: (ticker: string, sourceMarket?: string) => Promise<void>;
   onOpenNoteModal: (row: WatchlistRow) => void;
   onChart: (row: WatchlistRow) => void;
@@ -209,6 +215,7 @@ export default function MonitorPanel({
   const [adding, setAdding] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [error, setError] = useState("");
+  const [added, setAdded] = useState("");
   const [alertRow, setAlertRow] = useState<WatchlistRow | null>(null);
   const [alertField, setAlertField] = useState<QuickAlertField>("Close");
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
@@ -245,12 +252,23 @@ export default function MonitorPanel({
 
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const tk = newTicker.trim().toUpperCase();
-    if (!tk) return;
+    const typed = newTicker.trim();
+    if (!typed) return;
     try {
       setAdding(true);
       setError("");
-      await onAddMonitor(tk, newMarket, newNote.trim());
+      setAdded("");
+      // Il testo può essere un ticker o il nome del titolo: il backend lo risolve
+      // e conferma quale titolo è stato registrato.
+      const result = await onAddMonitor(typed, newMarket, newNote.trim());
+      const resolved = result?.ticker && result.ticker.toUpperCase() !== typed.toUpperCase();
+      const details = `${result.ticker}${result.name ? ` · ${result.name}` : ""} (${result.source_market})`;
+      const moved = result.moved_from_market
+        ? ` Il titolo è nel mercato ${result.source_market}, non in ${result.moved_from_market}.`
+        : "";
+      setAdded(
+        (resolved ? `"${typed}" → aggiunto ${details}` : `${details} aggiunto al monitor`) + `.${moved}`
+      );
       setNewTicker("");
       setNewNote("");
     } catch (err: unknown) {
@@ -338,9 +356,9 @@ export default function MonitorPanel({
         <input
           className="monitor-ticker-input"
           type="text"
-          placeholder="es. AMP.MI, ERG.MI"
+          placeholder="Ticker o nome (es. LTMC.MI, Lottomatica)"
           value={newTicker}
-          onChange={(e) => setNewTicker(e.target.value)}
+          onChange={(e) => { setNewTicker(e.target.value); if (added) setAdded(""); if (error) setError(""); }}
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.88rem", boxSizing: "border-box" }}
           required
         />
@@ -368,6 +386,7 @@ export default function MonitorPanel({
       </form>
 
       {error && <div className="error-banner">{error}</div>}
+      {added && <div className="monitor-added-banner" role="status">{added}</div>}
 
       {/* Filter / Search inside Monitor + selettore visualizzazione */}
       {items.length > 0 && (

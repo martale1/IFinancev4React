@@ -1081,7 +1081,7 @@ export default function App() {
           isLoading={monitorQuery.isLoading}
           markets={marketsQuery.data ?? ["MIB30", "ETF", "ETC", "USA"]}
           onAddMonitor={async (tk, mkt, note) => {
-            await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt, note });
+            return await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt, note });
           }}
           onRemoveMonitor={async (tk, mkt) => {
             await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });

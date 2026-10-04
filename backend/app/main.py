@@ -78,6 +78,7 @@ from app.services.monitor_service import (
     monitor_records,
     monitor_source_info,
     remove_monitor_item,
+    resolve_input,
     upsert_monitor_item,
     warm_monitor_cache,
 )
@@ -439,6 +440,24 @@ def get_monitor_items() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@app.get("/api/monitor/lookup")
+def get_monitor_lookup(q: str = Query(default=""), market: str = Query(default="")) -> dict[str, Any]:
+    """Risolve un ticker o un nome aziendale nel titolo corrispondente.
+
+    Usato dal form del monitor per verificare che il titolo esista davvero prima
+    di aggiungerlo, ed evitare righe senza dati.
+    """
+    raw = (q or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Indica un ticker o il nome del titolo.")
+    try:
+        return resolve_input(raw, market.strip() or None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
 @app.post("/api/monitor")
 def post_monitor(req: MonitorUpsertRequest) -> dict[str, Any]:
     try:
@@ -448,6 +467,8 @@ def post_monitor(req: MonitorUpsertRequest) -> dict[str, Any]:
             name=req.name,
             note=req.note,
         )
+    except LookupError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
