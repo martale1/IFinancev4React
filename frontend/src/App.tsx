@@ -86,15 +86,20 @@ function normalizeRuleId(v: unknown): string {
     .toUpperCase();
 }
 
+/**
+ * Un pattern è "presente" quando è attivo nella seduta corrente, cioè esattamente
+ * il criterio usato dal Multi-Pattern Lab e dalla colonna "Pattern giorni" degli
+ * indicatori. Prima questa funzione usava definizioni proprie (S8 approssimato
+ * con Vol_Perc_vs_MA20 + PCTV_1D, senza il requisito Close > Open) e per S3 una
+ * finestra di 5 sedute: Highlights e Lab mostravano così elenchi diversi.
+ */
 function hasPattern(row: WatchlistRow, pattern: "S3" | "S8"): boolean {
+  // Pattern_Type è presente solo nelle righe generate dallo scanner realtime.
   const type = String(row.Pattern_Type ?? "").toUpperCase();
   if (type.includes(pattern)) return true;
-  if (pattern === "S3") {
-    const days = Number(row.Pattern_S3_Days_Ago);
-    return Number.isFinite(days) && days <= 5;
-  }
-  const volumeRatio = Number(row.Vol_Perc_vs_MA20);
-  return Number.isFinite(volumeRatio) && volumeRatio >= 50 && Number(row.PCTV_1D) > 0;
+
+  const days = Number(row[`Pattern_${pattern}_Days_Ago`]);
+  return Number.isFinite(days) && days === 0;
 }
 
 function quickAlertRuleId(ticker: string): string {
