@@ -44,12 +44,12 @@ function pct(value: unknown): string {
   return `${parsed > 0 ? "+" : ""}${parsed.toFixed(2)}%`;
 }
 
-function pctClass(value: unknown): string {
+export function pctClass(value: unknown): string {
   const parsed = number(value);
   return parsed === null || parsed === 0 ? "neutral" : parsed > 0 ? "positive" : "negative";
 }
 
-function signalClass(value: unknown): string {
+export function signalClass(value: unknown): string {
   const signal = String(value ?? "ATTENDI").toUpperCase();
   if (signal === "ENTRA") return "enter";
   if (signal === "OSSERVA") return "watch";

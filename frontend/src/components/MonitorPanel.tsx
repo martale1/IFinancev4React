@@ -1,11 +1,109 @@
 import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
+import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
   field: QuickAlertField;
   op: ">" | "<" | "==" | "!=";
   value: number | string | null;
 };
+
+type MonitorView = "cards" | "table";
+
+/** Tabella del monitor: colonne allineate a quelle usate per il tab All. */
+function MonitorTable({
+  rows,
+  onChart,
+  onAi,
+  onNews,
+  onOpenNoteModal,
+  onRemoveMonitor,
+  openAlertBox,
+  alertMap,
+}: {
+  rows: WatchlistRow[];
+  onChart: (row: WatchlistRow) => void;
+  onAi: (row: WatchlistRow) => void;
+  onNews: (ticker: string) => void;
+  onOpenNoteModal: (row: WatchlistRow) => void;
+  onRemoveMonitor: (ticker: string, sourceMarket?: string) => Promise<void>;
+  openAlertBox: (row: WatchlistRow) => void;
+  alertMap: Record<string, boolean>;
+}) {
+  return (
+    <div className="watchlist-table-wrap">
+      <table className="watchlist-table">
+        <thead>
+          <tr>
+            <th>Titolo</th>
+            <th>Segnale</th>
+            <th>Prezzo</th>
+            <th>1D</th>
+            <th>5D</th>
+            <th>30D</th>
+            <th>TECH</th>
+            <th>S3</th>
+            <th>SARMA</th>
+            <th>RSI</th>
+            <th>ADX</th>
+            <th>DI+</th>
+            <th>DI−</th>
+            <th>Scenario</th>
+            <th>Liquidità</th>
+            <th>Nota</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const ticker = String(row.Ticker ?? "-").trim();
+            const source = String(row.WL_Source_Market || "MIB30");
+            const key = `${source}::${ticker.toUpperCase()}`;
+            const signal = String(row.Entry_Signal ?? "ATTENDI").toUpperCase();
+            const note = String(row.Monitor_Note || "").trim();
+            const phase = String(row.Market_Phase ?? "-").replace(/_/g, " ");
+            const liquidity = String(row.Liquidity ?? "-");
+            return (
+              <tr key={`${source}-${ticker}-${index}`}>
+                <td className="ticker-cell">
+                  <strong>{ticker}</strong>
+                  <small>{String(row.Name ?? "-")} · {source}</small>
+                </td>
+                <td><span className={`table-signal ${tableSignalClass(signal)}`}>{signal}</span></td>
+                <td className="numeric">{num(row.Close, 3)}</td>
+                <td className={`numeric ${tablePctClass(row.PCTV_1D)}`}>{pct(row.PCTV_1D)}</td>
+                <td className={`numeric ${tablePctClass(row.PCTV_5D)}`}>{pct(row.PCTV_5D)}</td>
+                <td className={`numeric ${tablePctClass(row.PCTV_30D)}`}>{pct(row.PCTV_30D)}</td>
+                <td className="numeric">{num(row.TECH_SCORE, 0)}</td>
+                <td className={`numeric ${tablePctClass(row.MACD_vs_Signal)}`}>{num(row.MACD_vs_Signal, 0)}</td>
+                <td className="numeric">{num(row.SIG_MA_SAR, 0)}</td>
+                <td className="numeric">{num(row.RSI, 0)}</td>
+                <td className="numeric">{num(row.ADX, 1)}</td>
+                <td className="numeric" style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</td>
+                <td className="numeric" style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</td>
+                <td><span className="scenario-label">{phase}</span></td>
+                <td>
+                  <span className={liquidity.toUpperCase() === "OK" ? "positive" : "negative"}>{liquidity}</span>
+                </td>
+                <td className="monitor-note-cell" title={note}>{note || "-"}</td>
+                <td className="table-actions">
+                  <button className="btn" onClick={() => onChart(row)}>Grafico</button>
+                  <button className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                  <button className="btn ghost" onClick={() => onNews(ticker)}>News</button>
+                  <button className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
+                  <button className={alertMap[key] ? "btn alert-on" : "btn ghost"} onClick={() => openAlertBox(row)}>
+                    {alertMap[key] ? "Alert ON" : "Alert"}
+                  </button>
+                  <button className="btn ghost danger" onClick={() => { void onRemoveMonitor(ticker, source); }}>Rimuovi</button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 type Props = {
   monitorData: MonitorResponse | undefined;
@@ -116,6 +214,14 @@ export default function MonitorPanel({
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
   const [alertValue, setAlertValue] = useState("");
   const [alertMsg, setAlertMsg] = useState("");
+  const [view, setView] = useState<MonitorView>(() =>
+    window.localStorage.getItem("ifinance-monitor-view") === "table" ? "table" : "cards"
+  );
+
+  function changeView(next: MonitorView) {
+    setView(next);
+    window.localStorage.setItem("ifinance-monitor-view", next);
+  }
 
   const items = useMemo(() => monitorData?.items || [], [monitorData]);
 
@@ -263,9 +369,9 @@ export default function MonitorPanel({
 
       {error && <div className="error-banner">{error}</div>}
 
-      {/* Filter / Search inside Monitor */}
+      {/* Filter / Search inside Monitor + selettore visualizzazione */}
       {items.length > 0 && (
-        <div className="monitor-filter-row" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center" }}>
+        <div className="monitor-filter-row" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto auto", gap: 10, alignItems: "center" }}>
           <input
             className="monitor-filter-input"
             type="text"
@@ -274,6 +380,10 @@ export default function MonitorPanel({
             onChange={(e) => setFilterText(e.target.value)}
             style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.85rem", boxSizing: "border-box" }}
           />
+          <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
+            <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
+            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
+          </div>
           <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
             Visualizzati {filteredItems.length} di {totalCount} titoli
           </div>
@@ -335,6 +445,17 @@ export default function MonitorPanel({
             Aggiungi i tuoi titoli chiave premendo il pulsante <strong>+ Monitor</strong> sulle card delle watchlist o inserendo il ticker qui sopra.
           </p>
         </div>
+      ) : view === "table" ? (
+        <MonitorTable
+          rows={filteredItems}
+          onChart={onChart}
+          onAi={onAi}
+          onNews={onNews}
+          onOpenNoteModal={onOpenNoteModal}
+          onRemoveMonitor={onRemoveMonitor}
+          openAlertBox={openAlertBox}
+          alertMap={alertMap}
+        />
       ) : (
         <div className="monitor-card-grid">
           {filteredItems.map((row) => {

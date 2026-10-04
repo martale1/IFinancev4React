@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "ticker": "AMP.MI",
+      "source_market": "MIB30",
+      "name": "Amplifon",
+      "note": "",
+      "status": "active",
+      "created_at": "2026-10-03T15:18:37",
+      "updated_at": "2026-10-03T15:18:37"
+    }
+  ]
+}

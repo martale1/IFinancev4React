@@ -2777,6 +2777,19 @@ td {
   min-height: 38px;
 }
 
+/* Vista tabella del monitor: la nota operativa non deve allargare la tabella. */
+.monitor-note-cell {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #cfe5fa;
+}
+
+.monitor-filter-row .view-switch {
+  align-self: center;
+}
+
 @media (max-width: 1280px) {
   .monitor-panel {
     gap: 16px !important;
