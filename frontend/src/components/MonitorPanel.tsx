@@ -1,5 +1,11 @@
 import { useState, useMemo } from "react";
-import type { WatchlistRow, MonitorResponse } from "../types";
+import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
+
+type QuickAlertConfig = {
+  field: QuickAlertField;
+  op: ">" | "<" | "==" | "!=";
+  value: number | string | null;
+};
 
 type Props = {
   monitorData: MonitorResponse | undefined;
@@ -11,7 +17,11 @@ type Props = {
   onChart: (row: WatchlistRow) => void;
   onAi: (row: WatchlistRow) => void;
   onNews: (ticker: string) => void;
-  onAlert: (row: WatchlistRow) => void;
+  alertMap: Record<string, boolean>;
+  alertConfigMap: Record<string, QuickAlertConfig>;
+  alertBusyMap: Record<string, boolean>;
+  onCreateAlert: (input: { row: WatchlistRow; source_market: string; field: QuickAlertField; op: ">" | "<" | "==" | "!="; value: number | string }) => Promise<string>;
+  onRemoveAlert: (input: { row: WatchlistRow; source_market: string }) => Promise<string>;
 };
 
 function toNum(v: unknown): number | null {
@@ -89,7 +99,11 @@ export default function MonitorPanel({
   onChart,
   onAi,
   onNews,
-  onAlert,
+  alertMap,
+  alertConfigMap,
+  alertBusyMap,
+  onCreateAlert,
+  onRemoveAlert,
 }: Props) {
   const [newTicker, setNewTicker] = useState("");
   const [newMarket, setNewMarket] = useState("MIB30");
@@ -97,6 +111,11 @@ export default function MonitorPanel({
   const [adding, setAdding] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [error, setError] = useState("");
+  const [alertRow, setAlertRow] = useState<WatchlistRow | null>(null);
+  const [alertField, setAlertField] = useState<QuickAlertField>("Close");
+  const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
+  const [alertValue, setAlertValue] = useState("");
+  const [alertMsg, setAlertMsg] = useState("");
 
   const items = useMemo(() => monitorData?.items || [], [monitorData]);
 
@@ -132,6 +151,45 @@ export default function MonitorPanel({
       setError(err instanceof Error ? err.message : "Errore durante l'aggiunta");
     } finally {
       setAdding(false);
+    }
+  };
+
+  const openAlertBox = (row: WatchlistRow) => {
+    const close = toNum(row.Close);
+    const cfg = alertConfigMap[`${String(row.WL_Source_Market || "MIB30")}::${String(row.Ticker || "").toUpperCase()}`];
+    setAlertRow(row);
+    setAlertMsg("");
+    setAlertField(cfg?.field ?? "Close");
+    setAlertOp(cfg?.op ?? ">");
+    setAlertValue(cfg?.value != null ? String(cfg.value) : close != null ? String(close) : "");
+  };
+
+  const saveAlert = async () => {
+    if (!alertRow) return;
+    const sourceMarket = String(alertRow.WL_Source_Market || "MIB30");
+    const n = Number(alertValue.replace(",", "."));
+    const value: number | string = alertField === "Signal6" ? alertValue : n;
+    if (alertField !== "Signal6" && !Number.isFinite(n)) {
+      setAlertMsg("Valore alert non valido.");
+      return;
+    }
+    try {
+      const result = await onCreateAlert({ row: alertRow, source_market: sourceMarket, field: alertField, op: alertOp, value });
+      setAlertMsg(result);
+    } catch (err: unknown) {
+      setAlertMsg(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const deleteAlert = async () => {
+    if (!alertRow) return;
+    const sourceMarket = String(alertRow.WL_Source_Market || "MIB30");
+    try {
+      const result = await onRemoveAlert({ row: alertRow, source_market: sourceMarket });
+      setAlertMsg(result);
+      setAlertRow(null);
+    } catch (err: unknown) {
+      setAlertMsg(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -222,6 +280,48 @@ export default function MonitorPanel({
         </div>
       )}
 
+      {alertRow ? (() => {
+        const src = String(alertRow.WL_Source_Market || "MIB30");
+        const tk = String(alertRow.Ticker || "").toUpperCase();
+        const key = `${src}::${tk}`;
+        const busy = Boolean(alertBusyMap[key]);
+        const active = Boolean(alertMap[key]);
+        return (
+          <div className="modal-backdrop" onClick={() => setAlertRow(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+              <div className="modal-header">
+                <div><h3 style={{ margin: 0 }}>🔔 Alert rapido</h3><div style={{ color: "var(--text-muted)", marginTop: 4 }}>{tk} · {src}</div></div>
+                <button className="btn-close" onClick={() => setAlertRow(null)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ display: "grid", gap: 10 }}>
+                <select value={alertField} onChange={(e) => setAlertField(e.target.value as QuickAlertField)}>
+                  <option value="Close">Close</option>
+                  <option value="RSI">RSI</option>
+                  <option value="Williams_R">Williams %R</option>
+                  <option value="MACD_vs_Signal">S3</option>
+                  <option value="SIG_MA_SAR">SARMA</option>
+                  <option value="Stoch_KvsD">Stoch K-D</option>
+                  <option value="DI_diff">DI+ - DI-</option>
+                </select>
+                <div className="watchlist-mode">
+                  <button className={alertOp === ">" ? "quick-bar active" : "quick-bar"} onClick={() => setAlertOp(">")}>&gt;</button>
+                  <button className={alertOp === "<" ? "quick-bar active" : "quick-bar"} onClick={() => setAlertOp("<")}>&lt;</button>
+                </div>
+                <input value={alertValue} onChange={(e) => setAlertValue(e.target.value)} placeholder="Valore soglia" />
+                {alertMsg ? <div className="muted">{alertMsg}</div> : null}
+              </div>
+              <div className="modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                {active ? <button className="btn ghost remove-btn" disabled={busy} onClick={deleteAlert}>Rimuovi alert</button> : <div />}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn ghost" onClick={() => setAlertRow(null)}>Chiudi</button>
+                  <button className="btn primary" disabled={busy} onClick={saveAlert}>{active ? "Aggiorna alert" : "Crea alert"}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
+
       {/* Monitor cards */}
       {isLoading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
@@ -292,12 +392,12 @@ export default function MonitorPanel({
                 </div>
 
                 <div className="monitor-card-actions">
-                  <button type="button" className="btn primary" onClick={() => onChart(row)}>Grafico</button>
-                  <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
-                  <button type="button" className="btn ghost" onClick={() => onNews(tk)}>News</button>
-                  <button type="button" className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
-                  <button type="button" className="btn ghost" onClick={() => onAlert(row)}>Alert</button>
-                  <button type="button" className="btn ghost danger" onClick={() => onRemoveMonitor(tk, src)}>Rimuovi</button>
+                  <button type="button" className="btn primary" onClick={(e) => { e.stopPropagation(); onChart(row); }}>Grafico</button>
+                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onAi(row); }}>AI</button>
+                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onNews(tk); }}>News</button>
+                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onOpenNoteModal(row); }}>Dettagli</button>
+                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); openAlertBox(row); }}>Alert</button>
+                  <button type="button" className="btn ghost danger" onClick={(e) => { e.stopPropagation(); onRemoveMonitor(tk, src); }}>Rimuovi</button>
                 </div>
               </article>
             );

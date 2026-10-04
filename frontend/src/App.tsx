@@ -1092,7 +1092,11 @@ export default function App() {
           onNews={() => {
             setTab("📰 Archivio News");
           }}
-          onAlert={(row) => openChart(row)}
+          alertMap={quickAlertMap}
+          alertConfigMap={quickAlertConfigMap}
+          alertBusyMap={quickAlertBusyMap}
+          onCreateAlert={handleCreateQuickAlert}
+          onRemoveAlert={handleRemoveQuickAlert}
         />
       ) : null}
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}

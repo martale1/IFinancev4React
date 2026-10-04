@@ -105,30 +105,6 @@ rules:
     body: 'Tutte le condizioni AI sono verificate.
 
       Close: {{Close}}'
-- id: AI_LEVEL_FCT_MI_RESISTANCE_12_0
-  enabled: true
-  source: ai_level
-  scope:
-    tickers:
-    - FCT.MI
-  when:
-    all:
-    - field: Close
-      op: '>'
-      value: 12.0
-  ai_level:
-    type: resistance
-    price: 12.0
-    trigger: '>'
-    description: Superamento della resistenza critica a 12.00
-  cooldown_minutes: 0
-  max_per_day: 3
-  min_gap_minutes: 0
-  message:
-    title: 🤖 Resistenza AI {Ticker}
-    body: 'Resistenza critico > 12.0.
-
-      Close: {{Close}}'
 - id: AI_CBK_DE
   enabled: true
   source: ai
@@ -167,3 +143,59 @@ rules:
     body: 'Tutte le condizioni AI sono verificate.
 
       Close: {{Close}}'
+- id: AI_LEVEL_VOD_L_RESISTANCE_130_0
+  enabled: true
+  source: ai_level
+  scope:
+    tickers:
+    - VOD.L
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 130.0
+  ai_level:
+    type: resistance
+    price: 130.0
+    trigger: '>'
+    description: Superamento della resistenza critica
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🤖 Resistenza AI {Ticker}
+    body: 'Resistenza critico > 130.0.
+
+      Close: {{Close}}'
+- id: CARD_ALERT_VOD_L
+  enabled: true
+  scope:
+    tickers:
+    - VOD.L
+  when:
+    all:
+    - field: Close
+      op: '>'
+      value: 126.8
+  cooldown_minutes: 0
+  max_per_day: 3
+  min_gap_minutes: 0
+  message:
+    title: 🔔 Alert {{Ticker}}
+    body: 'Close: {{Close}}
+
+      RSI: {{RSI}}
+
+      willR: {{Williams_R}}
+
+      SARMA: {{SIG_MA_SAR}}
+
+      MACD: {{MACD}}
+
+      S3: {{MACD_vs_Signal}}
+
+      Action: {{Action}}
+
+      TECH: {{TECH_SCORE}}
+
+      Alligator: {{Signal6}}'
