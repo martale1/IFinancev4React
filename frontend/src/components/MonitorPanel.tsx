@@ -36,19 +36,18 @@ function MonitorTable({
         <thead>
           <tr>
             <th>Titolo</th>
-            <th>Segnale</th>
+            <th>Indicazione</th>
+            <th>Fase</th>
             <th>Prezzo</th>
             <th>1D</th>
             <th>5D</th>
             <th>30D</th>
+            <th>Direzione</th>
+            <th>Forza</th>
+            <th>Momento</th>
+            <th>Rischio</th>
             <th>TECH</th>
-            <th>S3</th>
-            <th>SARMA</th>
-            <th>RSI</th>
             <th>ADX</th>
-            <th>DI+</th>
-            <th>DI−</th>
-            <th>Scenario</th>
             <th>Liquidità</th>
             <th>Nota</th>
             <th>Azioni</th>
@@ -63,6 +62,12 @@ function MonitorTable({
             const note = String(row.Monitor_Note || "").trim();
             const phase = String(row.Market_Phase ?? "-").replace(/_/g, " ");
             const liquidity = String(row.Liquidity ?? "-");
+            const direzione = String(row.Direzione_Trend ?? "-");
+            const forza = String(row.Forza_Trend ?? "-").replace("FORTE_", "");
+            const momento = String(row.Momento_Trend ?? "-");
+            const rischio = String(row.Rischio_Trend ?? "-");
+            const segno = (v: string) => v === "SU" || v === "FORTE_SU" || v === "CRESCENTE" || v === "NORMALE";
+            const segnoNegativo = (v: string) => v === "GIU" || v === "FORTE_GIU" || v === "CALANTE" || v === "ESTREMO";
             return (
               <tr key={`${source}-${ticker}-${index}`}>
                 <td className="ticker-cell">
@@ -70,18 +75,17 @@ function MonitorTable({
                   <small>{String(row.Name ?? "-")} · {source}</small>
                 </td>
                 <td><span className={`table-signal ${tableSignalClass(signal)}`}>{signal}</span></td>
+                <td><span className="scenario-label">{phase}</span></td>
                 <td className="numeric">{num(row.Close, 3)}</td>
                 <td className={`numeric ${tablePctClass(row.PCTV_1D)}`}>{pct(row.PCTV_1D)}</td>
                 <td className={`numeric ${tablePctClass(row.PCTV_5D)}`}>{pct(row.PCTV_5D)}</td>
                 <td className={`numeric ${tablePctClass(row.PCTV_30D)}`}>{pct(row.PCTV_30D)}</td>
+                <td><span className={segno(direzione) ? "positive" : segnoNegativo(direzione) ? "negative" : ""}>{direzione}</span></td>
+                <td><span className={segno(forza) ? "positive" : segnoNegativo(forza) ? "negative" : ""}>{forza}</span></td>
+                <td><span className={segno(momento) ? "positive" : segnoNegativo(momento) ? "negative" : ""}>{momento}</span></td>
+                <td><span className={segno(rischio) ? "positive" : segnoNegativo(rischio) ? "negative" : ""}>{rischio}</span></td>
                 <td className="numeric">{num(row.TECH_SCORE, 0)}</td>
-                <td className={`numeric ${tablePctClass(row.MACD_vs_Signal)}`}>{num(row.MACD_vs_Signal, 0)}</td>
-                <td className="numeric">{num(row.SIG_MA_SAR, 0)}</td>
-                <td className="numeric">{num(row.RSI, 0)}</td>
                 <td className="numeric">{num(row.ADX, 1)}</td>
-                <td className="numeric" style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</td>
-                <td className="numeric" style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</td>
-                <td><span className="scenario-label">{phase}</span></td>
                 <td>
                   <span className={liquidity.toUpperCase() === "OK" ? "positive" : "negative"}>{liquidity}</span>
                 </td>
