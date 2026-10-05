@@ -662,6 +662,11 @@ textarea {
 .indicators-guide-table th { color:#8cb4d9; font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; }
 .indicators-guide-table td:first-child { white-space:nowrap; }
 .indicators-guide-table tr:last-child td { border-bottom:none; }
+/* Sottotitoli dei gruppi dentro la guida del modello (TREND, MOMENTUM, ...). */
+.indicators-guide-sub {
+  margin:.7rem 0 .25rem 0; font-size:.76rem; text-transform:uppercase;
+  letter-spacing:.04em; color:#8cb4d9;
+}
 
 /* News del grafico: riga discreta in fondo al modal, richiusa di default.
    Prima era un box a tutta larghezza sopra i pulsanti operativi e senza stile. */

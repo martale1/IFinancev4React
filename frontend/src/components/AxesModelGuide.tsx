@@ -123,6 +123,77 @@ export function AxesModelGuide() {
           <li>Se la fase è <b>RIBASSO</b> la diagnosi è vuota: il motivo è già nel segnale EVITA, con la struttura fragile come spiegazione.</li>
         </ul>
       </section>
+
+      <section className="indicators-guide-block">
+        <h3>6 · Tutte le diciture delle card</h3>
+        <p className="indicators-guide-note">
+          Ogni card è divisa in quattro gruppi. Qui c'è cosa significa ogni voce,
+          con la scala dei valori.
+        </p>
+
+        <h4 className="indicators-guide-sub">Gruppo TREND — direzione e forza</h4>
+        <table className="indicators-guide-table">
+          <thead><tr><th>Voce</th><th>Cosa significa</th></tr></thead>
+          <tbody>
+            <tr><td><b>Direzione</b></td><td><b>SU</b> prezzo sopra la media · <b>PIATTO</b> intorno alla media · <b>GIU</b> sotto</td></tr>
+            <tr><td><b>Forza</b></td><td><b>FORTE SU / FORTE GIU</b> movimento convinto (ADX ≥ 22) · <b>DEBOLE</b> poco convincente</td></tr>
+            <tr><td><b>ADX</b></td><td>Quanta tendenza c'è, da 0 a 100, <i>senza direzione</i>. Sotto 20 mercato piatto, sopra 25 tendenza definita.</td></tr>
+            <tr><td><b>DI+ / DI−</b></td><td>Spinta dei compratori (DI+) e dei venditori (DI−). Se DI+ supera DI− comanda la parte rialzista.</td></tr>
+            <tr><td><b>SARMA</b></td><td>Da quante sedute il Parabolic SAR sta dalla stessa parte del prezzo. <b>0</b> = SAR sopra il prezzo (segnale ribassista); <b>1, 2, 3…</b> = SAR sotto, da altrettante sedute (rialzista).</td></tr>
+          </tbody>
+        </table>
+
+        <h4 className="indicators-guide-sub">Gruppo MOMENTUM — sta accelerando o frenando</h4>
+        <table className="indicators-guide-table">
+          <thead><tr><th>Voce</th><th>Cosa significa</th></tr></thead>
+          <tbody>
+            <tr><td><b>Momento</b></td><td><b>CRESCENTE</b> · <b>STABILE</b> · <b>CALANTE</b>, misurato <i>solo</i> sul MACD</td></tr>
+            <tr><td><b>RSI</b></td><td>Forza relativa, da 0 a 100. Sopra 70 il titolo è comprato in eccesso, sotto 30 venduto in eccesso. Il valore 50 è equilibrio.</td></tr>
+            <tr><td><b>Stoch K/D</b></td><td>Posizione del prezzo nel range recente, da 0 a 100. La K è la linea veloce, la D quella lenta: K sopra D indica spinta rialzista. Sopra 80 eccesso di acquisti, sotto 20 di vendite.</td></tr>
+            <tr><td><b>willR</b></td><td>Williams %R, da −100 a 0. Vicino a 0 il prezzo è in alto nel range, vicino a −100 in basso. È l'opposto dell'RSI per come si legge.</td></tr>
+            <tr><td><b>MACD−Signal</b></td><td>Da quante sedute il MACD è sopra (positivo) o sotto (negativo) la sua linea di segnale. Piccolo e positivo = incrocio recente; grande = movimento maturo.</td></tr>
+            <tr><td><b>Alligator</b></td><td>Stato delle tre medie di Bill Williams: <b>sleep1/sleep2</b> = mercato addormentato, <b>wakeup1/wakeup2</b> = si sta svegliando, <b>Uptrend / Downtrend</b> = bocca aperta in trend. Gli asterischi e i trattini indicano la variante, <b>_revS3Sig</b> che è comparsa una divergenza.</td></tr>
+          </tbody>
+        </table>
+
+        <h4 className="indicators-guide-sub">Gruppo PERFORMANCE — come si è mosso</h4>
+        <table className="indicators-guide-table">
+          <thead><tr><th>Voce</th><th>Cosa significa</th></tr></thead>
+          <tbody>
+            <tr><td><b>1D · 5D · 10D · 30D · 180D</b></td><td>Variazione percentuale del prezzo su 1, 5, 10, 30 e 180 sedute.</td></tr>
+            <tr><td><b>TECH</b></td><td>Il punteggio 0-100 spiegato al punto 2. <b>50 = né convinzione né rischio</b>; sopra 65 sostegno rialzista, sotto 35 debolezza.</td></tr>
+            <tr><td><b>VOL</b></td><td>Volume scambiato nell'ultima seduta (M = milioni, K = migliaia).</td></tr>
+          </tbody>
+        </table>
+
+        <h4 className="indicators-guide-sub">Gruppo CONTESTO — tensioni e pattern</h4>
+        <table className="indicators-guide-table">
+          <thead><tr><th>Voce</th><th>Cosa significa</th></tr></thead>
+          <tbody>
+            <tr><td><b>Rischio</b></td><td><b>NORMALE</b> · <b>TESO</b> · <b>ESTREMO</b>: quanto è teso il titolo per volatilità e distanza dalla media (soglie al punto 1).</td></tr>
+            <tr><td><b>TENDENZA / RIPRESA / LATERALE / RIBASSO</b></td><td>La fase di mercato (punto 3).</td></tr>
+            <tr><td><b>S2 · S3 · S4 · S8</b></td><td>Anzianità dell'ultimo pattern di quel tipo, in sedute: <b>0g</b> = scattato oggi. Per esempio <b>S3 5g fa</b> significa che il pattern S3 è comparso cinque sedute fa. Sono pattern sperimentali, spiegati nella scheda *Multi-Pattern Lab*.</td></tr>
+          </tbody>
+        </table>
+
+        <h4 className="indicators-guide-sub">Le tre righe di stato in alto</h4>
+        <table className="indicators-guide-table">
+          <thead><tr><th>Voce</th><th>Cosa significa</th></tr></thead>
+          <tbody>
+            <tr><td><b>ENTRA / OSSERVA / ATTENDI / EVITA</b></td><td>L'indicazione operativa (punto 4): è la sola che dice <i>cosa fare</i>.</td></tr>
+            <tr><td><b>Fase · Dettaglio</b></td><td>Dove si trova il titolo. Il dettaglio compare solo quando aggiunge informazione rispetto alla fase.</td></tr>
+            <tr><td><b>LIQ OK / LOW / AVOID</b></td><td>Liquidità: <b>OK</b> si opera · <b>LOW</b> volume insufficiente, si resta in attesa · <b>AVOID</b> titolo escluso dalle indicazioni.</td></tr>
+          </tbody>
+        </table>
+
+        <p className="indicators-guide-note">
+          Nel <b>Monitor</b> e nella vista <b>Tabella</b> compaiono anche le colonne degli assi
+          (<i>Direzione, Forza, Momento, Rischio</i>) e <b>AZIONE</b>, che è il comando interno
+          da cui deriva l'indicazione: <b>BUY</b> = comprare, <b>ADD</b> = aggiungere su debolezza,
+          <b>HOLD</b> = mantenere, <b>REDUCE</b> = alleggerire, <b>EXIT</b> = uscire,
+          <b>AVOID</b> = stare fuori, <b>WAIT</b> = attendere per liquidità insufficiente.
+        </p>
+      </section>
     </>
   );
 }
