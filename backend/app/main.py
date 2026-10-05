@@ -28,7 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import CORS_ORIGINS, FRONTEND_DIST_DIR, MARKETS, PROJECT_ROOT
+from app.config import ANALYSES_DIR, CORS_ORIGINS, FRONTEND_DIST_DIR, MARKETS, PROJECT_ROOT
 from app.schemas import (
     AlertToggleRequest,
     AlertUpsertRequest,
@@ -972,9 +972,44 @@ def remove_ticker_from_list(market: str, req: RemoveTickerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore durante la rimozione dal file Excel: {e}")
 
+@app.get("/api/analysis/markets")
+def get_analysis_markets() -> dict[str, Any]:
+    """Scelta salvata, mercati supportati e data dell'ultima analisi di ciascuno."""
+    impostazioni = analysis_settings.read_settings(ANALYSES_DIR)
+    return {
+        "markets": analysis_settings.resolve_markets(ANALYSES_DIR),
+        "supported": analysis_settings.SUPPORTED_MARKETS,
+        "send_alerts": analysis_settings.resolve_send_alerts(ANALYSES_DIR),
+        "updated_at": impostazioni.get("updated_at"),
+        "files": analysis_settings.market_age(ANALYSES_DIR),
+    }
+
+
+@app.post("/api/analysis/markets")
+def set_analysis_markets(payload: dict | None = None) -> dict[str, Any]:
+    """Salva i mercati da analizzare (vale anche per i lanci da terminale)."""
+    dati = payload or {}
+    try:
+        salvato = analysis_settings.save_settings(
+            ANALYSES_DIR,
+            dati.get("markets") or [],
+            dati.get("send_alerts"),
+        )
+    except ValueError as errore:
+        raise HTTPException(status_code=400, detail=str(errore)) from errore
+    return {
+        "markets": salvato["markets"],
+        "send_alerts": salvato.get("send_alerts", True),
+        "updated_at": salvato["updated_at"],
+    }
+
+
 @app.post("/api/watchlist/regenerate")
 def regenerate_watchlist_data(payload: dict | None = None):
-    requested = (payload or {}).get("markets") or ANALYSIS_MARKETS[:5]
+    payload = payload or {}
+    # Senza mercati espliciti si usa la scelta salvata dalla GUI, non un default
+    # fisso: e' la stessa sorgente che usa main.py lanciato da terminale.
+    requested = payload.get("markets") or analysis_settings.resolve_markets(ANALYSES_DIR)
     selected = list(dict.fromkeys(str(market).strip() for market in requested))
     invalid = [market for market in selected if market not in ANALYSIS_MARKETS]
     if invalid:
@@ -999,6 +1034,10 @@ def regenerate_watchlist_data(payload: dict | None = None):
         ):
             env.pop(proxy_var, None)
         env["IFINANCE_ANALYSIS_MARKETS"] = ",".join(selected)
+        # Notifiche Telegram: si possono disattivare per una singola esecuzione,
+        # utile quando si rigenerano piu' mercati con regole attive.
+        if payload.get("send_alerts") is False:
+            env["IFINANCE_SEND_ALERTS"] = "0"
         process = subprocess.Popen(
             [python_executable, "-u", str(script_path)],
             cwd=str(PROJECT_ROOT),
@@ -1060,6 +1099,7 @@ def stop_watchlist_regeneration():
 
 import base64
 from pydantic import BaseModel
+import analysis_settings  # scelta dei mercati condivisa con main.py
 
 class AnalyzeChartRequest(BaseModel):
     ticker: str

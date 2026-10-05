@@ -41,6 +41,11 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [analysisMarkets, setAnalysisMarkets] = useState<string[]>(["MIB30"]);
+  // Scelta salvata (vale anche per i lanci da terminale) + eta' dei dati + notifiche.
+  const [savedMarkets, setSavedMarkets] = useState<string[] | null>(null);
+  const [marketFiles, setMarketFiles] = useState<Array<{ market: string; age_days: number | null; exists: boolean }>>([]);
+  const [sendAlerts, setSendAlerts] = useState(true);
+  const [savingMarkets, setSavingMarkets] = useState(false);
   const [analysisJob, setAnalysisJob] = useState<AnalysisJob | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -229,7 +234,7 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
       const res = await fetch("/api/watchlist/regenerate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markets: analysisMarkets }),
+        body: JSON.stringify({ markets: analysisMarkets, send_alerts: sendAlerts }),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
@@ -257,6 +262,59 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
       await fetchAnalysisStatus();
     } catch (err: any) {
       setToast({ message: err.message || "Impossibile interrompere l'analisi.", type: "error" });
+    }
+  }
+
+  /** Legge la scelta salvata e l'eta' dei workbook. */
+  async function fetchAnalysisSettings() {
+    try {
+      const res = await fetch(`/api/analysis/markets?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json() as {
+        markets: string[]; supported: string[]; send_alerts: boolean;
+        files: Array<{ market: string; age_days: number | null; exists: boolean }>;
+      };
+      setSavedMarkets(data.markets);
+      setAnalysisMarkets((current) => (current.length === 1 && current[0] === "MIB30" ? data.markets : current));
+      setSendAlerts(data.send_alerts);
+      setMarketFiles(data.files ?? []);
+    } catch {
+      // Se non risponde, la selezione locale resta utilizzabile.
+    }
+  }
+
+  /** Porta all'avvio la scelta salvata. */
+  useEffect(() => {
+    void fetchAnalysisSettings();
+  }, []);
+
+  /** Scrive la scelta nel file: varra' anche per `python main.py`. */
+  async function handleSaveMarkets() {
+    if (analysisMarkets.length === 0) {
+      setToast({ message: "Seleziona almeno un mercato prima di salvare.", type: "error" });
+      return;
+    }
+    setSavingMarkets(true);
+    try {
+      const res = await fetch("/api/analysis/markets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markets: analysisMarkets, send_alerts: sendAlerts }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || `Errore nel salvataggio: ${res.statusText}`);
+      }
+      const data = await res.json() as { markets: string[] };
+      setSavedMarkets(data.markets);
+      setToast({
+        message: `Salvato: l'analisi userà ${data.markets.join(", ")} anche da terminale.`,
+        type: "success",
+      });
+    } catch (err: any) {
+      setToast({ message: err.message || "Errore nel salvataggio.", type: "error" });
+    } finally {
+      setSavingMarkets(false);
     }
   }
 
@@ -348,11 +406,50 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
                     onChange={() => toggleAnalysisMarket(marketName)}
                   />
                   <span>{marketName}</span>
+                  {(() => {
+                    const info = marketFiles.find((f) => f.market === marketName);
+                    if (!info) return null;
+                    if (!info.exists) return <small style={{ color: "#f87171", marginLeft: "auto" }}>mai</small>;
+                    const giorni = info.age_days ?? 0;
+                    const colore = giorni > 30 ? "#f87171" : giorni > 7 ? "#fbbf24" : "#64748b";
+                    return (
+                      <small style={{ color: colore, marginLeft: "auto", fontSize: "0.68rem" }} title={`Ultima analisi: ${giorni} giorni fa`}>
+                        {giorni < 1 ? "oggi" : `${Math.round(giorni)}g`}
+                      </small>
+                    );
+                  })()}
                 </label>
               ))}
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#8cb4d9", marginTop: "0.65rem" }}>
-              Puoi selezionare uno o più mercati prima di avviare il calcolo.
+            <label style={{ display: "flex", alignItems: "center", gap: "0.45rem", marginTop: "0.75rem", fontSize: "0.78rem", color: "#cfe5fa", cursor: regenerating ? "not-allowed" : "pointer" }}>
+              <input
+                type="checkbox"
+                checked={sendAlerts}
+                disabled={regenerating}
+                onChange={() => setSendAlerts((v) => !v)}
+              />
+              Invia le notifiche Telegram
+            </label>
+            <button
+              type="button"
+              className="btn ghost"
+              style={{ marginTop: "0.6rem", width: "100%", fontSize: "0.78rem" }}
+              disabled={regenerating || savingMarkets}
+              onClick={handleSaveMarkets}
+            >
+              {savingMarkets ? "Salvataggio…" : "💾 Salva come predefinito"}
+            </button>
+            <div style={{ fontSize: "0.72rem", color: "#8cb4d9", marginTop: "0.55rem", lineHeight: 1.45 }}>
+              Il pulsante <b>Rigenera</b> analizza i mercati spuntati ora.
+              <br />
+              <b>Salva come predefinito</b> scrive la scelta nel file di configurazione, così vale
+              anche lanciando <code>python main.py</code> da terminale.
+              {savedMarkets ? (
+                <>
+                  <br />
+                  <span style={{ color: "#4ade80" }}>Salvati: {savedMarkets.join(", ")}</span>
+                </>
+              ) : null}
             </div>
           </div>
 

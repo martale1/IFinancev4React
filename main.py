@@ -1105,20 +1105,14 @@ NOTA: viene sempre chiamata la funzione per generare Layer1,2,3 indicazioni: ana
 '''
 
 SUPPORTED_ANALYSIS_MARKETS = ['MIB30', 'Preferite', 'DAX', 'ETC', 'ETF', 'US_Others', 'Crypto']
-_requested_markets = os.getenv("IFINANCE_ANALYSIS_MARKETS", "").strip()
-if _requested_markets:
-    markets_to_run = [
-        market.strip()
-        for market in _requested_markets.split(",")
-        if market.strip() in SUPPORTED_ANALYSIS_MARKETS
-    ]
-    if not markets_to_run:
-        raise ValueError(
-            "IFINANCE_ANALYSIS_MARKETS non contiene mercati validi. "
-            f"Valori ammessi: {', '.join(SUPPORTED_ANALYSIS_MARKETS)}"
-        )
-else:
-    markets_to_run = ['MIB30']#, 'Preferite', 'DAX', 'ETC', 'ETF', 'Crypto']
+# I mercati si scelgono dalla GUI (Gestione Liste) e restano in
+# analyses/analysis_settings.json: cosi' valgono anche lanciando questo file da
+# terminale, non solo quando l'analisi la avvia l'applicazione. La variabile
+# d'ambiente IFINANCE_ANALYSIS_MARKETS, se presente, ha la precedenza.
+import analysis_settings
+markets_to_run = analysis_settings.resolve_markets(Path(OUTPUT_FOLDER))
+if not markets_to_run:
+    raise ValueError("Nessun mercato da analizzare: controlla le impostazioni.")
 
 print(f"[ANALISI] Mercati selezionati: {', '.join(markets_to_run)}", flush=True)
 #,'MIB30','ETC','ETF']
@@ -1174,9 +1168,15 @@ m.send_uptrend_buyadd_summary(
 
 
 # Alerts set via React GUI (alert_rules_<MARKET>.yaml)
-run_gui_alerts(
-    OUTPUT_FOLDER,
-    telegram_channel=5,
-    markets=markets_to_run,
-    require_enabled_rules=True,
-)
+# L'invio si puo' disattivare per una singola esecuzione (interruttore nella GUI
+# o IFINANCE_SEND_ALERTS=0): serve quando si rigenerano piu' mercati con regole
+# attive, altrimenti parte una notifica per ogni mercato.
+if analysis_settings.resolve_send_alerts(Path(OUTPUT_FOLDER)):
+    run_gui_alerts(
+        OUTPUT_FOLDER,
+        telegram_channel=5,
+        markets=markets_to_run,
+        require_enabled_rules=True,
+    )
+else:
+    print("[ALERTS] Invio notifiche disattivato per questa esecuzione.", flush=True)
