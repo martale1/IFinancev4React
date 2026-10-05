@@ -439,18 +439,11 @@ export default function ListManagerPanel({ initialMarket, markets }: ListManager
             >
               {savingMarkets ? "Salvataggio…" : "💾 Salva come predefinito"}
             </button>
-            <div style={{ fontSize: "0.72rem", color: "#8cb4d9", marginTop: "0.55rem", lineHeight: 1.45 }}>
-              Il pulsante <b>Rigenera</b> analizza i mercati spuntati ora.
-              <br />
-              <b>Salva come predefinito</b> scrive la scelta nel file di configurazione, così vale
-              anche lanciando <code>python main.py</code> da terminale.
-              {savedMarkets ? (
-                <>
-                  <br />
-                  <span style={{ color: "#4ade80" }}>Salvati: {savedMarkets.join(", ")}</span>
-                </>
-              ) : null}
-            </div>
+            {savedMarkets ? (
+              <div style={{ fontSize: "0.72rem", color: "#4ade80", marginTop: "0.55rem" }}>
+                Salvati: {savedMarkets.join(", ")}
+              </div>
+            ) : null}
           </div>
 
           <div className="analysis-log" style={{ background: "#050b14", borderRadius: "12px", border: "1px solid rgba(74,222,128,0.25)", overflow: "hidden" }}>
