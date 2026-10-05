@@ -3182,3 +3182,26 @@ td {
     text-align: left;
   }
 }
+
+/* Sul telefono i pulsanti dei pattern vanno a capo invece di scorrere
+   orizzontalmente: con sei/otto pattern, metà restavano fuori schermo e non si
+   capiva che ce ne fossero altri. Sul PC e sul tablet resta lo scorrimento
+   (una riga sola), che lì funziona bene.
+   Serve !important perche' scorrimento e larghezza sono impostati in stile
+   inline nel componente, che ha priorita' piu' alta di una regola CSS. */
+@media (max-width: 700px) {
+  .pattern-tabs-scroll {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    flex-wrap: wrap !important;
+    touch-action: auto !important;
+    row-gap: .35rem;
+  }
+  .pattern-tabs-scroll > button {
+    flex: 1 1 calc(33% - .3rem) !important;
+    min-width: 0;
+  }
+  .pattern-toolbar {
+    padding: .45rem !important;
+  }
+}

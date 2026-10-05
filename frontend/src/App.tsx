@@ -172,13 +172,13 @@ export default function App() {
   const [tab, setTabState] = useState<string>(() => {
     const fromUrl = urlParams.get("tab");
     if (fromUrl) {
-      // Confronto tollerante: accetta sia il nome esatto ("📊 Highlights") sia
-      // la parte significativa ("Highlights"), così i link restano leggibili.
-      const normalized = fromUrl.trim().toLowerCase();
-      const match = tabs.find((candidate) => {
-        const clean = candidate.replace(/[^\p{L}\p{N} ]+/gu, "").trim().toLowerCase();
-        return candidate.toLowerCase() === normalized || clean === normalized;
-      });
+      // Confronto tollerante: accetta il nome esatto ("📊 Highlights"), la parte
+      // significativa ("Highlights") e le varianti con trattino o underscore
+      // ("Multi-Pattern Lab" per "🧪 Multi-Pattern Lab"). Serve ai link diretti.
+      const pulisci = (testo: string) =>
+        testo.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
+      const normalized = pulisci(fromUrl);
+      const match = tabs.find((candidate) => pulisci(candidate) === normalized);
       if (match) return match;
     }
     return window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor";
