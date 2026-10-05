@@ -239,17 +239,32 @@ export default function MonitorPanel({
 
   const items = useMemo(() => monitorData?.items || [], [monitorData]);
 
+  /**
+   * Filtro a tessera, sullo stesso principio di Highlights: i conteggi riguardano
+   * sempre TUTTI i titoli monitorati, mentre il clic restringe l'elenco mostrato.
+   */
+  const [tileFilter, setTileFilter] = useState<{ kind: string; value: string } | null>(null);
+
+  const matchesTile = (row: WatchlistRow): boolean => {
+    if (!tileFilter) return true;
+    if (tileFilter.kind === "fase") return String(row.Market_Phase ?? "").toUpperCase() === tileFilter.value;
+    if (tileFilter.kind === "indicazione") return String(row.Entry_Signal ?? "ATTENDI").toUpperCase() === tileFilter.value;
+    if (tileFilter.kind === "rischio") return String(row.Rischio_Trend ?? "").toUpperCase() === tileFilter.value;
+    return true;
+  };
+
   const filteredItems = useMemo(() => {
-    if (!filterText.trim()) return items;
     const term = filterText.trim().toLowerCase();
     return items.filter((row) => {
+      if (!matchesTile(row)) return false;
+      if (!term) return true;
       const tk = String(row.Ticker || "").toLowerCase();
       const nm = String(row.Name || "").toLowerCase();
       const note = String(row.Monitor_Note || "").toLowerCase();
       const mkt = String(row.WL_Source_Market || "").toLowerCase();
       return tk.includes(term) || nm.includes(term) || note.includes(term) || mkt.includes(term);
     });
-  }, [items, filterText]);
+  }, [items, filterText, tileFilter]);
 
   // Statistics
   const totalCount = items.length;
@@ -340,6 +355,75 @@ export default function MonitorPanel({
         </div>
       </div>
 
+      {/* Fotografia dei titoli monitorati: i conteggi riguardano sempre tutti,
+          il clic restringe l'elenco (come le tessere di Highlights). */}
+      {items.length ? (
+        <div className="monitor-tile-groups">
+          <div className="monitor-tile-group">
+            <span className="monitor-tile-label">Fase</span>
+            {(["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"] as const).map((fase) => {
+              const n = items.filter((r) => String(r.Market_Phase ?? "").toUpperCase() === fase).length;
+              const active = tileFilter?.kind === "fase" && tileFilter.value === fase;
+              return (
+                <button
+                  type="button"
+                  key={fase}
+                  className={`monitor-tile ${active ? "active" : ""}`}
+                  disabled={!n}
+                  onClick={() => setTileFilter(active ? null : { kind: "fase", value: fase })}
+                  title={`${n} titoli monitorati in fase ${fase}`}
+                >
+                  <b>{n}</b> {fase}
+                </button>
+              );
+            })}
+          </div>
+          <div className="monitor-tile-group">
+            <span className="monitor-tile-label">Indicazione</span>
+            {(["ENTRA", "OSSERVA", "ATTENDI", "EVITA"] as const).map((sig) => {
+              const n = items.filter((r) => String(r.Entry_Signal ?? "ATTENDI").toUpperCase() === sig).length;
+              const active = tileFilter?.kind === "indicazione" && tileFilter.value === sig;
+              return (
+                <button
+                  type="button"
+                  key={sig}
+                  className={`monitor-tile ${active ? "active" : ""}`}
+                  disabled={!n}
+                  onClick={() => setTileFilter(active ? null : { kind: "indicazione", value: sig })}
+                  title={`${n} titoli monitorati con indicazione ${sig}`}
+                >
+                  <b>{n}</b> {sig}
+                </button>
+              );
+            })}
+          </div>
+          <div className="monitor-tile-group">
+            <span className="monitor-tile-label">Rischio</span>
+            {(["NORMALE", "TESO", "ESTREMO"] as const).map((ris) => {
+              const n = items.filter((r) => String(r.Rischio_Trend ?? "").toUpperCase() === ris).length;
+              const active = tileFilter?.kind === "rischio" && tileFilter.value === ris;
+              return (
+                <button
+                  type="button"
+                  key={ris}
+                  className={`monitor-tile ${active ? "active" : ""}`}
+                  disabled={!n}
+                  onClick={() => setTileFilter(active ? null : { kind: "rischio", value: ris })}
+                  title={`${n} titoli monitorati con rischio ${ris}`}
+                >
+                  <b>{n}</b> {ris}
+                </button>
+              );
+            })}
+          </div>
+          {tileFilter ? (
+            <button type="button" className="btn ghost monitor-tile-clear" onClick={() => setTileFilter(null)}>
+              ✕ Togli il filtro
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Barra di aggiunta compatta: ticker flessibile, mercato stretto */}
       <form className="monitor-add-form" onSubmit={handleQuickAdd}>
         <input
@@ -389,7 +473,9 @@ export default function MonitorPanel({
             <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
           </div>
           <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-            Visualizzati {filteredItems.length} di {totalCount} titoli
+            {filteredItems.length === totalCount
+              ? `${totalCount} titoli monitorati`
+              : `Visualizzati ${filteredItems.length} di ${totalCount} titoli${tileFilter ? ` · filtro: ${tileFilter.value}` : ""}`}
           </div>
         </div>
       )}

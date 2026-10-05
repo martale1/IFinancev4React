@@ -612,6 +612,23 @@ textarea {
   margin:.5rem 0 .2rem 0; padding:.45rem .7rem; font-size:.78rem; color:#cfe5fa;
   background:rgba(56,189,248,.08); border-left:3px solid #38bdf8; border-radius:6px;
 }
+
+/* Tessere del Monitor: stessa idea di Highlights (conteggi su tutti i titoli
+   monitorati, clic per restringere l'elenco). */
+.monitor-tile-groups { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; }
+.monitor-tile-group { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
+.monitor-tile-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; color:#7ea6c8; margin-right:.15rem; }
+.monitor-tile {
+  font:inherit; font-size:.78rem; cursor:pointer; color:#cfe5fa;
+  background:rgba(10,25,47,.55); border:1px solid rgba(96,165,250,.25);
+  border-radius:8px; padding:.3rem .55rem; transition:border-color .15s ease, background .15s ease;
+}
+.monitor-tile b { color:#93c5fd; }
+.monitor-tile:hover:not(:disabled) { border-color:rgba(96,165,250,.6); }
+.monitor-tile:disabled { opacity:.4; cursor:default; }
+.monitor-tile.active { border-color:#38bdf8; background:rgba(56,189,248,.16); }
+.monitor-tile.active b { color:#7dd3fc; }
+.monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 @media (max-width:700px) { .highlight-row { grid-template-columns:70px 1fr auto; }.highlight-row b { grid-column:2 / 4; }.highlight-row em { grid-column:3; grid-row:1; } }
 @media (max-width:700px) { .highlights-dual-list { grid-template-columns:1fr; gap:.5rem; } }
 .active-alerts-heading > div, .active-rule-card-heading > div { display: flex; flex-direction: column; gap: .08rem; }
