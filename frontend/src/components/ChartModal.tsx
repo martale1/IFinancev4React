@@ -999,28 +999,6 @@ export default function ChartModal(props: Props) {
           />
         </div>
 
-        <section className="chart-news-panel" aria-label={`News ${props.ticker}`}>
-          <div className="chart-news-panel-head">
-            <div><strong>📰 News collegate al grafico</strong><span>{newsReport ? `Ultima ricerca: ${new Date(newsReport.searched_at).toLocaleString("it-IT")}` : "Nessuna ricerca salvata per questo titolo"}</span></div>
-            <div className="chart-news-actions">
-              {newsReport ? <button className="btn ghost" type="button" onClick={() => setShowNewsDetails((value) => !value)} aria-expanded={showNewsDetails}>
-                {showNewsDetails ? "Nascondi news" : "Leggi news"}
-              </button> : null}
-              <button className="btn" type="button" disabled={newsLoading} onClick={handleSearchNews}>
-                {newsLoading ? "Ricerca news…" : newsReport ? "Nuova ricerca news" : "Cerca news"}
-              </button>
-            </div>
-          </div>
-          {newsError ? <p className="chart-news-error">{newsError}</p> : null}
-          {newsReport && showNewsDetails ? <div className="chart-news-reader">
-            <p className="chart-news-report">{newsReport.text}</p>
-            {newsReport.sources.length ? <div className="chart-news-sources">
-              <strong>Fonti</strong>
-              <ul>{newsReport.sources.map((source, index) => <li key={`${source.url}-${index}`}><a href={source.url} target="_blank" rel="noreferrer">{source.title || source.url}</a></li>)}</ul>
-            </div> : null}
-          </div> : null}
-          {newsReport ? <small>{newsReport.sources.length} fonti salvate. La ricerca è disponibile anche nella card del titolo e nell'Archivio News.</small> : <p className="chart-news-empty">Cerca le news da qui: il risultato verrà salvato e ritrovato nella card del titolo.</p>}
-        </section>
 
         {/* Alert and AI actions row in Modal */}
         {props.row && props.onCreateAlert && props.onRemoveAlert && props.sourceMarket ? (
@@ -1402,6 +1380,31 @@ export default function ChartModal(props: Props) {
             ) : null}</> : null}
           </div>
         ) : null}
+
+        {/* News in fondo e richiuse: prima occupavano un box intero sopra i
+            pulsanti operativi. Compatte di default, si aprono su richiesta. */}
+        <details className="chart-news-compact" open={showNewsDetails} onToggle={(e) => setShowNewsDetails((e.target as HTMLDetailsElement).open)}>
+          <summary>
+            <span>📰 News</span>
+            <small>{newsReport ? `ultima ricerca ${new Date(newsReport.searched_at).toLocaleDateString("it-IT")} · ${newsReport.sources.length} fonti` : "nessuna ricerca salvata"}</small>
+          </summary>
+          <div className="chart-news-compact-body">
+            <div className="chart-news-actions">
+              <button className="btn" type="button" disabled={newsLoading} onClick={handleSearchNews}>
+                {newsLoading ? "Ricerca news…" : newsReport ? "Nuova ricerca news" : "Cerca news"}
+              </button>
+            </div>
+            {newsError ? <p className="chart-news-error">{newsError}</p> : null}
+            {newsReport ? <div className="chart-news-reader">
+              <p className="chart-news-report">{newsReport.text}</p>
+              {newsReport.sources.length ? <div className="chart-news-sources">
+                <strong>Fonti</strong>
+                <ul>{newsReport.sources.map((source, index) => <li key={`${source.url}-${index}`}><a href={source.url} target="_blank" rel="noreferrer">{source.title || source.url}</a></li>)}</ul>
+              </div> : null}
+              <small>{newsReport.sources.length} fonti salvate. La ricerca è disponibile anche nella card del titolo e nell'Archivio News.</small>
+            </div> : <p className="chart-news-empty">Cerca le news da qui: il risultato verrà salvato e ritrovato nella card del titolo.</p>}
+          </div>
+        </details>
 
         <div className="modal-bottom-close">
           <button className="btn ghost" type="button" onClick={props.onClose}>

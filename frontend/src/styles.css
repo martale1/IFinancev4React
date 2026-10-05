@@ -629,6 +629,33 @@ textarea {
 .monitor-tile.active { border-color:#38bdf8; background:rgba(56,189,248,.16); }
 .monitor-tile.active b { color:#7dd3fc; }
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
+
+/* News del grafico: riga discreta in fondo al modal, richiusa di default.
+   Prima era un box a tutta larghezza sopra i pulsanti operativi e senza stile. */
+.chart-news-compact {
+  margin-top: .35rem;
+  padding-top: .55rem;
+  border-top: 1px solid rgba(174,216,249,.14);
+  font-size: .82rem;
+}
+.chart-news-compact > summary {
+  display:flex; align-items:baseline; gap:.5rem; flex-wrap:wrap;
+  cursor:pointer; list-style:none; color:#a9c5df; padding:.15rem 0;
+}
+.chart-news-compact > summary::-webkit-details-marker { display:none; }
+.chart-news-compact > summary::before { content:"▸"; color:#7ea6c8; font-size:.9em; }
+.chart-news-compact[open] > summary::before { content:"▾"; }
+.chart-news-compact > summary:hover { color:#dbeafe; }
+.chart-news-compact > summary span { font-weight:600; }
+.chart-news-compact > summary small { color:#7ea6c8; font-size:.74rem; }
+.chart-news-compact-body { margin-top:.5rem; display:grid; gap:.5rem; max-height:38vh; overflow:auto; }
+.chart-news-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.chart-news-report { margin:0; white-space:pre-wrap; color:#cfe5fa; font-size:.82rem; line-height:1.45; }
+.chart-news-sources { font-size:.78rem; color:#a9c5df; }
+.chart-news-sources ul { margin:.3rem 0 0 1.1rem; padding:0; }
+.chart-news-sources a { color:#7dd3fc; }
+.chart-news-error { margin:0; color:#ff8a95; font-size:.8rem; }
+.chart-news-empty { margin:0; color:#7ea6c8; font-size:.8rem; }
 @media (max-width:700px) { .highlight-row { grid-template-columns:70px 1fr auto; }.highlight-row b { grid-column:2 / 4; }.highlight-row em { grid-column:3; grid-row:1; } }
 @media (max-width:700px) { .highlights-dual-list { grid-template-columns:1fr; gap:.5rem; } }
 .active-alerts-heading > div, .active-rule-card-heading > div { display: flex; flex-direction: column; gap: .08rem; }
