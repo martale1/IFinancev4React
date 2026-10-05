@@ -650,6 +650,19 @@ textarea {
 .all-axis-tiles .monitor-tile-groups { gap:.6rem 1rem; }
 .monitor-tile-nota { font-size:.7rem; color:#7ea6c8; font-style:italic; }
 
+/* Tabella della guida del modello (assi, punteggi, fasi, indicazioni). */
+.indicators-guide-table {
+  width:100%; border-collapse:collapse; margin:.4rem 0 .5rem 0; font-size:.78rem;
+}
+.indicators-guide-table th,
+.indicators-guide-table td {
+  text-align:left; padding:.28rem .5rem; border-bottom:1px solid rgba(174,216,249,.14);
+  vertical-align:top; color:#cfe5fa;
+}
+.indicators-guide-table th { color:#8cb4d9; font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; }
+.indicators-guide-table td:first-child { white-space:nowrap; }
+.indicators-guide-table tr:last-child td { border-bottom:none; }
+
 /* News del grafico: riga discreta in fondo al modal, richiusa di default.
    Prima era un box a tutta larghezza sopra i pulsanti operativi e senza stile. */
 .chart-news-compact {
