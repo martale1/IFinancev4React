@@ -25,6 +25,11 @@ err.txt
 out.txt
 *.xlsx
 
+# Configurazione dei mercati da analizzare: e' PER MACCHINA (il PC e il
+# Raspberry analizzano mercati diversi), quindi non va versionata. Il file
+# viene creato dalla GUI e letto da main.py anche quando lo lancia il cron.
+analyses/analysis_settings.json
+
 # Liste ticker di input necessarie a main.py e al backend
 !validTickersXLS/
 !validTickersXLS/*.xlsx
