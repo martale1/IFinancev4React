@@ -1065,31 +1065,6 @@ export default function App() {
         </button>
       </div>
 
-      {tab === "All" && watchlistQuery.data ? (
-        <div className="all-axis-tiles">
-          <AxisTiles
-            items={highlightsItems}
-            active={selezioneAssi}
-            onSelect={(selezione) => {
-              if (selezione.kind === "fase") {
-                setMarketPhaseFilter(selezione.value);
-                setEntrySignalFilter("");
-                setHighlightOrigin(selezione.value ? { kind: "fase", value: selezione.value } : null);
-              } else if (selezione.kind === "indicazione") {
-                setEntrySignalFilter(selezione.value);
-                setMarketPhaseFilter("");
-                setHighlightOrigin(selezione.value ? { kind: "indicazione", value: selezione.value } : null);
-              } else {
-                // Il rischio non ha un filtro dedicato: si filtra per fase TESO/ESTREMO
-                setMarketPhaseFilter("");
-                setEntrySignalFilter("");
-              }
-              setPage(1);
-            }}
-          />
-        </div>
-      ) : null}
-
       {highlightOrigin && activeFilterCount ? (
         <div className="highlight-back-bar" role="status">
           <span>
@@ -1511,6 +1486,28 @@ export default function App() {
             <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
               <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
               <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
+            </div>
+            <div className="all-axis-tiles">
+            <AxisTiles
+              items={highlightsItems}
+              active={selezioneAssi}
+              onSelect={(selezione) => {
+                if (selezione.kind === "fase") {
+                  setMarketPhaseFilter(selezione.value);
+                  setEntrySignalFilter("");
+                  setHighlightOrigin(selezione.value ? { kind: "fase", value: selezione.value } : null);
+                } else if (selezione.kind === "indicazione") {
+                  setEntrySignalFilter(selezione.value);
+                  setMarketPhaseFilter("");
+                  setHighlightOrigin(selezione.value ? { kind: "indicazione", value: selezione.value } : null);
+                } else {
+                  // Il rischio non ha un filtro dedicato: si filtra per fase TESO/ESTREMO
+                  setMarketPhaseFilter("");
+                  setEntrySignalFilter("");
+                }
+                setPage(1);
+              }}
+            />
             </div>
           </div>
           {watchlistView === "cards" ? <section className="grid">
