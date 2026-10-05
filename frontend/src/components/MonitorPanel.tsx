@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
+import { AxisTiles, type AxisTileSelection } from "./AxisTiles";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -243,7 +244,7 @@ export default function MonitorPanel({
    * Filtro a tessera, sullo stesso principio di Highlights: i conteggi riguardano
    * sempre TUTTI i titoli monitorati, mentre il clic restringe l'elenco mostrato.
    */
-  const [tileFilter, setTileFilter] = useState<{ kind: string; value: string } | null>(null);
+  const [tileFilter, setTileFilter] = useState<AxisTileSelection | null>(null);
 
   const matchesTile = (row: WatchlistRow): boolean => {
     if (!tileFilter) return true;
@@ -355,74 +356,20 @@ export default function MonitorPanel({
         </div>
       </div>
 
-      {/* Fotografia dei titoli monitorati: i conteggi riguardano sempre tutti,
-          il clic restringe l'elenco (come le tessere di Highlights). */}
-      {items.length ? (
-        <div className="monitor-tile-groups">
-          <div className="monitor-tile-group">
-            <span className="monitor-tile-label">Fase</span>
-            {(["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"] as const).map((fase) => {
-              const n = items.filter((r) => String(r.Market_Phase ?? "").toUpperCase() === fase).length;
-              const active = tileFilter?.kind === "fase" && tileFilter.value === fase;
-              return (
-                <button
-                  type="button"
-                  key={fase}
-                  className={`monitor-tile ${active ? "active" : ""}`}
-                  disabled={!n}
-                  onClick={() => setTileFilter(active ? null : { kind: "fase", value: fase })}
-                  title={`${n} titoli monitorati in fase ${fase}`}
-                >
-                  <b>{n}</b> {fase}
-                </button>
-              );
-            })}
-          </div>
-          <div className="monitor-tile-group">
-            <span className="monitor-tile-label">Indicazione</span>
-            {(["ENTRA", "OSSERVA", "ATTENDI", "EVITA"] as const).map((sig) => {
-              const n = items.filter((r) => String(r.Entry_Signal ?? "ATTENDI").toUpperCase() === sig).length;
-              const active = tileFilter?.kind === "indicazione" && tileFilter.value === sig;
-              return (
-                <button
-                  type="button"
-                  key={sig}
-                  className={`monitor-tile ${active ? "active" : ""}`}
-                  disabled={!n}
-                  onClick={() => setTileFilter(active ? null : { kind: "indicazione", value: sig })}
-                  title={`${n} titoli monitorati con indicazione ${sig}`}
-                >
-                  <b>{n}</b> {sig}
-                </button>
-              );
-            })}
-          </div>
-          <div className="monitor-tile-group">
-            <span className="monitor-tile-label">Rischio</span>
-            {(["NORMALE", "TESO", "ESTREMO"] as const).map((ris) => {
-              const n = items.filter((r) => String(r.Rischio_Trend ?? "").toUpperCase() === ris).length;
-              const active = tileFilter?.kind === "rischio" && tileFilter.value === ris;
-              return (
-                <button
-                  type="button"
-                  key={ris}
-                  className={`monitor-tile ${active ? "active" : ""}`}
-                  disabled={!n}
-                  onClick={() => setTileFilter(active ? null : { kind: "rischio", value: ris })}
-                  title={`${n} titoli monitorati con rischio ${ris}`}
-                >
-                  <b>{n}</b> {ris}
-                </button>
-              );
-            })}
-          </div>
-          {tileFilter ? (
-            <button type="button" className="btn ghost monitor-tile-clear" onClick={() => setTileFilter(null)}>
-              ✕ Togli il filtro
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Fotografia dei titoli monitorati: componente condiviso con la tab All,
+          così i due posti non possono divergere. I conteggi riguardano sempre
+          tutti i titoli monitorati; il clic restringe l'elenco. */}
+      <AxisTiles
+        items={items}
+        active={tileFilter}
+        onSelect={(selezione) => {
+          if (!selezione.value) {
+            setTileFilter(null);
+            return;
+          }
+          setTileFilter(tileFilter && tileFilter.kind === selezione.kind && tileFilter.value === selezione.value ? null : selezione);
+        }}
+      />
 
       {/* Barra di aggiunta compatta: ticker flessibile, mercato stretto */}
       <form className="monitor-add-form" onSubmit={handleQuickAdd}>

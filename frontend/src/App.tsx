@@ -7,6 +7,7 @@ import AiTickerModal from "./components/AiTickerModal";
 import ChartModal from "./components/ChartModal";
 import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
+import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
@@ -501,10 +502,18 @@ export default function App() {
       sortKey,
       sortDir
     }),
-    enabled: tab === "📊 Highlights",
+    enabled: tab === "📊 Highlights" || tab === "All",
   });
   const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
   const highlightsAreFiltered = Boolean(entrySignalFilter || marketPhaseFilter || effectiveTrendPhaseDetailFilter);
+  // Le tessere dei quattro assi contano TUTTI i titoli del mercato (query non
+  // filtrata): cliccandone una l'elenco si restringe ma i numeri restano quelli
+  // del mercato, altrimenti sembrerebbe che sia cambiato.
+  const selezioneAssi: AxisTileSelection | null = marketPhaseFilter
+    ? { kind: "fase", value: marketPhaseFilter }
+    : entrySignalFilter
+      ? { kind: "indicazione", value: entrySignalFilter }
+      : null;
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
     queryFn: () => fetchWatchlist({
@@ -1056,10 +1065,35 @@ export default function App() {
         </button>
       </div>
 
+      {tab === "All" && watchlistQuery.data ? (
+        <div className="all-axis-tiles">
+          <AxisTiles
+            items={highlightsItems}
+            active={selezioneAssi}
+            onSelect={(selezione) => {
+              if (selezione.kind === "fase") {
+                setMarketPhaseFilter(selezione.value);
+                setEntrySignalFilter("");
+                setHighlightOrigin(selezione.value ? { kind: "fase", value: selezione.value } : null);
+              } else if (selezione.kind === "indicazione") {
+                setEntrySignalFilter(selezione.value);
+                setMarketPhaseFilter("");
+                setHighlightOrigin(selezione.value ? { kind: "indicazione", value: selezione.value } : null);
+              } else {
+                // Il rischio non ha un filtro dedicato: si filtra per fase TESO/ESTREMO
+                setMarketPhaseFilter("");
+                setEntrySignalFilter("");
+              }
+              setPage(1);
+            }}
+          />
+        </div>
+      ) : null}
+
       {highlightOrigin && activeFilterCount ? (
         <div className="highlight-back-bar" role="status">
           <span>
-            Filtro da Highlights: <b>{highlightOrigin.kind === "fase" ? "fase" : "indicazione"} {highlightOrigin.value}</b>
+            Filtro attivo: <b>{highlightOrigin.kind === "fase" ? "fase" : "indicazione"} {highlightOrigin.value}</b>
           </span>
           <span className="highlight-back-actions">
             <button
