@@ -242,6 +242,9 @@ export default function App() {
   const [marketPhaseFilter, setMarketPhaseFilter] = useState(() => urlParams.get("market_phase") || "");
   const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState(() => urlParams.get("trend_detail") || "");
   const [showStateFilters, setShowStateFilters] = useState(false);
+  // Filtro applicato cliccando una tessera di Highlights: serve per avvisare
+  // nella tab All e per poterlo togliere con un clic.
+  const [highlightOrigin, setHighlightOrigin] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [watchlistView, setWatchlistView] = useState<"cards" | "table">(() =>
@@ -1053,6 +1056,32 @@ export default function App() {
         </button>
       </div>
 
+      {highlightOrigin && activeFilterCount ? (
+        <div className="highlight-back-bar" role="status">
+          <span>
+            Filtro da Highlights: <b>{highlightOrigin.kind === "fase" ? "fase" : "indicazione"} {highlightOrigin.value}</b>
+          </span>
+          <span className="highlight-back-actions">
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => {
+                setEntrySignalFilter("");
+                setMarketPhaseFilter("");
+                setTrendPhaseDetailFilter("");
+                setHighlightOrigin(null);
+                setPage(1);
+              }}
+            >
+              ✕ Togli il filtro
+            </button>
+            <button className="btn ghost" type="button" onClick={() => { setHighlightOrigin(null); setTab("📊 Highlights"); }}>
+              ↩ Torna a Highlights
+            </button>
+          </span>
+        </div>
+      ) : null}
+
       {showStateFilters ? (
         <section className="state-filters" aria-label="Filtri stato card">
           <label>
@@ -1310,7 +1339,7 @@ export default function App() {
                     className={`highlight-tile tile-button phase-${phase.toLowerCase()}`}
                     key={phase}
                     disabled={!n}
-                    onClick={() => { setMarketPhaseFilter(phase); setTab("All"); setPage(1); }}
+                    onClick={() => { setMarketPhaseFilter(phase); setEntrySignalFilter(""); setHighlightOrigin({ kind: "fase", value: phase }); setTab("All"); setPage(1); }}
                     title={`Mostra solo i titoli in fase ${phase}`}
                   >
                     <strong>{n}</strong><span>{phase}</span>
@@ -1333,7 +1362,7 @@ export default function App() {
                     className={`highlight-tile tile-button signal-${signal.toLowerCase()}`}
                     key={signal}
                     disabled={!n}
-                    onClick={() => { setEntrySignalFilter(signal); setTab("All"); setPage(1); }}
+                    onClick={() => { setEntrySignalFilter(signal); setMarketPhaseFilter(""); setHighlightOrigin({ kind: "indicazione", value: signal }); setTab("All"); setPage(1); }}
                     title={`Mostra solo i titoli con indicazione ${signal}`}
                   >
                     <strong>{n}</strong><span>{signal}</span>
