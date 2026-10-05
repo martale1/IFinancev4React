@@ -415,13 +415,12 @@ def runTA_indicators(market='ETC', numItems=0, generateSignal=False, generateSco
         #    tech_score_sell_max=35,
         #)
 
-        analyzer.add_trading_statev4_v1(
-            macd_buy_max_days=100,
-            adx_min=20,
-            rsi_buy_min=45,
-            rsi_sell_max=50,
-            tech_score_buy_min=65,
-        )
+        # --- Stato del titolo: quattro assi, fase, punteggio e indicazione ---
+        # Sostituisce add_trading_statev4_v1, che è rimasto nel file ma non viene
+        # più chiamato: calcolava Market_Phase (6 stati) e Trend_Phase_Detail
+        # (15 valori) con una cascata di soglie duplicate anche nel backend.
+        # Ora le regole vivono in un solo modulo condiviso (`four_axes`).
+        analyzer.add_four_axes_state()
 
         # --- Calcolo dei Pattern Sperimentali (Multi-Pattern Lab) ---
         df_tmp = analyzer.dataframe.copy()

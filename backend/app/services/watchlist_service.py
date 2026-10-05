@@ -66,6 +66,102 @@ def _to_num_series(s: pd.Series) -> pd.Series:
     return pd.to_numeric(x, errors="coerce")
 
 
+def _num_series(df: pd.DataFrame, column: str) -> pd.Series:
+    return pd.to_numeric(df[column], errors="coerce") if column in df.columns else pd.Series(float("nan"), index=df.index)
+
+
+def _fmt(value: float, digits: int = 1) -> str:
+    if value is None or pd.isna(value):
+        return "n/d"
+    return f"{value:.{digits}f}".replace(".", ",")
+
+
+def _build_entry_diagnosis(
+    df: pd.DataFrame,
+    action_u: pd.Series,
+    phase_u: pd.Series,
+    detail_u: pd.Series,
+    liquidity_u: pd.Series,
+) -> pd.Series:
+    """Descrive perché il segnale d'ingresso non è ENTRA, elencando cosa manca.
+
+    Le soglie sono quelle del trigger di acquisto del trading state v4
+    (TechnicalAnalyzer.add_trading_statev4_v1) e dell'indicazione d'ingresso in
+    questo modulo: ADX >= 20, ADX_Trend Bullish, DI+ > DI-, 0 < MACD_vs_Signal <= 10,
+    MACDH_Trend Up, RSI >= 45 con trend Up, prezzo sopra EMA30 ed EMA50,
+    SAR sotto il prezzo, TECH_SCORE >= 65.
+    """
+    adx = _num_series(df, "ADX")
+    adx_trend = df["ADX_Trend"].astype(str).str.strip().str.lower() if "ADX_Trend" in df.columns else pd.Series("", index=df.index)
+    plus_di = _num_series(df, "PLUS_DI")
+    minus_di = _num_series(df, "MINUS_DI")
+    macd_vs = _num_series(df, "MACD_vs_Signal")
+    macdh = df["MACDH_Trend"].astype(str).str.strip().str.lower() if "MACDH_Trend" in df.columns else pd.Series("", index=df.index)
+    rsi = _num_series(df, "RSI")
+    rsi_trend = df["RSI_Trend"].astype(str).str.strip().str.lower() if "RSI_Trend" in df.columns else pd.Series("", index=df.index)
+    tech = _num_series(df, "TECH_SCORE")
+    close = _num_series(df, "Close")
+    ema30 = _num_series(df, "EMA_30")
+    ema50 = _num_series(df, "EMA_50")
+    sar_above = df["SAR_Above_Price"].astype(str).str.strip().str.upper() if "SAR_Above_Price" in df.columns else pd.Series("", index=df.index)
+
+    def rowwise(index: int) -> str:
+        if action_u.iloc[index] == "BUY" and liquidity_u.iloc[index] == "OK":
+            return ""
+        if liquidity_u.iloc[index] == "AVOID":
+            return "Liquidità insufficiente: il titolo è escluso dalle indicazioni operative."
+
+        # La fase viene per prima: in laterale NESSUNA condizione tecnica può far
+        # scattare il trigger, quindi elencarle suggerirebbe un progresso che non
+        # esiste (es. "ADX >= 20 (ora 18,9)" quando l'ADX può salire quanto vuole
+        # senza cambiare l'esito). Le fasi RIBASSO non arrivano qui: sono marcate
+        # EVITA e la diagnosi viene svuotata, con "Struttura fragile" come motivo.
+        fase = phase_u.iloc[index]
+        if fase == "LATERALE":
+            return (
+                "🎯 Serve prima una direzione: ora è laterale. "
+                "Servono prezzo sopra la media con pendenza, oppure ADX >= 22."
+            )
+
+        missing: list[str] = []
+        if not (adx.iloc[index] >= 20):
+            missing.append(f"ADX >= 20 (ora {_fmt(adx.iloc[index])})")
+        if "bullish" not in adx_trend.iloc[index]:
+            missing.append(f"ADX_Trend Bullish (ora {adx_trend.iloc[index] or 'n/d'})")
+        if not (plus_di.iloc[index] > minus_di.iloc[index]):
+            missing.append(f"DI+ > DI- (ora {_fmt(plus_di.iloc[index])} / {_fmt(minus_di.iloc[index])})")
+        if not (macd_vs.iloc[index] > 0):
+            missing.append(f"MACD sopra il segnale (ora {_fmt(macd_vs.iloc[index], 0)})")
+        elif macd_vs.iloc[index] > 10:
+            missing.append(f"incrocio MACD recente, entro 10 sedute (ora {_fmt(macd_vs.iloc[index], 0)})")
+        if macdh.iloc[index] != "up":
+            missing.append(f"istogramma MACD in salita (ora {macdh.iloc[index] or 'n/d'})")
+        if not (rsi.iloc[index] >= 45):
+            missing.append(f"RSI >= 45 (ora {_fmt(rsi.iloc[index], 0)})")
+        if rsi_trend.iloc[index] != "up":
+            missing.append(f"RSI in salita (ora {rsi_trend.iloc[index] or 'n/d'})")
+        if not (close.iloc[index] > ema30.iloc[index]):
+            missing.append(f"prezzo sopra EMA30 (ora {_fmt(close.iloc[index], 2)} vs {_fmt(ema30.iloc[index], 2)})")
+        if not (close.iloc[index] > ema50.iloc[index]):
+            missing.append(f"prezzo sopra EMA50 (ora {_fmt(close.iloc[index], 2)} vs {_fmt(ema50.iloc[index], 2)})")
+        if sar_above.iloc[index] in {"TRUE", "1", "YES"}:
+            missing.append("Parabolic SAR sotto il prezzo")
+        if not (tech.iloc[index] >= 65):
+            missing.append(f"TECH_SCORE >= 65 (ora {_fmt(tech.iloc[index], 0)})")
+
+        if not missing:
+            return "Nessuna condizione mancante: il trigger è soddisfatto."
+        return "Manca: " + " · ".join(missing[:5]) + (" · …" if len(missing) > 5 else "")
+
+    values = [rowwise(i) for i in range(len(df))]
+    # Chi è già ENTRA non ha nulla da recuperare; chi è EVITA ha una motivazione
+    # di rischio che resta più utile della lista delle condizioni.
+    result = pd.Series(values, index=df.index)
+    result = result.mask(df["Entry_Signal"] == "ENTRA", "")
+    result = result.mask(df["Entry_Signal"] == "EVITA", "")
+    return result
+
+
 def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     for c in NEEDED_COLUMNS:
@@ -127,8 +223,8 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     risk = (
         action_u.isin(["SELL", "EXIT", "AVOID"])
-        | phase_u.isin(["DOWNTREND", "REVERSAL_RISK"])
-        | detail_u.isin(["PULLBACK_RISKY", "REVERSAL_RISK", "DOWNTREND"])
+        | phase_u.isin(["DOWNTREND", "REVERSAL_RISK", "RIBASSO"])
+        | detail_u.isin(["PULLBACK_RISKY", "REVERSAL_RISK", "DOWNTREND", "RIBASSO"])
         | invalidated
         | liquidity_u.eq("AVOID")
     )
@@ -152,6 +248,11 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     df.loc[observe, "Entry_Reason"] = "Setup interessante: attendere conferma operativa"
     df.loc[enter, "Entry_Reason"] = "Trigger rialzista completo"
     df.loc[risk, "Entry_Reason"] = "Struttura fragile, rischio o liquidità non idonea"
+
+    # Diagnosi concreta: quali condizioni del trigger di acquisto mancano, con il
+    # valore attuale. Senza questo la card mostrava una frase generica identica
+    # per situazioni molto diverse (es. TECH 78 con ADX 17 e TECH 44 con DI- > DI+).
+    df["Entry_Missing"] = _build_entry_diagnosis(df, action_u, phase_u, detail_u, liquidity_u)
 
     return df
 

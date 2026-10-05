@@ -2090,6 +2090,26 @@ class TechnicalAnalyzer:
         # Livello di uscita: close precedente - metà range precedente
         df["Stop_Level"] = df["Prev_Close"] - 0.5 * df["Prev_Range"]
 
+    def add_four_axes_state(self, soglie: Optional[Dict[str, float]] = None):
+        """Calcola i quattro assi e ne deriva fase, punteggio e indicazione.
+
+        Sostituisce la cascata di ``add_trading_statev4_v1`` per quanto riguarda
+        ``Market_Phase``, ``Trend_Phase_Detail`` e ``TECH_SCORE``: le regole stanno
+        nel modulo condiviso ``four_axes``, così main.py e il backend usano la
+        stessa fonte (prima le soglie erano duplicate in tre punti).
+
+        Aggiunge anche ``Liquidity``, che serve al filtro di salvataggio e al
+        backend: viene calcolata da ``_add_liquidity_columns``.
+        """
+        import four_axes
+
+        self._add_liquidity_columns()
+        df = self.dataframe
+        if df is None or df.empty:
+            return df
+        self.dataframe = four_axes.apply_to(df, soglie)
+        return self.dataframe
+
     def _add_liquidity_columns(self):
         """
         Colonne diagnostiche + classificazione Liquidity:

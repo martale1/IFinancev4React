@@ -154,8 +154,18 @@ export default function App() {
   const qc = useQueryClient();
   const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: fetchMarkets });
   const customWatchlistsQuery = useQuery({ queryKey: ["custom-watchlists"], queryFn: fetchCustomWatchlists });
-  const [market, setMarket] = useState("MIB30");
-  const [tab, setTabState] = useState<string>(() => window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor");
+  // Parametri URL: ?market=ETF e ?tab=All permettono di aprire direttamente un
+  // mercato e una sezione (link condivisibili e verifica rapida delle tab).
+  const urlParams = new URLSearchParams(window.location.search);
+  const [market, setMarket] = useState(() => urlParams.get("market") || "MIB30");
+  const [tab, setTabState] = useState<string>(() => {
+    const fromUrl = urlParams.get("tab");
+    if (fromUrl) {
+      const match = tabs.find((candidate) => candidate.toLowerCase() === fromUrl.toLowerCase());
+      if (match) return match;
+    }
+    return window.localStorage.getItem("ifinance-active-tab") || "🎯 Monitor";
+  });
   const setTab = (newTab: string) => {
     setTabState(newTab);
     window.localStorage.setItem("ifinance-active-tab", newTab);
@@ -1105,6 +1115,50 @@ export default function App() {
         />
       ) : null}
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}
+      {/* Legenda delle sigle: le card usano quattro assi e molte abbreviazioni.
+          Richiudibile e sempre presente, così chi guarda capisce senza chiedere. */}
+      {tab === "All" ? (
+        <details className="indicators-guide card-legend">
+          <summary>
+            <span>❓ Cosa significano le sigle sulle card</span>
+            <small>Direzione · Forza · Momento · Rischio · segnale operativo</small>
+          </summary>
+          <div className="indicators-guide-body">
+            <section className="indicators-guide-block">
+              <h3>I quattro assi (dove sta andando il titolo)</h3>
+              <dl className="indicators-guide-details">
+                <dt>Direzione</dt>
+                <dd><b>SU</b> prezzo sopra la media con pendenza (o ADX ≥ 22) · <b>PIATTO</b> prezzo intorno alla media · <b>GIU</b> sotto la media. Dice <i>dove</i> va, non quanto forte.</dd>
+                <dt>Forza</dt>
+                <dd><b>FORTE</b> ADX ≥ 22 con DI+ e DI− orientati · <b>DEBOLE</b> movimento poco convincente. È la forza del trend, non la sua direzione.</dd>
+                <dt>Momento</dt>
+                <dd><b>CRESCENTE</b> il MACD si allontana dal segnale · <b>STABILE</b> fermo · <b>CALANTE</b> si avvicina. Misura solo il MACD: l'RSI può scendere mentre il momento sale.</dd>
+                <dt>Rischio</dt>
+                <dd><b>NORMALE</b> · <b>TESO</b> (ATR ≥ 3% o distanza dalla media ≥ 5%) · <b>ESTREMO</b> (ATR ≥ 5% o distanza ≥ 9%). Quanto è teso il titolo, non quanto è buono.</dd>
+              </dl>
+            </section>
+            <section className="indicators-guide-block">
+              <h3>Le fasi di mercato</h3>
+              <ul className="indicators-guide-suffixes">
+                <li><b>TENDENZA</b> direzione su, forza forte, momento non calante</li>
+                <li><b>RIPRESA</b> direzione su ma senza ancora la forza</li>
+                <li><b>LATERALE</b> direzione piatta: il prezzo non va da nessuna parte</li>
+                <li><b>RIBASSO</b> direzione giù</li>
+              </ul>
+            </section>
+            <section className="indicators-guide-block">
+              <h3>Il segnale operativo e le abbreviazioni</h3>
+              <ul className="indicators-guide-suffixes">
+                <li><b>ENTRA</b> tutte le condizioni del trigger soddisfatte · <b>OSSERVA</b> direzione rialzista ma manca la forza · <b>ATTENDI</b> nessuna configurazione · <b>EVITA</b> ribasso con forza, fuori dal perimetro</li>
+                <li><b>LIQ</b> liquidità: <b>OK</b> · <b>LOW</b> · <b>AVOID</b> (con AVOID il titolo è escluso dalle indicazioni)</li>
+                <li><b>TECH</b> punteggio 0-100: somma dei quattro assi, dove <b>50 = né convinzione né rischio</b></li>
+                <li><b>Manca: …</b> le condizioni del trigger non ancora soddisfatte, con il valore attuale. Se la fase è laterale o ribassista viene mostrato solo quel blocco, perché nessuna condizione tecnica può sbloccare il segnale da sola</li>
+                <li><b>S2, S3, S4, S8</b> anzianità dell'ultimo pattern (per esempio <b>S3 5g fa</b>): 0g = scattato oggi</li>
+              </ul>
+            </section>
+          </div>
+        </details>
+      ) : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}

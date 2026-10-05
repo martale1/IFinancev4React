@@ -221,6 +221,9 @@ export default function MonitorPanel({
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
   const [alertValue, setAlertValue] = useState("");
   const [alertMsg, setAlertMsg] = useState("");
+  // Nella vista Schede le azioni secondarie stanno in un menu: qui memorizzo
+  // quale card lo ha aperto (chiave mercato-ticker).
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [view, setView] = useState<MonitorView>(() =>
     window.localStorage.getItem("ifinance-monitor-view") === "table" ? "table" : "cards"
   );
@@ -319,54 +322,34 @@ export default function MonitorPanel({
 
   return (
     <div className="monitor-panel" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Header & KPI Cards */}
-      <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            🎯 Titoli in Monitoraggio Attivo
-          </h2>
-          <div style={{ fontSize: "0.88rem", color: "var(--text-muted)", marginTop: 4 }}>
-            Monitora da vicino i titoli con nota operativa e segnali aggiornati in tempo reale.
-          </div>
+      {/* Intestazione compatta: titolo + KPI come pillole su una sola riga */}
+      <div className="monitor-header">
+        <div className="monitor-header-title">
+          <h2>🎯 Titoli in Monitoraggio Attivo</h2>
+          <p className="muted">Nota operativa e segnali aggiornati in tempo reale.</p>
         </div>
-
-        <div className="monitor-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))", gap: 12, width: "100%" }}>
-          <div className="stat-card" style={{ background: "var(--bg-card, #262626)", padding: "8px 16px", borderRadius: 8, textAlign: "center", border: "1px solid var(--border-color, #333)" }}>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Totale Monitor</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{totalCount}</div>
-          </div>
-          <div className="stat-card" style={{ background: "var(--bg-card, #262626)", padding: "8px 16px", borderRadius: 8, textAlign: "center", border: "1px solid var(--border-color, #333)" }}>
-            <div style={{ fontSize: "0.75rem", color: "#4caf50", textTransform: "uppercase" }}>Entra</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "#4caf50" }}>{entraCount}</div>
-          </div>
-          <div className="stat-card" style={{ background: "var(--bg-card, #262626)", padding: "8px 16px", borderRadius: 8, textAlign: "center", border: "1px solid var(--border-color, #333)" }}>
-            <div style={{ fontSize: "0.75rem", color: "#0288d1", textTransform: "uppercase" }}>Osserva</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "#0288d1" }}>{osservaCount}</div>
-          </div>
-          <div className="stat-card" style={{ background: "var(--bg-card, #262626)", padding: "8px 16px", borderRadius: 8, textAlign: "center", border: "1px solid var(--border-color, #333)" }}>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Con Note</div>
-            <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{withNotesCount}</div>
-          </div>
+        <div className="monitor-header-kpis">
+          <span className="monitor-kpi"><b>{totalCount}</b> monitorati</span>
+          <span className={`monitor-kpi ${entraCount ? "kpi-enter" : ""}`}><b>{entraCount}</b> entra</span>
+          <span className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""}`}><b>{osservaCount}</b> osserva</span>
+          <span className="monitor-kpi"><b>{withNotesCount}</b> con note</span>
         </div>
       </div>
 
-      {/* Quick Add Bar */}
-      <form className="monitor-add-form" onSubmit={handleQuickAdd} style={{ background: "var(--bg-card, #262626)", padding: 14, borderRadius: 10, border: "1px solid var(--border-color, #333)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, alignItems: "center" }}>
-        <span className="monitor-add-label" style={{ fontWeight: 600, fontSize: "0.9rem" }}>Aggiungi Ticker</span>
+      {/* Barra di aggiunta compatta: ticker flessibile, mercato stretto */}
+      <form className="monitor-add-form" onSubmit={handleQuickAdd}>
         <input
           className="monitor-ticker-input"
           type="text"
           placeholder="Ticker o nome (es. LTMC.MI, Lottomatica)"
           value={newTicker}
           onChange={(e) => { setNewTicker(e.target.value); if (added) setAdded(""); if (error) setError(""); }}
-          style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.88rem", boxSizing: "border-box" }}
           required
         />
         <select
           className="monitor-market-select"
           value={newMarket}
           onChange={(e) => setNewMarket(e.target.value)}
-          style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.88rem", boxSizing: "border-box" }}
         >
           {markets.map((m) => (
             <option key={m} value={m}>{m}</option>
@@ -378,9 +361,8 @@ export default function MonitorPanel({
           placeholder="Nota opzionale (es. breakout sopra 12.20)"
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
-          style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.88rem", boxSizing: "border-box" }}
         />
-        <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()} style={{ padding: "6px 16px", fontSize: "0.88rem", width: "100%" }}>
+        <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()}>
           {adding ? "Aggiungo..." : "+ Aggiungi a Monitor"}
         </button>
       </form>
@@ -390,14 +372,13 @@ export default function MonitorPanel({
 
       {/* Filter / Search inside Monitor + selettore visualizzazione */}
       {items.length > 0 && (
-        <div className="monitor-filter-row" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto auto", gap: 10, alignItems: "center" }}>
+        <div className="monitor-filter-row">
           <input
             className="monitor-filter-input"
             type="text"
             placeholder="🔍 Filtra nei titoli monitorati..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #444", background: "#1a1a1a", color: "#fff", width: "100%", minWidth: 0, fontSize: "0.85rem", boxSizing: "border-box" }}
           />
           <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
             <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
@@ -485,15 +466,14 @@ export default function MonitorPanel({
             const phase = String(row.Market_Phase || "-");
             const detail = String(row.Trend_Phase_Detail || "").replace(/_/g, " ");
             const entry = String(row.Entry_Signal || "ATTENDI").toUpperCase();
-            const date = row.Date ? (row.Date instanceof Date ? row.Date.toISOString().slice(0, 10) : String(row.Date).slice(0, 10)) : "non disponibile";
 
             return (
               <article className="monitor-card" key={`${src}-${tk}`}>
                 <header className="monitor-card-head">
-                  <div>
+                  <div className="monitor-card-id">
                     <strong>{tk}</strong>
                     <span>{nm}</span>
-                    <small>Dato al {date} · {src}</small>
+                    <small>{src}</small>
                   </div>
                   <div className="monitor-card-price">
                     <b>{num(row.Close, 3)}</b>
@@ -501,44 +481,90 @@ export default function MonitorPanel({
                   </div>
                 </header>
 
-                <div className="monitor-card-metrics">
-                  <span>1D: <b style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</b></span>
-                  <span>5D: <b style={{ color: pctColor(row.PCTV_5D) }}>{pct(row.PCTV_5D)}</b></span>
-                  <span>10D: <b style={{ color: pctColor(row.PCTV_10D) }}>{pct(row.PCTV_10D)}</b></span>
-                  <span>30D: <b style={{ color: pctColor(row.PCTV_30D) }}>{pct(row.PCTV_30D)}</b></span>
-                  <span>180D: <b style={{ color: pctColor(row.PCTV_180D) }}>{pct(row.PCTV_180D)}</b></span>
-                  <span>TECH: <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b></span>
-                  <span>S2: <b>{num(row.Pattern_S2_Days_Ago, 0)}d</b></span>
-                  <span>S3: <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b></span>
-                  <span>S3_Pat: <b>{num(row.Pattern_S3_Days_Ago, 0)}d</b></span>
-                  <span>SARMA: <b style={{ color: (toNum(row.SIG_MA_SAR) ?? 0) >= 0 ? "#22c55e" : "#ff4d5a" }}>{num(row.SIG_MA_SAR, 0)}</b></span>
-                  <span>RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b></span>
-                  <span>ADX: <b style={{ color: techColor(row.ADX) }}>{num(row.ADX, 1)}</b></span>
-                  <span>DI+: <b style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</b></span>
-                  <span>DI-: <b style={{ color: "#ff4d5a" }}>{num(row.MINUS_DI, 1)}</b></span>
-                  <span>willR: <b style={{ color: s3Color(row.Williams_R) }}>{num(row.Williams_R, 0)}</b></span>
-                  <span>Sk: <b>{num(row.Stoch_K, 0)}</b></span>
-                  <span>Sd: <b>{num(row.Stoch_D, 0)}</b></span>
-                  <span>Alligator: <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")} {row.Signal6_Trend_Days !== undefined ? `(${row.Signal6_Trend_Days}d)` : ""}</b></span>
-                  <span>LIQ: <b style={{ color: String(row.Liquidity ?? "").toUpperCase() === "OK" ? "#22c55e" : "#ff4d5a" }}>{String(row.Liquidity ?? "-")}</b></span>
+                {/* Riga decisionale: segnale, fase e nota in evidenza */}
+                <div className="monitor-card-signal">
+                  <span
+                    className={`pill ${entrySignalClass(entry)}`}
+                    title="Indicazione d'ingresso: sintesi di azione operativa, stato di mercato e liquidità"
+                  >
+                    {entry === "ENTRA" ? "✓ ENTRA" : entry === "OSSERVA" ? "◉ OSSERVA" : entry === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}
+                  </span>
+                  <span className="monitor-phase" title="Stato di mercato calcolato dal trading state">
+                    {phase}{detail && detail !== phase && phase.toUpperCase() !== "LATERALE" ? ` · ${detail}` : ""}
+                  </span>
+                  <span className="monitor-liq" title="Liquidità del titolo (OK / LOW / AVOID)">
+                    LIQ <b className={String(row.Liquidity ?? "").toUpperCase() === "OK" ? "good" : "bad"}>{String(row.Liquidity ?? "-")}</b>
+                  </span>
+                </div>
+                {note ? <p className="monitor-note">📝 {note}</p> : null}
+
+                {/* Metriche raggruppate per uso: livelli in tono neutro, solo i
+                    giudizi (variazioni, direzione) hanno colore semantico. */}
+                <div className="monitor-groups">
+                  <div className="monitor-group">
+                    <span className="monitor-group-title">Trend</span>
+                    <div className="monitor-metrics">
+                      <span>ADX <b>{num(row.ADX, 1)}</b></span>
+                      <span>DI+ <b className="good">{num(row.PLUS_DI, 1)}</b></span>
+                      <span>DI− <b className="bad">{num(row.MINUS_DI, 1)}</b></span>
+                      <span>SARMA <b className={(toNum(row.SIG_MA_SAR) ?? 0) >= 0 ? "good" : "bad"}>{num(row.SIG_MA_SAR, 0)}</b></span>
+                      <span>Alligator <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")}{row.Signal6_Trend_Days !== undefined ? ` (${row.Signal6_Trend_Days}g)` : ""}</b></span>
+                    </div>
+                  </div>
+
+                  <div className="monitor-group">
+                    <span className="monitor-group-title">Momentum</span>
+                    <div className="monitor-metrics">
+                      <span>RSI <b>{num(row.RSI, 0)}</b></span>
+                      <span>Stoch <b>{num(row.Stoch_K, 0)}/{num(row.Stoch_D, 0)}</b></span>
+                      <span>willR <b>{num(row.Williams_R, 0)}</b></span>
+                      <span>MACD <b className={s3Color(row.MACD_vs_Signal)}>{num(row.MACD, 3)}</b></span>
+                      <span title="Striscia MACD sopra/sotto il segnale">MACD−Signal <b className={s3Color(row.MACD_vs_Signal)}>{num(row.MACD_vs_Signal, 0)}</b></span>
+                    </div>
+                  </div>
+
+                  <div className="monitor-group">
+                    <span className="monitor-group-title">Performance e contesto</span>
+                    <div className="monitor-metrics">
+                      <span>1D <b style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</b></span>
+                      <span>5D <b style={{ color: pctColor(row.PCTV_5D) }}>{pct(row.PCTV_5D)}</b></span>
+                      <span>10D <b style={{ color: pctColor(row.PCTV_10D) }}>{pct(row.PCTV_10D)}</b></span>
+                      <span>30D <b style={{ color: pctColor(row.PCTV_30D) }}>{pct(row.PCTV_30D)}</b></span>
+                      <span>180D <b style={{ color: pctColor(row.PCTV_180D) }}>{pct(row.PCTV_180D)}</b></span>
+                      <span>TECH <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b></span>
+                      <span>VOL <b>{fmtVol(row.Volume)}</b></span>
+                    </div>
+                  </div>
+
+                  <div className="monitor-group">
+                    <span className="monitor-group-title">Pattern</span>
+                    <div className="monitor-metrics">
+                      <span>S2 <b>{num(row.Pattern_S2_Days_Ago, 0)}g</b></span>
+                      <span title="Sedute trascorse dall'ultimo pattern S3">S3 <b>{num(row.Pattern_S3_Days_Ago, 0)}g fa</b></span>
+                      <span>S4 <b>{num(row.Pattern_S4_Days_Ago, 0)}g</b></span>
+                      <span>S8 <b>{num(row.Pattern_S8_Days_Ago, 0)}g</b></span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="monitor-card-context">
-                  <span className={`pill ${entrySignalClass(entry)}`}>{entry === "ENTRA" ? "✓ ENTRA" : entry === "OSSERVA" ? "◉ OSSERVA" : entry === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}</span>
-                  <p>Contesto tecnico: <b>{phase}</b>{detail && detail !== phase ? ` · ${detail}` : ""}</p>
-                  {row.Entry_Reason ? <p>{String(row.Entry_Reason)}</p> : null}
-                  <p>VOL: {fmtVol(row.Volume)}</p>
-                  {note ? <p className="monitor-note">Nota: {note}</p> : null}
-                </div>
-
+                {/* Azioni: una primaria, il resto nel menu per non rubare la scena */}
                 <div className="monitor-card-actions">
                   <button type="button" className="btn primary" onClick={(e) => { e.stopPropagation(); onChart(row); }}>Grafico</button>
-                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onAi(row); }}>AI</button>
-                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onNews(tk); }}>News</button>
-                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); onOpenNoteModal(row); }}>Dettagli</button>
-                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); openAlertBox(row); }}>Alert</button>
+                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); setActionsFor(actionsFor === `${src}-${tk}` ? null : `${src}-${tk}`); }}>
+                    ⋯ Altro
+                  </button>
                   <button type="button" className="btn ghost danger" onClick={(e) => { e.stopPropagation(); onRemoveMonitor(tk, src); }}>Rimuovi</button>
                 </div>
+                {actionsFor === `${src}-${tk}` ? (
+                  <div className="monitor-card-more">
+                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onAi(row); }}>AI</button>
+                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onNews(tk); }}>News</button>
+                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onOpenNoteModal(row); }}>Dettagli</button>
+                    <button type="button" className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"} onClick={() => { setActionsFor(null); openAlertBox(row); }}>
+                      {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
+                    </button>
+                  </div>
+                ) : null}
               </article>
             );
           })}

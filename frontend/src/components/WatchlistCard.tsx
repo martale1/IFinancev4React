@@ -197,6 +197,12 @@ function entrySignalClass(signal: string): string {
   return "action-wait";
 }
 
+/**
+ * Ripiego usato solo se il backend non fornisce `Entry_Signal` (righe dello
+ * scanner realtime). La logica vera sta in `four_axes.indication_from_axes`;
+ * qui si riconoscono sia le fasi nuove sia i nomi storici, per non rompere
+ * dati vecchi.
+ */
 function deriveEntrySignal(row: WatchlistRow): "ENTRA" | "OSSERVA" | "ATTENDI" | "EVITA" {
   const supplied = String(row.Entry_Signal ?? "").trim().toUpperCase();
   if (["ENTRA", "OSSERVA", "ATTENDI", "EVITA"].includes(supplied)) {
@@ -210,7 +216,7 @@ function deriveEntrySignal(row: WatchlistRow): "ENTRA" | "OSSERVA" | "ATTENDI" |
   const invalidated = toBool(row.Pullback_Invalidation) === true;
   const risk =
     ["SELL", "EXIT", "AVOID"].includes(action) ||
-    ["DOWNTREND", "REVERSAL_RISK"].includes(phase) ||
+    ["DOWNTREND", "REVERSAL_RISK", "RIBASSO"].includes(phase) ||
     ["PULLBACK_RISKY", "REVERSAL_RISK", "DOWNTREND"].includes(detail) ||
     invalidated ||
     liquidity === "AVOID";
@@ -219,18 +225,10 @@ function deriveEntrySignal(row: WatchlistRow): "ENTRA" | "OSSERVA" | "ATTENDI" |
   if (action === "BUY" && liquidity === "OK") return "ENTRA";
   if (
     liquidity === "OK" &&
-    (action === "ADD" || ["EARLY_TREND", "EXPANSION", "BREAKOUT_FRESH", "PULLBACK_HEALTHY", "PULLBACK_NORMAL"].includes(detail))
+    (action === "ADD" ||
+      ["EARLY_TREND", "EXPANSION", "BREAKOUT_FRESH", "PULLBACK_HEALTHY", "PULLBACK_NORMAL", "RIPRESA", "TENDENZA"].includes(detail))
   ) return "OSSERVA";
   return "ATTENDI";
-}
-
-function phaseClass(phase: string): string {
-  const p = phase.trim().toUpperCase();
-  if (p === "UPTREND" || p === "BREAKOUT") return "phase-bull";
-  if (p === "PULLBACK") return "phase-pullback";
-  if (p === "DOWNTREND" || p === "REVERSAL_RISK") return "phase-bear";
-  if (p === "RANGE") return "phase-range";
-  return "phase-default";
 }
 
 function detailLabel(detail: string): string {
@@ -441,6 +439,7 @@ export default function WatchlistCard({
   const trendPhaseDetail = String(row.Trend_Phase_Detail ?? "").trim();
   const entrySignal = deriveEntrySignal(row);
   const entryReason = String(row.Entry_Reason ?? "").trim();
+  const missingForEntry = String(row.Entry_Missing ?? "").trim();
 
   const buyChecks = buyChecklist(row);
   const sellChecks = sellChecklist(row);
@@ -449,22 +448,23 @@ export default function WatchlistCard({
   const actionU = action.trim().toUpperCase();
   const phaseU = phase.trim().toUpperCase();
   const trendPhaseDetailU = trendPhaseDetail.toUpperCase();
+  // Il dettaglio si mostra solo se aggiunge informazione rispetto alla fase:
+  // per LATERALE il dettaglio è "RANGE" e ripeterlo era solo rumore.
+  const detailLabelU = detailLabel(trendPhaseDetail);
   const showTrendPhaseDetail =
     Boolean(trendPhaseDetailU) &&
-    trendPhaseDetailU !== phaseU &&
-    ["BREAKOUT", "PULLBACK", "UPTREND"].includes(phaseU);
+    detailLabelU !== phaseU &&
+    ["BREAKOUT", "PULLBACK", "UPTREND", "TENDENZA", "RIPRESA"].includes(phaseU);
 
   const close = toNum(row.Close);
   const sarma = toNum(row.SIG_MA_SAR);
   const stochK = toNum(row.Stoch_K);
   const stochD = toNum(row.Stoch_D);
-  const stochColor = stochK !== null && stochD !== null && stochK > stochD ? "#22c55e" : "#ef4444";
   const adx    = toNum(row.ADX);
   const plusDI  = toNum(row.PLUS_DI);
   const minusDI = toNum(row.MINUS_DI);
   const macdVsSignal = toNum(row.MACD_vs_Signal);
   const willR = toNum(row.Williams_R);
-  const willRColor = willR !== null && willR >= -80 ? "#22c55e" : "#ef4444";
   const sl1 = toNum(row.Trend_Stop_Level);
   const sl2 = toNum(row.CE_Long);
   const sar = toNum(row.SAR);
@@ -593,9 +593,8 @@ export default function WatchlistCard({
         <div>
           <div className="ticker">{ticker}</div>
           <div className="name">{String(row.Name ?? "-")}</div>
-          <div className="quote-date" title="Data della seduta contenuta nell’Excel, distinta dalla data di modifica del file. Non è una quotazione in tempo reale.">
-            Dato al {row.Date ? (row.Date instanceof Date ? row.Date.toISOString().slice(0, 10) : String(row.Date).slice(0, 10)) : "non disponibile"} · da analisi
-          </div>
+          {/* La data della seduta è mostrata una volta sola in cima alla pagina
+              (Last update): ripeterla in ogni card non aggiungeva informazione. */}
           {insufficientHistory ? (
             <div className="data-quality-warning" title="Il provider ha restituito poche sedute storiche: gli indicatori tecnici e le variazioni multi-giorno non sono affidabili.">
               Storico insufficiente{historyRows !== null ? ` · ${num(historyRows, 0)} barre` : ""}
@@ -609,89 +608,97 @@ export default function WatchlistCard({
           </span>
         </div>
       </div>
-      <div className="row">
-        <span>
-          1D: <b style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</b>
-        </span>
-        <span>
-          5D: <b style={{ color: pctColor(row.PCTV_5D) }}>{pct(row.PCTV_5D)}</b>
-        </span>
-        <span>
-          10D: <b style={{ color: pctColor(row.PCTV_10D) }}>{pct(row.PCTV_10D)}</b>
-        </span>
-        <span>
-          30D: <b style={{ color: pctColor(row.PCTV_30D) }}>{pct(row.PCTV_30D)}</b>
-        </span>
-        <span>
-          180D: <b style={{ color: pctColor(row.PCTV_180D) }}>{pct(row.PCTV_180D)}</b>
-        </span>
-        <span>
-          TECH: <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b>
-        </span>
-        {toNum(row.Pattern_S2_Days_Ago) !== null && (
-          <span>
-            S2: <b style={{ color: toNum(row.Pattern_S2_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S2_Days_Ago, 0)}d</b>
-          </span>
-        )}
-        <span>
-          S3: <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b>
-        </span>
-        {toNum(row.Pattern_S3_Days_Ago) !== null && (
-          <span>
-            S3_Pat: <b style={{ color: toNum(row.Pattern_S3_Days_Ago) === 0 ? "#22c55e" : "#9fb7cf" }}>{num(row.Pattern_S3_Days_Ago, 0)}d</b>
-          </span>
-        )}
-        <span>
-          SARMA: <b style={{ color: sarma !== null && sarma >= 0 ? "#22c55e" : "#ef4444" }}>{sarma !== null ? num(sarma, 0) : "-"}</b>
-        </span>
-        <span>
-          RSI: <b style={{ color: techColor(row.RSI) }}>{num(row.RSI, 0)}</b>
-        </span>
-        <span>
-          ADX: <b style={{ color: techColor(row.ADX) }}>{num(row.ADX, 1)}</b>
-        </span>
-        <span>
-          DI+: <b style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</b>
-        </span>
-        <span>
-          DI−: <b style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</b>
-        </span>
-        <span>
-          willR: <b style={{ color: willRColor }}>{num(row.Williams_R, 0)}</b>
-        </span>
-        <span>
-          Sk: <b style={{ color: stochColor }}>{num(stochK, 0)}</b>
-        </span>
-        <span>
-          Sd: <b style={{ color: stochColor }}>{num(stochD, 0)}</b>
-        </span>
-        <span>
-          Alligator: <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")} {row.Signal6_Trend_Days !== undefined ? `(${row.Signal6_Trend_Days}d)` : ""}</b>
-        </span>
-        <span>
-          LIQ: <b style={{ color: String(row.Liquidity ?? "").trim().toUpperCase() === "OK" ? "#22c55e" : "#ef4444" }}>{String(row.Liquidity ?? "-")}</b>
-        </span>
-      </div>
-      {insufficientHistory ? (
-        <div className="row data-quality-note">
-          Dati limitati dal provider: grafico e statistiche tecniche disponibili solo sull'ultima/e seduta/e scaricata/e.
-        </div>
-      ) : null}
-      <div className="pill-row">
-        <span className={`pill ${entrySignalClass(entrySignal)}`} title={entryReason}>
+      {/* Riga decisionale: segnale, fase e liquidità subito visibili */}
+      <div className="monitor-card-signal">
+        <span
+          className={`pill ${entrySignalClass(entrySignal)}`}
+          title={`${entryReason || "Indicazione d'ingresso"} — sintesi di azione operativa, stato di mercato e liquidità`}
+        >
           {entrySignal === "ENTRA" ? "✓ ENTRA" : entrySignal === "OSSERVA" ? "◉ OSSERVA" : entrySignal === "EVITA" ? "✕ EVITA" : "○ ATTENDI"}
         </span>
-        {row.Pattern_Type && (
+        <span className="monitor-phase" title="Stato di mercato calcolato dal trading state (BREAKOUT, UPTREND, PULLBACK, RANGE, DOWNTREND, REVERSAL_RISK)">
+          {phase}{showTrendPhaseDetail ? ` · ${detailLabel(trendPhaseDetail)}` : ""}
+        </span>
+        {row.Pattern_Type ? (
           <span className="pill" style={{ backgroundColor: "rgba(167, 139, 250, 0.2)", color: "#c084fc", border: "1px solid rgba(167, 139, 250, 0.4)", fontWeight: "bold" }}>
             🧪 {String(row.Pattern_Type)}{Number(row.Pattern_Days_Ago) > 0 ? " recente" : ""} ({row.Pattern_Days_Ago === 0 ? "Oggi" : row.Pattern_Days_Ago === 1 ? "Ieri" : `${row.Pattern_Days_Ago}d fa`})
           </span>
-        )}
+        ) : null}
+        <span className="monitor-liq" title="Liquidità del titolo (OK / LOW / AVOID): con AVOID il titolo è escluso dalle indicazioni operative">
+          LIQ <b className={String(row.Liquidity ?? "").trim().toUpperCase() === "OK" ? "good" : "bad"}>{String(row.Liquidity ?? "-")}</b>
+        </span>
       </div>
-      <div className="row muted">
-        Contesto tecnico: <b className={phaseClass(phase)}>{phase}</b>
-        {showTrendPhaseDetail ? <> · {detailLabel(trendPhaseDetail)}</> : null}
-        {entryReason ? <> · {entryReason}</> : null}
+
+      {/* Metriche raggruppate per uso. I primi due gruppi sono i quattro assi
+          (direzione, forza, momento, rischio), poi performance e contesto. */}
+      <div className="monitor-groups">
+        <div className="monitor-group">
+          <span className="monitor-group-title">Trend</span>
+          <div className="monitor-metrics">
+            <span>Direzione <b className={row.Direzione_Trend === "SU" ? "good" : row.Direzione_Trend === "GIU" ? "bad" : ""}>{String(row.Direzione_Trend ?? "-")}</b></span>
+            <span>Forza <b className={row.Forza_Trend === "FORTE_SU" ? "good" : row.Forza_Trend === "FORTE_GIU" ? "bad" : ""}>{String(row.Forza_Trend ?? "-").replace("FORTE_", "")}</b></span>
+            <span>ADX <b>{num(row.ADX, 1)}</b></span>
+            <span>DI+ <b className="good">{num(row.PLUS_DI, 1)}</b></span>
+            <span>DI− <b className="bad">{num(row.MINUS_DI, 1)}</b></span>
+            <span>SARMA <b className={sarma !== null && sarma >= 0 ? "good" : "bad"}>{sarma !== null ? num(sarma, 0) : "-"}</b></span>
+          </div>
+        </div>
+
+        <div className="monitor-group">
+          <span className="monitor-group-title">Momentum</span>
+          <div className="monitor-metrics">
+            <span>Momento <b className={row.Momento_Trend === "CRESCENTE" ? "good" : row.Momento_Trend === "CALANTE" ? "bad" : ""}>{String(row.Momento_Trend ?? "-")}</b></span>
+            <span>RSI <b>{num(row.RSI, 0)}</b></span>
+            <span>Stoch <b>{num(stochK, 0)}/{num(stochD, 0)}</b></span>
+            <span>willR <b>{num(row.Williams_R, 0)}</b></span>
+            <span>MACD−Signal <b className={s3Color(row.MACD_vs_Signal)}>{num(row.MACD_vs_Signal, 0)}</b></span>
+          </div>
+        </div>
+
+        <div className="monitor-group">
+          <span className="monitor-group-title">Performance</span>
+          <div className="monitor-metrics">
+            <span>1D <b style={{ color: pctColor(row.PCTV_1D) }}>{pct(row.PCTV_1D)}</b></span>
+            <span>5D <b style={{ color: pctColor(row.PCTV_5D) }}>{pct(row.PCTV_5D)}</b></span>
+            <span>10D <b style={{ color: pctColor(row.PCTV_10D) }}>{pct(row.PCTV_10D)}</b></span>
+            <span>30D <b style={{ color: pctColor(row.PCTV_30D) }}>{pct(row.PCTV_30D)}</b></span>
+            <span>180D <b style={{ color: pctColor(row.PCTV_180D) }}>{pct(row.PCTV_180D)}</b></span>
+            <span title="Somma visibile dei quattro assi: 50 = nessuna convinzione, nessun rischio">TECH <b style={{ color: techColor(row.TECH_SCORE) }}>{num(row.TECH_SCORE, 0)}</b></span>
+            <span>VOL <b>{fmtVol(row.Volume)}</b></span>
+          </div>
+        </div>
+
+        <div className="monitor-group">
+          <span className="monitor-group-title">Contesto</span>
+          <div className="monitor-metrics">
+            <span>Rischio <b className={row.Rischio_Trend === "NORMALE" ? "good" : row.Rischio_Trend === "ESTREMO" ? "bad" : ""}>{String(row.Rischio_Trend ?? "-")}</b></span>
+            <span title="Fase derivata dagli assi: TENDENZA, RIPRESA, LATERALE, RIBASSO">{String(row.Market_Phase ?? "-")}</span>
+            <span title="Stato dell'Alligator di Bill Williams: usato dai pattern S7, non dagli assi">Alligator <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")}{row.Signal6_Trend_Days !== undefined ? ` (${row.Signal6_Trend_Days}g)` : ""}</b></span>
+            {toNum(row.Pattern_S2_Days_Ago) !== null && (
+              <span>S2 <b className={toNum(row.Pattern_S2_Days_Ago) === 0 ? "good" : ""}>{num(row.Pattern_S2_Days_Ago, 0)}g</b></span>
+            )}
+            {toNum(row.Pattern_S3_Days_Ago) !== null && (
+              <span title="Sedute trascorse dall'ultimo pattern S3">S3 <b className={toNum(row.Pattern_S3_Days_Ago) === 0 ? "good" : ""}>{num(row.Pattern_S3_Days_Ago, 0)}g fa</b></span>
+            )}
+            {toNum(row.Pattern_S8_Days_Ago) !== null && (
+              <span>S8 <b className={toNum(row.Pattern_S8_Days_Ago) === 0 ? "good" : ""}>{num(row.Pattern_S8_Days_Ago, 0)}g</b></span>
+            )}
+          </div>
+        </div>
       </div>
+      {/* Cosa manca per il trigger d'ingresso: calcolato nel backend, qui solo
+          mostrato, così non esistono due versioni delle stesse soglie. */}
+      {missingForEntry ? (
+        <div className="monitor-note" title="Condizioni del trigger di acquisto non ancora soddisfatte, con il valore attuale">
+          🎯 {missingForEntry}
+        </div>
+      ) : null}
+      {/* La riga generica del backend si mostra solo se non c'è una diagnosi
+          specifica: altrimenti direbbe la stessa cosa in modo più vago. */}
+      {entryReason && !missingForEntry ? <div className="row muted">{entryReason}</div> : null}
+      {insufficientHistory ? (
+        <div className="monitor-note">⚠ Dati limitati dal provider: grafico e statistiche tecniche solo sull'ultima seduta scaricata.</div>
+      ) : null}
       {showOperationalConfirmation ? (
         <details
           style={{
@@ -704,9 +711,13 @@ export default function WatchlistCard({
           }}
         >
           <summary style={{ padding: "0.4rem 0.55rem", color: "#93c5fd", fontWeight: 700, cursor: "pointer" }}>
-            Conferma operativa
+            Contesto tecnico (indipendente dal segnale)
           </summary>
           <div style={{ padding: "0 0.55rem 0.5rem" }}>
+            <div className="muted" style={{ marginBottom: "0.3rem" }}>
+              Tre letture di contesto, con soglie proprie: non sono le condizioni che
+              determinano il segnale qui sopra.
+            </div>
             <div style={{ color: trendConfirmed ? "#4ade80" : "#fbbf24" }}>
               {trendConfirmed ? "✓" : "○"} Trend: SAR &lt; prezzo + Alligator rialzista
             </div>
@@ -718,8 +729,8 @@ export default function WatchlistCard({
             </div>
             <div className="muted" style={{ marginTop: "0.2rem" }}>
               {trendConfirmed && momentumConfirmed && strengthConfirmed
-                ? "Conferme tecniche complete: valutare ingresso, livelli e rischio."
-                : "Attendere che le condizioni mancanti diventino verdi."}
+                ? "Contesto tecnico coerente su tutti e tre i fronti."
+                : "Contesto non ancora allineato: le voci in giallo restano da confermare."}
             </div>
           </div>
         </details>
