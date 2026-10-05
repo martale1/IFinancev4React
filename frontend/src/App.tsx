@@ -236,9 +236,11 @@ export default function App() {
     },
   });
   const [minVolume, setMinVolume] = useState(2000);
-  const [entrySignalFilter, setEntrySignalFilter] = useState("");
-  const [marketPhaseFilter, setMarketPhaseFilter] = useState("");
-  const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState("");
+  // I filtri si possono passare da URL (?entry_signal=ENTRA&market_phase=LATERALE):
+  // servono per i link condivisibili e per verificare i conteggi delle tessere.
+  const [entrySignalFilter, setEntrySignalFilter] = useState(() => urlParams.get("entry_signal") || "");
+  const [marketPhaseFilter, setMarketPhaseFilter] = useState(() => urlParams.get("market_phase") || "");
+  const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState(() => urlParams.get("trend_detail") || "");
   const [showStateFilters, setShowStateFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
@@ -472,6 +474,34 @@ export default function App() {
     refetchInterval: 60_000,
     enabled: tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
   });
+
+  /**
+   * Highlights fotografa il MERCATO, non il sottoinsieme filtrato: le sue tessere
+   * (fase, indicazione, pattern, migliori/peggiori del giorno) devono contare tutti
+   * i titoli. Con un filtro attivo, altrimenti, mostrerebbero "0 LATERALE" mentre
+   * i laterali sono 21. Le tessere restano cliccabili: applicano il filtro sulla
+   * tab All.
+   */
+  const highlightsFullQuery = useQuery({
+    queryKey: ["watchlist", market, "All", minVolume, "", "", "", 1, 500, rankN, sortKey, sortDir],
+    queryFn: () => fetchWatchlist({
+      market,
+      tab: "All",
+      search: "",
+      minVolume,
+      entrySignal: "",
+      marketPhase: "",
+      trendPhaseDetail: "",
+      page: 1,
+      pageSize: 500,
+      rankN,
+      sortKey,
+      sortDir
+    }),
+    enabled: tab === "📊 Highlights",
+  });
+  const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
+  const highlightsAreFiltered = Boolean(entrySignalFilter || marketPhaseFilter || effectiveTrendPhaseDetailFilter);
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
     queryFn: () => fetchWatchlist({
@@ -1256,19 +1286,24 @@ export default function App() {
         onChart={openChart}
         onAi={openTickerAi}
       /> : null}
-      {tab === "📊 Highlights" && watchlistQuery.data ? <section className="highlights-panel">
+      {tab === "📊 Highlights" && highlightsItems.length ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
         <p className="muted">
           La fotografia del mercato: quante fasi, quante indicazioni, e i titoli su cui vale la pena guardare.
           <br />
           <small>Fase = dove sta andando il titolo (può essere TENDENZA e comunque non essere da comprare) · Indicazione = cosa fare, valutando anche rischio e liquidità.</small>
         </p>
+        {highlightsAreFiltered ? (
+          <p className="highlights-note">
+            ⓘ Questi numeri riguardano <b>tutto il mercato</b>, non i filtri attivi. Cliccando una tessera il filtro viene applicato nella tab All.
+          </p>
+        ) : null}
         <div className="highlights-split">
           <section className="highlights-block">
             <h3>Fase di mercato <small>— clicca per filtrare</small></h3>
             <div className="highlights-grid">
               {marketPhaseOptions.map((phase) => {
-                const n = countBy(watchlistQuery.data!.items, (r) => String(r.Market_Phase ?? "").toUpperCase() === phase);
+                const n = countBy(highlightsItems, (r) => String(r.Market_Phase ?? "").toUpperCase() === phase);
                 return (
                   <button
                     type="button"
@@ -1282,8 +1317,8 @@ export default function App() {
                   </button>
                 );
               })}
-              <div className="highlight-tile"><strong>{countBy(watchlistQuery.data!.items, isOperational)}</strong><span>in fase operativa</span></div>
-              <div className="highlight-tile"><strong>{countBy(watchlistQuery.data!.items, (r) => String(r.Direzione_Trend ?? "") === "SU")}</strong><span>Direzione SU</span></div>
+              <div className="highlight-tile"><strong>{countBy(highlightsItems, isOperational)}</strong><span>in fase operativa</span></div>
+              <div className="highlight-tile"><strong>{countBy(highlightsItems, (r) => String(r.Direzione_Trend ?? "") === "SU")}</strong><span>Direzione SU</span></div>
             </div>
           </section>
 
@@ -1291,7 +1326,7 @@ export default function App() {
             <h3>Indicazione operativa <small>— clicca per filtrare</small></h3>
             <div className="highlights-grid">
               {entrySignalOptions.map((signal) => {
-                const n = countBy(watchlistQuery.data!.items, (r) => String(r.Entry_Signal ?? "ATTENDI").toUpperCase() === signal);
+                const n = countBy(highlightsItems, (r) => String(r.Entry_Signal ?? "ATTENDI").toUpperCase() === signal);
                 return (
                   <button
                     type="button"
@@ -1305,8 +1340,8 @@ export default function App() {
                   </button>
                 );
               })}
-              <div className="highlight-tile"><strong>{countBy(watchlistQuery.data!.items, (r) => String(r.Momento_Trend ?? "") === "CRESCENTE")}</strong><span>Momento cresc.</span></div>
-              <div className="highlight-tile"><strong>{countBy(watchlistQuery.data!.items, (r) => String(r.Rischio_Trend ?? "") !== "NORMALE")}</strong><span>Tesi o estremi</span></div>
+              <div className="highlight-tile"><strong>{countBy(highlightsItems, (r) => String(r.Momento_Trend ?? "") === "CRESCENTE")}</strong><span>Momento cresc.</span></div>
+              <div className="highlight-tile"><strong>{countBy(highlightsItems, (r) => String(r.Rischio_Trend ?? "") !== "NORMALE")}</strong><span>Tesi o estremi</span></div>
             </div>
           </section>
 
@@ -1314,8 +1349,8 @@ export default function App() {
             <h3>Pattern <small>— oggi / entro 5 sedute</small></h3>
             <div className="highlights-grid">
               {(["S2", "S3", "S4", "S8"] as const).map((pattern) => {
-                const oggi = countBy(watchlistQuery.data!.items, (r) => hasPattern(r, pattern));
-                const recenti = countBy(watchlistQuery.data!.items, (r) => hasRecentPattern(r, pattern, 5));
+                const oggi = countBy(highlightsItems, (r) => hasPattern(r, pattern));
+                const recenti = countBy(highlightsItems, (r) => hasRecentPattern(r, pattern, 5));
                 return (
                   <div className="highlight-tile" key={pattern} title={`${pattern}: ${oggi} oggi, ${recenti} entro 5 sedute`}>
                     <strong>{oggi}<small className="tile-sub">/{recenti}</small></strong>
@@ -1327,7 +1362,7 @@ export default function App() {
           </section>
         </div>
 
-        <div className="highlights-list"><h3>Titoli in evidenza <small>— prima le indicazioni, poi la forza della fase</small></h3>{[...watchlistQuery.data!.items]
+        <div className="highlights-list"><h3>Titoli in evidenza <small>— prima le indicazioni, poi la forza della fase</small></h3>{[...highlightsItems]
           .filter((row) => String(row.Entry_Signal ?? "").toUpperCase() !== "EVITA")
           .sort((a, b) => {
             const priorita = (row: WatchlistRow) => {
@@ -1349,7 +1384,7 @@ export default function App() {
               <em>{signal}</em>
             </button>;
           })}</div>
-        <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...watchlistQuery.data!.items].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
+        <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...highlightsItems].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...highlightsItems].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
       </section> : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
