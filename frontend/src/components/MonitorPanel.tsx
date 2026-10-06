@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
-import { AxisTiles, type AxisTileSelection } from "./AxisTiles";
+import { AxisTiles } from "./AxisTiles";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -9,7 +9,7 @@ type QuickAlertConfig = {
   value: number | string | null;
 };
 
-type MonitorView = "cards" | "table";
+type MonitorView = "cards" | "table" | "list";
 
 /** Tabella del monitor: colonne allineate a quelle usate per il tab All. */
 function MonitorTable({
@@ -229,9 +229,16 @@ export default function MonitorPanel({
   // Nella vista Schede le azioni secondarie stanno in un menu: qui memorizzo
   // quale card lo ha aperto (chiave mercato-ticker).
   const [actionsFor, setActionsFor] = useState<string | null>(null);
-  const [view, setView] = useState<MonitorView>(() =>
-    window.localStorage.getItem("ifinance-monitor-view") === "table" ? "table" : "cards"
-  );
+  const [view, setView] = useState<MonitorView>(() => {
+    // La scelta salvata vince sempre; se non c'e', sul telefono parte la lista
+    // densa (misurata: 47 px per riga contro 385 di una scheda, 18 righe per
+    // schermata contro 2,2) e sul PC restano le schede.
+    const salvata = window.localStorage.getItem("ifinance-monitor-view");
+    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    const telefono = typeof window.matchMedia === "function"
+      && window.matchMedia("(max-width: 700px)").matches;
+    return telefono ? "list" : "cards";
+  });
 
   function changeView(next: MonitorView) {
     setView(next);
@@ -244,13 +251,20 @@ export default function MonitorPanel({
    * Filtro a tessera, sullo stesso principio di Highlights: i conteggi riguardano
    * sempre TUTTI i titoli monitorati, mentre il clic restringe l'elenco mostrato.
    */
-  const [tileFilter, setTileFilter] = useState<AxisTileSelection | null>(null);
+  // I filtri includono sia le tessere degli assi (fase/indicazione/rischio)
+  // sia i contatori dell'intestazione (entra/osserva/note).
+  const [tileFilter, setTileFilter] = useState<{ kind: string; value: string } | null>(null);
 
   const matchesTile = (row: WatchlistRow): boolean => {
     if (!tileFilter) return true;
     if (tileFilter.kind === "fase") return String(row.Market_Phase ?? "").toUpperCase() === tileFilter.value;
     if (tileFilter.kind === "indicazione") return String(row.Entry_Signal ?? "ATTENDI").toUpperCase() === tileFilter.value;
     if (tileFilter.kind === "rischio") return String(row.Rischio_Trend ?? "").toUpperCase() === tileFilter.value;
+    // Filtri dei contatori in testa: isolano in un tocco i titoli su cui c'e'
+    // qualcosa da fare, senza scorrere tutto l'elenco monitorato.
+    if (tileFilter.kind === "entra") return String(row.Entry_Signal ?? "").toUpperCase() === "ENTRA";
+    if (tileFilter.kind === "osserva") return String(row.Entry_Signal ?? "").toUpperCase() === "OSSERVA";
+    if (tileFilter.kind === "note") return String(row.Monitor_Note ?? "").trim().length > 0;
     return true;
   };
 
@@ -348,11 +362,44 @@ export default function MonitorPanel({
           <h2>🎯 Titoli in Monitoraggio Attivo</h2>
           <p className="muted">Nota operativa e segnali aggiornati in tempo reale.</p>
         </div>
-        <div className="monitor-header-kpis">
-          <span className="monitor-kpi"><b>{totalCount}</b> monitorati</span>
-          <span className={`monitor-kpi ${entraCount ? "kpi-enter" : ""}`}><b>{entraCount}</b> entra</span>
-          <span className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""}`}><b>{osservaCount}</b> osserva</span>
-          <span className="monitor-kpi"><b>{withNotesCount}</b> con note</span>
+          {/* Contatori cliccabili: toccandoli si isola quel gruppo di titoli,
+              cosi' si arriva subito a quello che interessa. */}
+          <div className="monitor-header-kpis">
+            <button
+              type="button"
+              className={`monitor-kpi ${!tileFilter ? "active" : ""}`}
+              onClick={() => setTileFilter(null)}
+              title="Mostra tutti i titoli monitorati"
+            >
+              <b>{totalCount}</b> monitorati
+            </button>
+            <button
+              type="button"
+              className={`monitor-kpi ${entraCount ? "kpi-enter" : ""} ${tileFilter?.kind === "entra" ? "active" : ""}`}
+              disabled={!entraCount}
+              onClick={() => setTileFilter((c) => (c?.kind === "entra" ? null : { kind: "entra", value: "ENTRA" }))}
+              title="Mostra solo i titoli con indicazione ENTRA"
+            >
+              <b>{entraCount}</b> entra
+            </button>
+            <button
+              type="button"
+              className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""} ${tileFilter?.kind === "osserva" ? "active" : ""}`}
+              disabled={!osservaCount}
+              onClick={() => setTileFilter((c) => (c?.kind === "osserva" ? null : { kind: "osserva", value: "OSSERVA" }))}
+              title="Mostra solo i titoli con indicazione OSSERVA"
+            >
+              <b>{osservaCount}</b> osserva
+            </button>
+            <button
+              type="button"
+              className={`monitor-kpi ${tileFilter?.kind === "note" ? "active" : ""}`}
+              disabled={!withNotesCount}
+              onClick={() => setTileFilter((c) => (c?.kind === "note" ? null : { kind: "note", value: "note" }))}
+              title="Mostra solo i titoli con una nota"
+            >
+              <b>{withNotesCount}</b> con note
+            </button>
         </div>
       </div>
 
@@ -361,7 +408,7 @@ export default function MonitorPanel({
           tutti i titoli monitorati; il clic restringe l'elenco. */}
       <AxisTiles
         items={items}
-        active={tileFilter}
+        active={tileFilter as { kind: "fase" | "indicazione" | "rischio"; value: string } | null}
         onSelect={(selezione) => {
           if (!selezione.value) {
             setTileFilter(null);
@@ -418,6 +465,7 @@ export default function MonitorPanel({
           <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
             <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
             <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
+            <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
           </div>
           <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
             {filteredItems.length === totalCount
@@ -482,6 +530,38 @@ export default function MonitorPanel({
             Aggiungi i tuoi titoli chiave premendo il pulsante <strong>+ Monitor</strong> sulle card delle watchlist o inserendo il ticker qui sopra.
           </p>
         </div>
+        ) : view === "list" ? (
+          <div className="monitor-dense-list">
+            {filteredItems.map((row, indice) => {
+              const tk = String(row.Ticker || "").trim();
+              const src = String(row.WL_Source_Market || "MIB30");
+              const segnale = String(row.Entry_Signal ?? "ATTENDI").toUpperCase();
+              const fase = String(row.Market_Phase ?? "-");
+              const direzione = String(row.Direzione_Trend ?? "-");
+              const forza = String(row.Forza_Trend ?? "-").replace("FORTE_", "");
+              const nota = String(row.Monitor_Note || "").trim();
+              return (
+                <button
+                  type="button"
+                  className="monitor-dense-row"
+                  key={`${src}-${tk}-${indice}`}
+                  onClick={() => onChart(row)}
+                  title={`${tk} — apri il grafico`}
+                >
+                  <span className={`dense-signal ${tableSignalClass(segnale)}`}>{segnale}</span>
+                  <span className="dense-ticker">
+                    <b>{tk}</b>
+                    <small>{fase} · {direzione}/{forza}{nota ? " · 📝" : ""}</small>
+                  </span>
+                  <span className="dense-numbers">
+                    <b>{num(row.Close, 3)}</b>
+                    <small className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</small>
+                  </span>
+                  <span className="dense-tech">TECH {num(row.TECH_SCORE, 0)}</span>
+                </button>
+              );
+            })}
+          </div>
       ) : view === "table" ? (
         <MonitorTable
           rows={filteredItems}

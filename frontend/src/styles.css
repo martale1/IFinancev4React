@@ -630,6 +630,50 @@ textarea {
 .monitor-tile.active b { color:#7dd3fc; }
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 
+/* Contatori dell'intestazione ora cliccabili: isolano un gruppo di titoli.
+   E' la scorciatoia per arrivare al titolo che interessa senza scorrere. */
+.monitor-kpi { cursor: pointer; font: inherit; }
+.monitor-kpi:disabled { cursor: default; opacity: .55; }
+.monitor-kpi.active {
+  background: rgba(56,189,248,.18);
+  border-color: #38bdf8;
+  color: #e5f2ff;
+}
+.monitor-kpi.active b { color: #7dd3fc; }
+
+/* Lista densa: una riga per titolo, per ridurre lo scorrimento sul telefono.
+   Misurato: una scheda e' alta ~385 px (2,2 per schermata), una riga ~60 px
+   (~13 per schermata). Sul PC resta la vista a schede. */
+.monitor-dense-list { display: flex; flex-direction: column; gap: .3rem; }
+.monitor-dense-row {
+  display: flex; align-items: center; gap: .55rem; width: 100%;
+  padding: .45rem .6rem; font: inherit; text-align: left; cursor: pointer;
+  color: #dbeafe; background: rgba(10,25,47,.5);
+  border: 1px solid rgba(174,216,249,.15); border-radius: 9px;
+}
+.monitor-dense-row:hover { border-color: rgba(96,165,250,.55); }
+.dense-signal {
+  flex: 0 0 auto; min-width: 74px; text-align: center;
+  font-size: .68rem; font-weight: 700; letter-spacing: .02em;
+  padding: .18rem .35rem; border-radius: 6px;
+}
+.dense-ticker { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.dense-ticker b { font-size: .84rem; }
+.dense-ticker small {
+  font-size: .68rem; color: #8fb1d1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dense-numbers { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; }
+.dense-numbers b { font-size: .84rem; }
+.dense-numbers small { font-size: .68rem; }
+.dense-tech { flex: 0 0 auto; font-size: .68rem; color: #8cb4d9; }
+
+@media (max-width: 700px) {
+  .monitor-dense-row { padding: .38rem .5rem; gap: .4rem; }
+  .dense-tech { display: none; }   /* TECH resta nella scheda completa */
+  .dense-signal { min-width: 64px; font-size: .62rem; }
+}
+
 /* Dopo un clic su una tessera di Highlights: dice cosa è filtrato e offre
    il modo di togliere il filtro o tornare alle tessere. */
 .highlight-back-bar {
