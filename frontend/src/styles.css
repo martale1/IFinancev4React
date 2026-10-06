@@ -645,13 +645,32 @@ textarea {
    Misurato: una scheda e' alta ~385 px (2,2 per schermata), una riga ~60 px
    (~13 per schermata). Sul PC resta la vista a schede. */
 .monitor-dense-list { display: flex; flex-direction: column; gap: .3rem; }
+/* Contenitore di una voce: la riga compatta piu' l'eventuale dettaglio aperto. */
+.monitor-dense-item {
+  border: 1px solid rgba(174,216,249,.15);
+  border-radius: 9px;
+  background: rgba(10,25,47,.5);
+  overflow: hidden;
+}
+.monitor-dense-item.open { border-color: rgba(96,165,250,.5); }
+.monitor-dense-item:hover { border-color: rgba(96,165,250,.55); }
 .monitor-dense-row {
   display: flex; align-items: center; gap: .55rem; width: 100%;
   padding: .45rem .6rem; font: inherit; text-align: left; cursor: pointer;
-  color: #dbeafe; background: rgba(10,25,47,.5);
-  border: 1px solid rgba(174,216,249,.15); border-radius: 9px;
+  color: #dbeafe; background: transparent; border: none;
 }
-.monitor-dense-row:hover { border-color: rgba(96,165,250,.55); }
+.monitor-dense-row:hover { background: rgba(56,189,248,.06); }
+.dense-caret { flex: 0 0 auto; color: #7ea6c8; font-size: .8rem; }
+/* Il dettaglio riusa la struttura a gruppi della scheda: stessi dati, stessa
+   grafica, nessuna seconda impaginazione da mantenere. */
+.monitor-dense-detail {
+  padding: .2rem .7rem .7rem .7rem;
+  border-top: 1px solid rgba(174,216,249,.12);
+}
+.monitor-dense-detail .monitor-groups { margin-top: .3rem; }
+.dense-note { margin: .5rem 0 0 0; font-size: .78rem; color: #fbbf24; }
+.dense-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+.dense-actions .btn { font-size: .75rem; padding: .28rem .6rem; }
 .dense-signal {
   flex: 0 0 auto; min-width: 74px; text-align: center;
   font-size: .68rem; font-weight: 700; letter-spacing: .02em;

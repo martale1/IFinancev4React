@@ -272,6 +272,9 @@ export default function MonitorPanel({
   // I filtri includono sia le tessere degli assi (fase/indicazione/rischio)
   // sia i contatori dell'intestazione (entra/osserva/note).
   const [tileFilter, setTileFilter] = useState<{ kind: string; value: string } | null>(null);
+  // Quale riga della lista densa e' aperta: una sola per volta, cosi' l'elenco
+  // resta leggibile e non si allunga tutto.
+  const [rigaAperta, setRigaAperta] = useState<string | null>(null);
 
   const matchesTile = (row: WatchlistRow): boolean => {
     if (!tileFilter) return true;
@@ -558,25 +561,95 @@ export default function MonitorPanel({
               const direzione = String(row.Direzione_Trend ?? "-");
               const forza = String(row.Forza_Trend ?? "-").replace("FORTE_", "");
               const nota = String(row.Monitor_Note || "").trim();
+              const chiave = `${src}-${tk}-${indice}`;
+              const aperta = rigaAperta === chiave;
               return (
-                <button
-                  type="button"
-                  className="monitor-dense-row"
-                  key={`${src}-${tk}-${indice}`}
-                  onClick={() => onChart(row)}
-                  title={`${tk} — apri il grafico`}
-                >
-                  <span className={`dense-signal ${tableSignalClass(segnale)}`}>{segnale}</span>
-                  <span className="dense-ticker">
-                    <b>{tk}</b>
-                    <small>{fase} · {direzione}/{forza}{nota ? " · 📝" : ""}</small>
-                  </span>
-                  <span className="dense-numbers">
-                    <b>{num(row.Close, 3)}</b>
-                    <small className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</small>
-                  </span>
-                  <span className="dense-tech">TECH {num(row.TECH_SCORE, 0)}</span>
-                </button>
+                <div className={`monitor-dense-item ${aperta ? "open" : ""}`} key={chiave}>
+                  <button
+                    type="button"
+                    className="monitor-dense-row"
+                    onClick={() => setRigaAperta(aperta ? null : chiave)}
+                    aria-expanded={aperta}
+                    title={aperta ? `${tk} — chiudi i dettagli` : `${tk} — mostra tutti i dati`}
+                  >
+                    <span className={`dense-signal ${tableSignalClass(segnale)}`}>{segnale}</span>
+                    <span className="dense-ticker">
+                      <b>{tk}</b>
+                      <small>{fase} · {direzione}/{forza}{nota ? " · 📝" : ""}</small>
+                    </span>
+                    <span className="dense-numbers">
+                      <b>{num(row.Close, 3)}</b>
+                      <small className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</small>
+                    </span>
+                    <span className="dense-tech">TECH {num(row.TECH_SCORE, 0)}</span>
+                    <span className="dense-caret" aria-hidden="true">{aperta ? "▴" : "▾"}</span>
+                  </button>
+
+                  {aperta ? (
+                    <div className="monitor-dense-detail">
+                      <div className="monitor-groups">
+                        <div className="monitor-group">
+                          <span className="monitor-group-title">Trend</span>
+                          <div className="monitor-metrics">
+                            <span>Direzione <b>{direzione}</b></span>
+                            <span>Forza <b>{forza}</b></span>
+                            <span>ADX <b>{num(row.ADX, 1)}</b></span>
+                            <span>DI+ <b className="good">{num(row.PLUS_DI, 1)}</b></span>
+                            <span>DI− <b className="bad">{num(row.MINUS_DI, 1)}</b></span>
+                            <span>SARMA <b>{num(row.SIG_MA_SAR, 0)}</b></span>
+                          </div>
+                        </div>
+                        <div className="monitor-group">
+                          <span className="monitor-group-title">Momentum</span>
+                          <div className="monitor-metrics">
+                            <span>Momento <b>{String(row.Momento_Trend ?? "-")}</b></span>
+                            <span>RSI <b>{num(row.RSI, 0)}</b></span>
+                            <span>Stoch <b>{num(row.Stoch_K, 0)}/{num(row.Stoch_D, 0)}</b></span>
+                            <span>willR <b>{num(row.Williams_R, 0)}</b></span>
+                            <span>MACD−Signal <b>{num(row.MACD_vs_Signal, 0)}</b></span>
+                            <span>Alligator <b>{String(row.Signal6 ?? "-")}</b></span>
+                          </div>
+                        </div>
+                        <div className="monitor-group">
+                          <span className="monitor-group-title">Performance</span>
+                          <div className="monitor-metrics">
+                            <span>1D <b className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</b></span>
+                            <span>5D <b className={tablePctClass(row.PCTV_5D)}>{pct(row.PCTV_5D)}</b></span>
+                            <span>10D <b className={tablePctClass(row.PCTV_10D)}>{pct(row.PCTV_10D)}</b></span>
+                            <span>30D <b className={tablePctClass(row.PCTV_30D)}>{pct(row.PCTV_30D)}</b></span>
+                            <span>180D <b className={tablePctClass(row.PCTV_180D)}>{pct(row.PCTV_180D)}</b></span>
+                            <span>VOL <b>{num(row.Volume, 0)}</b></span>
+                          </div>
+                        </div>
+                        <div className="monitor-group">
+                          <span className="monitor-group-title">Contesto</span>
+                          <div className="monitor-metrics">
+                            <span>Rischio <b>{String(row.Rischio_Trend ?? "-")}</b></span>
+                            <span>Fase <b>{fase}</b></span>
+                            <span>Liquidità <b>{String(row.Liquidity ?? "-")}</b></span>
+                            <span>Azioni <b>{String(row.Action ?? "-")}</b></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {nota ? <p className="dense-note">📝 {nota}</p> : null}
+
+                      <div className="dense-actions">
+                        <button type="button" className="btn" onClick={() => onChart(row)}>Grafico</button>
+                        <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                        <button type="button" className="btn ghost" onClick={() => onNews(tk)}>News</button>
+                        <button type="button" className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
+                        <button
+                          type="button"
+                          className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"}
+                          onClick={() => openAlertBox(row)}
+                        >
+                          {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>
