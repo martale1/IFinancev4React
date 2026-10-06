@@ -2977,11 +2977,19 @@ td {
 /* ── Card ──────────────────────────────────────────────────────────────── */
 .monitor-card-grid {
   display: grid;
-  /* Con poche card la griglia non deve allargarle a tutta pagina: meglio una
-     card stretta e leggibile, allineata a sinistra. */
-  grid-template-columns: repeat(auto-fill, minmax(420px, 520px));
-  justify-content: start;
+  /* Riempie la larghezza disponibile, come la griglia del tab All: prima era
+     minmax(420px, 520px), quindi le schede si fermavano a 520 px e su schermo
+     largo restavano due colonne con meta' pagina vuota. */
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  justify-content: stretch;
   gap: 1rem;
+}
+
+.monitor-card-grid > .monitor-card {
+  /* Tetto di larghezza: senza, con poche schede su schermo largo una sola
+     scheda occuperebbe tutta la pagina e le righe di testo diventerebbero
+     lunghissime da leggere. */
+  max-width: 760px;
 }
 
 .monitor-card {

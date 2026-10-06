@@ -230,13 +230,31 @@ export default function MonitorPanel({
   // quale card lo ha aperto (chiave mercato-ticker).
   const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [view, setView] = useState<MonitorView>(() => {
-    // La scelta salvata vince sempre; se non c'e', sul telefono parte la lista
-    // densa (misurata: 47 px per riga contro 385 di una scheda, 18 righe per
-    // schermata contro 2,2) e sul PC restano le schede.
-    const salvata = window.localStorage.getItem("ifinance-monitor-view");
-    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    const chiave = "ifinance-monitor-view";
+    const chiaveVersione = "ifinance-monitor-view-default";
+    const versione = "2";
     const telefono = typeof window.matchMedia === "function"
       && window.matchMedia("(max-width: 700px)").matches;
+
+    let salvata: string | null = null;
+    try {
+      // Migrazione una tantum: chi aveva gia' una scelta salvata se la ritrova
+      // "cards" anche sul telefono e non vedrebbe mai la lista densa, perche' la
+      // scelta salvata vince sul predefinito. Alla prima apertura dopo questo
+      // aggiornamento si riparte dal predefinito (lista sul telefono); da li' in
+      // poi la scelta dell'utente vince di nuovo, perche' la versione e' salvata.
+      if (window.localStorage.getItem(chiaveVersione) !== versione) {
+        window.localStorage.setItem(chiaveVersione, versione);
+        window.localStorage.removeItem(chiave);
+      }
+      salvata = window.localStorage.getItem(chiave);
+    } catch {
+      salvata = null;
+    }
+
+    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    // Sul telefono la lista densa: misurata 47 px per riga contro 385 di una
+    // scheda (18 righe per schermata contro 2,2). Sul PC restano le schede.
     return telefono ? "list" : "cards";
   });
 
