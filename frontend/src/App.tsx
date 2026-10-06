@@ -190,16 +190,16 @@ export default function App() {
   const monitorItemsQuery = useQuery({
     queryKey: ["monitor-items"],
     queryFn: fetchMonitorItems,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   const monitorQuery = useQuery({
     queryKey: ["monitor"],
     queryFn: fetchMonitor,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: tab === "🎯 Monitor",
   });
 

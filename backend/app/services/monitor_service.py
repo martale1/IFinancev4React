@@ -15,7 +15,10 @@ from app.config import ANALYSES_DIR, MARKETS
 from app.services.watchlist_service import NEEDED_COLUMNS, load_market_dataframe, prepare_dataframe, records
 
 MONITOR_FILE = "monitor_items.json"
-MARKET_CACHE_TTL_SECONDS = 90
+# Cache disattivata: 0 significa che ogni richiesta rilegge gli Excel.
+# Prima erano 90 secondi, e in un'app di trading servivano prezzi vecchi.
+# Rimettere un numero qui riattiva la cache.
+MARKET_CACHE_TTL_SECONDS = 0
 _prepared_market_cache: dict[str, tuple[float, pd.DataFrame]] = {}
 _prepared_market_cache_lock = threading.Lock()
 
