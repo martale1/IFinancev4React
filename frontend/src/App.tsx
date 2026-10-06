@@ -244,9 +244,6 @@ export default function App() {
   const [marketPhaseFilter, setMarketPhaseFilter] = useState(() => urlParams.get("market_phase") || "");
   const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState(() => urlParams.get("trend_detail") || "");
   const [showStateFilters, setShowStateFilters] = useState(false);
-  // Filtro applicato cliccando una tessera di Highlights: serve per avvisare
-  // nella tab All e per poterlo togliere con un clic.
-  const [highlightOrigin, setHighlightOrigin] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [watchlistView, setWatchlistView] = useState<"cards" | "table">(() =>
@@ -507,6 +504,20 @@ export default function App() {
   });
   const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
   const highlightsAreFiltered = Boolean(entrySignalFilter || marketPhaseFilter || effectiveTrendPhaseDetailFilter);
+  // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
+  // Volutamente separata dai filtri della tab All, che restano indipendenti.
+  const [highlightTile, setHighlightTile] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
+  const highlightsVisibili = highlightTile
+    ? highlightsItems.filter((row) =>
+        highlightTile.kind === "fase"
+          ? String(row.Market_Phase ?? "").toUpperCase() === highlightTile.value
+          : String(row.Entry_Signal ?? "ATTENDI").toUpperCase() === highlightTile.value)
+    : highlightsItems;
+  // Migliori/Peggiori del giorno seguono la stessa selezione: altrimenti la
+  // pagina mescolerebbe "solo ENTRA" con titoli che non lo sono.
+  const highlightsDelGiorno = highlightsVisibili.filter(
+    (row) => String(row.Entry_Signal ?? "").toUpperCase() !== "EVITA"
+  );
   // Le tessere dei quattro assi contano TUTTI i titoli del mercato (query non
   // filtrata): cliccandone una l'elenco si restringe ma i numeri restano quelli
   // del mercato, altrimenti sembrerebbe che sia cambiato.
@@ -1066,31 +1077,6 @@ export default function App() {
         </button>
       </div>
 
-      {highlightOrigin && activeFilterCount ? (
-        <div className="highlight-back-bar" role="status">
-          <span>
-            Filtro attivo: <b>{highlightOrigin.kind === "fase" ? "fase" : "indicazione"} {highlightOrigin.value}</b>
-          </span>
-          <span className="highlight-back-actions">
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={() => {
-                setEntrySignalFilter("");
-                setMarketPhaseFilter("");
-                setTrendPhaseDetailFilter("");
-                setHighlightOrigin(null);
-                setPage(1);
-              }}
-            >
-              ✕ Togli il filtro
-            </button>
-            <button className="btn ghost" type="button" onClick={() => { setHighlightOrigin(null); setTab("📊 Highlights"); }}>
-              ↩ Torna a Highlights
-            </button>
-          </span>
-        </div>
-      ) : null}
 
       {showStateFilters ? (
         <section className="state-filters" aria-label="Filtri stato card">
@@ -1303,7 +1289,7 @@ export default function App() {
         </p>
         {highlightsAreFiltered ? (
           <p className="highlights-note">
-            ⓘ Questi numeri riguardano <b>tutto il mercato</b>, non i filtri attivi. Cliccando una tessera il filtro viene applicato nella tab All.
+            ⓘ Questi numeri riguardano <b>tutto il mercato</b>, non i filtri attivi. Cliccando una tessera si filtra l'elenco qui sotto, restando in questa pagina.
           </p>
         ) : null}
         <div className="highlights-split">
@@ -1315,10 +1301,10 @@ export default function App() {
                 return (
                   <button
                     type="button"
-                    className={`highlight-tile tile-button phase-${phase.toLowerCase()}`}
+                    className={`highlight-tile tile-button phase-${phase.toLowerCase()}${highlightTile?.kind === "fase" && highlightTile.value === phase ? " active" : ""}`}
                     key={phase}
                     disabled={!n}
-                    onClick={() => { setMarketPhaseFilter(phase); setEntrySignalFilter(""); setHighlightOrigin({ kind: "fase", value: phase }); setTab("All"); setPage(1); }}
+                    onClick={() => setHighlightTile((corrente) => corrente?.kind === "fase" && corrente.value === phase ? null : { kind: "fase", value: phase })}
                     title={`Mostra solo i titoli in fase ${phase}`}
                   >
                     <strong>{n}</strong><span>{phase}</span>
@@ -1338,10 +1324,10 @@ export default function App() {
                 return (
                   <button
                     type="button"
-                    className={`highlight-tile tile-button signal-${signal.toLowerCase()}`}
+                    className={`highlight-tile tile-button signal-${signal.toLowerCase()}${highlightTile?.kind === "indicazione" && highlightTile.value === signal ? " active" : ""}`}
                     key={signal}
                     disabled={!n}
-                    onClick={() => { setEntrySignalFilter(signal); setMarketPhaseFilter(""); setHighlightOrigin({ kind: "indicazione", value: signal }); setTab("All"); setPage(1); }}
+                    onClick={() => setHighlightTile((corrente) => corrente?.kind === "indicazione" && corrente.value === signal ? null : { kind: "indicazione", value: signal })}
                     title={`Mostra solo i titoli con indicazione ${signal}`}
                   >
                     <strong>{n}</strong><span>{signal}</span>
@@ -1370,7 +1356,24 @@ export default function App() {
           </section>
         </div>
 
-        <div className="highlights-list"><h3>Titoli in evidenza <small>— prima le indicazioni, poi la forza della fase</small></h3>{[...highlightsItems]
+        <div className="highlights-list"><h3>
+          Titoli in evidenza{" "}
+          {highlightTile ? (
+            <>
+              <small>— {highlightTile.kind === "fase" ? "fase" : "indicazione"} {highlightTile.value} · {highlightsVisibili.length} titoli</small>
+              <button
+                type="button"
+                className="btn ghost"
+                style={{ marginLeft: ".5rem", fontSize: ".72rem", padding: ".15rem .45rem" }}
+                onClick={() => setHighlightTile(null)}
+              >
+                ✕ togli la selezione
+              </button>
+            </>
+          ) : (
+            <small>— prima le indicazioni, poi la forza della fase</small>
+          )}
+        </h3>{[...highlightsVisibili]
           .filter((row) => String(row.Entry_Signal ?? "").toUpperCase() !== "EVITA")
           .sort((a, b) => {
             const priorita = (row: WatchlistRow) => {
@@ -1392,7 +1395,7 @@ export default function App() {
               <em>{signal}</em>
             </button>;
           })}</div>
-        <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...highlightsItems].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...highlightsItems].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
+        <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...highlightsDelGiorno].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...highlightsDelGiorno].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
       </section> : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
@@ -1465,12 +1468,10 @@ export default function App() {
                 if (selezione.kind === "fase") {
                   setMarketPhaseFilter(selezione.value);
                   setEntrySignalFilter("");
-                  setHighlightOrigin(selezione.value ? { kind: "fase", value: selezione.value } : null);
-                } else if (selezione.kind === "indicazione") {
+                  } else if (selezione.kind === "indicazione") {
                   setEntrySignalFilter(selezione.value);
                   setMarketPhaseFilter("");
-                  setHighlightOrigin(selezione.value ? { kind: "indicazione", value: selezione.value } : null);
-                } else {
+                  } else {
                   // Il rischio non ha un filtro dedicato: si filtra per fase TESO/ESTREMO
                   setMarketPhaseFilter("");
                   setEntrySignalFilter("");
