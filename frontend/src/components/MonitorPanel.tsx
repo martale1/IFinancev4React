@@ -158,6 +158,24 @@ function pctColor(v: unknown): string {
   return "#cfe5fa";
 }
 
+/** Classi di colore per un valore di stato: verde favorevole, rosso sfavorevole.
+ *  Stesse regole delle card, cosi' il colore significa la stessa cosa ovunque. */
+function statoClass(valore: unknown): string {
+  const v = String(valore ?? "").toUpperCase();
+  if (["SU", "FORTE_SU", "CRESCENTE", "NORMALE", "OK", "BUY", "ADD"].includes(v)) return "good";
+  if (["GIU", "FORTE_GIU", "CALANTE", "TESO", "ESTREMO", "AVOID", "EXIT", "SELL", "REDUCE"].includes(v)) return "bad";
+  return "";
+}
+
+/** TECH: verde se sostiene, rosso se debole, grigio in mezzo (come nelle card). */
+function techClass(v: unknown): string {
+  const n = toNum(v);
+  if (n === null) return "";
+  if (n >= 65) return "good";
+  if (n <= 35) return "bad";
+  return "";
+}
+
 function techColor(v: unknown): string {
   const n = toNum(v);
   if (n === null) return "#9fb7cf";
@@ -572,7 +590,7 @@ export default function MonitorPanel({
                     aria-expanded={aperta}
                     title={aperta ? `${tk} — chiudi i dettagli` : `${tk} — mostra tutti i dati`}
                   >
-                    <span className={`dense-signal ${tableSignalClass(segnale)}`}>{segnale}</span>
+                    <span className={`dense-signal table-signal ${tableSignalClass(segnale)}`}>{segnale}</span>
                     <span className="dense-ticker">
                       <b>{tk}</b>
                       <small>{fase} · {direzione}/{forza}{nota ? " · 📝" : ""}</small>
@@ -581,7 +599,7 @@ export default function MonitorPanel({
                       <b>{num(row.Close, 3)}</b>
                       <small className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</small>
                     </span>
-                    <span className="dense-tech">TECH {num(row.TECH_SCORE, 0)}</span>
+                    <span className={`dense-tech ${techClass(row.TECH_SCORE)}`}>TECH {num(row.TECH_SCORE, 0)}</span>
                     <span className="dense-caret" aria-hidden="true">{aperta ? "▴" : "▾"}</span>
                   </button>
 
@@ -591,8 +609,8 @@ export default function MonitorPanel({
                         <div className="monitor-group">
                           <span className="monitor-group-title">Trend</span>
                           <div className="monitor-metrics">
-                            <span>Direzione <b>{direzione}</b></span>
-                            <span>Forza <b>{forza}</b></span>
+                            <span>Direzione <b className={statoClass(direzione)}>{direzione}</b></span>
+                            <span>Forza <b className={statoClass(row.Forza_Trend)}>{forza}</b></span>
                             <span>ADX <b>{num(row.ADX, 1)}</b></span>
                             <span>DI+ <b className="good">{num(row.PLUS_DI, 1)}</b></span>
                             <span>DI− <b className="bad">{num(row.MINUS_DI, 1)}</b></span>
@@ -602,32 +620,32 @@ export default function MonitorPanel({
                         <div className="monitor-group">
                           <span className="monitor-group-title">Momentum</span>
                           <div className="monitor-metrics">
-                            <span>Momento <b>{String(row.Momento_Trend ?? "-")}</b></span>
+                            <span>Momento <b className={statoClass(row.Momento_Trend)}>{String(row.Momento_Trend ?? "-")}</b></span>
                             <span>RSI <b>{num(row.RSI, 0)}</b></span>
                             <span>Stoch <b>{num(row.Stoch_K, 0)}/{num(row.Stoch_D, 0)}</b></span>
                             <span>willR <b>{num(row.Williams_R, 0)}</b></span>
-                            <span>MACD−Signal <b>{num(row.MACD_vs_Signal, 0)}</b></span>
+                            <span>MACD−Signal <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b></span>
                             <span>Alligator <b>{String(row.Signal6 ?? "-")}</b></span>
                           </div>
                         </div>
                         <div className="monitor-group">
                           <span className="monitor-group-title">Performance</span>
                           <div className="monitor-metrics">
-                            <span>1D <b className={tablePctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</b></span>
-                            <span>5D <b className={tablePctClass(row.PCTV_5D)}>{pct(row.PCTV_5D)}</b></span>
-                            <span>10D <b className={tablePctClass(row.PCTV_10D)}>{pct(row.PCTV_10D)}</b></span>
-                            <span>30D <b className={tablePctClass(row.PCTV_30D)}>{pct(row.PCTV_30D)}</b></span>
-                            <span>180D <b className={tablePctClass(row.PCTV_180D)}>{pct(row.PCTV_180D)}</b></span>
+                            <span>1D <b className={`pct ${tablePctClass(row.PCTV_1D)}`}>{pct(row.PCTV_1D)}</b></span>
+                            <span>5D <b className={`pct ${tablePctClass(row.PCTV_5D)}`}>{pct(row.PCTV_5D)}</b></span>
+                            <span>10D <b className={`pct ${tablePctClass(row.PCTV_10D)}`}>{pct(row.PCTV_10D)}</b></span>
+                            <span>30D <b className={`pct ${tablePctClass(row.PCTV_30D)}`}>{pct(row.PCTV_30D)}</b></span>
+                            <span>180D <b className={`pct ${tablePctClass(row.PCTV_180D)}`}>{pct(row.PCTV_180D)}</b></span>
                             <span>VOL <b>{num(row.Volume, 0)}</b></span>
                           </div>
                         </div>
                         <div className="monitor-group">
                           <span className="monitor-group-title">Contesto</span>
                           <div className="monitor-metrics">
-                            <span>Rischio <b>{String(row.Rischio_Trend ?? "-")}</b></span>
+                            <span>Rischio <b className={statoClass(row.Rischio_Trend)}>{String(row.Rischio_Trend ?? "-")}</b></span>
                             <span>Fase <b>{fase}</b></span>
-                            <span>Liquidità <b>{String(row.Liquidity ?? "-")}</b></span>
-                            <span>Azioni <b>{String(row.Action ?? "-")}</b></span>
+                            <span>Liquidità <b className={statoClass(row.Liquidity)}>{String(row.Liquidity ?? "-")}</b></span>
+                            <span>Azioni <b className={statoClass(row.Action)}>{String(row.Action ?? "-")}</b></span>
                           </div>
                         </div>
                       </div>
@@ -726,8 +744,8 @@ export default function MonitorPanel({
                       <span>RSI <b>{num(row.RSI, 0)}</b></span>
                       <span>Stoch <b>{num(row.Stoch_K, 0)}/{num(row.Stoch_D, 0)}</b></span>
                       <span>willR <b>{num(row.Williams_R, 0)}</b></span>
-                      <span>MACD <b className={s3Color(row.MACD_vs_Signal)}>{num(row.MACD, 3)}</b></span>
-                      <span title="Striscia MACD sopra/sotto il segnale">MACD−Signal <b className={s3Color(row.MACD_vs_Signal)}>{num(row.MACD_vs_Signal, 0)}</b></span>
+                      <span>MACD <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD, 3)}</b></span>
+                      <span title="Striscia MACD sopra/sotto il segnale">MACD−Signal <b style={{ color: s3Color(row.MACD_vs_Signal) }}>{num(row.MACD_vs_Signal, 0)}</b></span>
                     </div>
                   </div>
 

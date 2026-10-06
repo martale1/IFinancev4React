@@ -686,6 +686,15 @@ textarea {
 .dense-numbers b { font-size: .84rem; }
 .dense-numbers small { font-size: .68rem; }
 .dense-tech { flex: 0 0 auto; font-size: .68rem; color: #8cb4d9; }
+/* Codice colore: verde favorevole, rosso sfavorevole, grigio neutro.
+   Vale per TECH nella riga e per i valori nel dettaglio aperto. */
+.dense-tech.good { color: #22c55e; }
+.dense-tech.bad { color: #ff4d5a; }
+.monitor-dense-detail .monitor-metrics b.good { color: #22c55e; }
+.monitor-dense-detail .monitor-metrics b.bad { color: #ff4d5a; }
+.monitor-dense-detail .monitor-metrics b.pct.positive { color: #22c55e; }
+.monitor-dense-detail .monitor-metrics b.pct.negative { color: #ff4d5a; }
+.monitor-dense-detail .monitor-metrics b.pct { color: #9fb7cf; }
 
 @media (max-width: 700px) {
   .monitor-dense-row { padding: .38rem .5rem; gap: .4rem; }
