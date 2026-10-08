@@ -49,6 +49,15 @@ export function pctClass(value: unknown): string {
   return parsed === null || parsed === 0 ? "neutral" : parsed > 0 ? "positive" : "negative";
 }
 
+/** Colore della fase, con le stesse classi delle tessere di filtro. */
+export function phaseClass(value: unknown): string {
+  const fase = String(value ?? "").toUpperCase();
+  if (fase === "TENDENZA") return "phase-trend";
+  if (fase === "RIPRESA") return "phase-resume";
+  if (fase === "RIBASSO") return "phase-down";
+  return "phase-flat";
+}
+
 export function signalClass(value: unknown): string {
   const signal = String(value ?? "ATTENDI").toUpperCase();
   if (signal === "ENTRA") return "enter";
@@ -139,7 +148,7 @@ export default function WatchlistTable({ rows, market, sortKey, sortDir, onSort,
               <td className="numeric">{num(row.ADX, 1)}</td>
               <td className="numeric" style={{ color: "#22c55e" }}>{num(row.PLUS_DI, 1)}</td>
               <td className="numeric" style={{ color: "#ef4444" }}>{num(row.MINUS_DI, 1)}</td>
-              <td><span className="scenario-label">{String(row.Market_Phase ?? "-").replace(/_/g, " ")}</span></td>
+              <td><span className={`scenario-label ${phaseClass(row.Market_Phase)}`}>{String(row.Market_Phase ?? "-").replace(/_/g, " ")}</span></td>
               <td><span className={String(row.Liquidity ?? "").toUpperCase() === "OK" ? "positive" : "negative"}>{String(row.Liquidity ?? "-")}</span></td>
               <td>{aiAlert ? <span className={aiAlert.enabled ? "ai-table-status active" : "ai-table-status"}>{aiAlert.verified}/{aiAlert.total}</span> : aiLevels.length ? <span className="ai-table-status active">Livelli {aiLevels.filter((item) => item.verified).length}/{aiLevels.length}</span> : "-"}</td>
               <td className="table-actions">

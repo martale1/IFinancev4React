@@ -273,6 +273,12 @@ textarea {
 .table-signal.avoid { color: #fca5a5; border-color: rgba(248,113,113,.45); background: rgba(239,68,68,.13); }
 .table-signal.wait { color: #cbd5e1; }
 .scenario-label { white-space: nowrap; font-weight: 700; color: #9fc5e8; }
+/* La fase colorata come nelle tessere di filtro: prima erano tutte azzurre e
+   TENDENZA si leggeva uguale a RIBASSO. */
+.scenario-label.phase-trend { color: #4ade80; }
+.scenario-label.phase-resume { color: #93c5fd; }
+.scenario-label.phase-flat { color: #cbd5e1; }
+.scenario-label.phase-down { color: #fca5a5; }
 .table-actions { position: sticky; right: 0; z-index: 4; display: flex; gap: .3rem; background: #08182a; white-space: nowrap; box-shadow: -8px 0 10px rgba(4,12,22,.28); }
 .table-actions .btn { padding: .3rem .45rem; font-size: .7rem; }
 .watchlist-detail-row td { background: #0a192b; }
@@ -628,6 +634,26 @@ textarea {
 .monitor-tile:disabled { opacity:.4; cursor:default; }
 .monitor-tile.active { border-color:#38bdf8; background:rgba(56,189,248,.16); }
 .monitor-tile.active b { color:#7dd3fc; }
+
+/* Colore della tessera secondo il valore, con gli STESSI colori della tabella:
+   cosi' "ENTRA" e' verde sia qui sia nella riga, e il colore di un valore
+   significa la stessa cosa nei due posti. */
+.monitor-tile.tile-enter { color:#4ade80; border-color:rgba(74,222,128,.45); background:rgba(34,197,94,.12); }
+.monitor-tile.tile-enter b { color:#4ade80; }
+.monitor-tile.tile-watch { color:#93c5fd; border-color:rgba(96,165,250,.45); background:rgba(59,130,246,.13); }
+.monitor-tile.tile-watch b { color:#93c5fd; }
+.monitor-tile.tile-avoid { color:#fca5a5; border-color:rgba(248,113,113,.45); background:rgba(239,68,68,.13); }
+.monitor-tile.tile-avoid b { color:#fca5a5; }
+.monitor-tile.tile-warn { color:#fbbf24; border-color:rgba(251,191,36,.45); background:rgba(245,158,11,.13); }
+.monitor-tile.tile-warn b { color:#fbbf24; }
+.monitor-tile.tile-wait { color:#cbd5e1; border-color:rgba(148,184,219,.3); background:rgba(148,184,219,.07); }
+.monitor-tile.tile-wait b { color:#cbd5e1; }
+/* La tessera scelta si riconosce da un anello, che non copre il colore del
+   valore: prima ".active" sovrascriveva il bordo e il colore andava perso. */
+.monitor-tile.active {
+  box-shadow: 0 0 0 2px #38bdf8, 0 0 10px rgba(56,189,248,.5);
+}
+.monitor-tile.active b { color:#e5f2ff; }
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 
 /* Contatori dell'intestazione ora cliccabili: isolano un gruppo di titoli.

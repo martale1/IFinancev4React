@@ -17,6 +17,33 @@ const FASI = ["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"] as const;
 const INDICAZIONI = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"] as const;
 const RISCHI = ["NORMALE", "TESO", "ESTREMO"] as const;
 
+/**
+ * Classe di colore di una tessera, per tipo e valore.
+ *
+ * Gli stessi colori della tabella: cosi' "ENTRA" e' verde sia nella tessera sia
+ * nella riga, e il colore significa la stessa cosa nei due posti.
+ */
+function classeColore(kind: AxisTileKind, valore: string): string {
+  const v = valore.toUpperCase();
+  // Indicazioni: sono le stesse classi usate dalla tabella.
+  if (kind === "indicazione") {
+    if (v === "ENTRA") return "tile-enter";
+    if (v === "OSSERVA") return "tile-watch";
+    if (v === "EVITA") return "tile-avoid";
+    return "tile-wait";
+  }
+  if (kind === "fase") {
+    if (v === "TENDENZA") return "tile-enter";
+    if (v === "RIPRESA") return "tile-watch";
+    if (v === "RIBASSO") return "tile-avoid";
+    return "tile-wait";
+  }
+  // Rischio: TESO e' un avvertimento, non un pericolo pieno.
+  if (v === "NORMALE") return "tile-enter";
+  if (v === "TESO") return "tile-warn";
+  return "tile-avoid";
+}
+
 function conta(items: WatchlistRow[], campo: string, valore: string): number {
   return items.filter((row) => String(row[campo] ?? "").toUpperCase() === valore).length;
 }
@@ -53,7 +80,7 @@ export function AxisTiles({
           <button
             type="button"
             key={valore}
-            className={`monitor-tile ${isActive ? "active" : ""}`}
+            className={`monitor-tile ${classeColore(kind, valore)} ${isActive ? "active" : ""}`}
             disabled={disabled || !n}
             onClick={() => clic(kind, valore, n)}
             title={
