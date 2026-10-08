@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
+import { MarketChips } from "./MarketChips";
 import { ordinaPerRango, testaIndicazione } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
@@ -271,6 +272,10 @@ export default function MonitorPanel({
    * Filtro a tessera, sullo stesso principio di Highlights: i conteggi riguardano
    * sempre TUTTI i titoli monitorati, mentre il clic restringe l'elenco mostrato.
    */
+  // Mercato da mostrare: "Tutti" di base, cosi' la pagina non resta mai vuota
+  // (i titoli monitorati possono essere di mercati diversi).
+  const [mercatoMostrato, setMercatoMostrato] = useState("Tutti");
+
   // Testa dell'ordinamento: il valore scelto con un clic su una tessera.
   // Non e' un filtro: nessun titolo viene nascosto, cambia solo l'ordine.
   // Si parte senza scelta: la testa la decide il ripiego automatico (ENTRA, e se
@@ -285,6 +290,7 @@ export default function MonitorPanel({
   const filteredItems = useMemo(() => {
     const term = filterText.trim().toLowerCase();
     return items.filter((row) => {
+      if (mercatoMostrato !== "Tutti" && String(row.WL_Source_Market ?? "") !== mercatoMostrato) return false;
       if (!term) return true;
       const tk = String(row.Ticker || "").toLowerCase();
       const nm = String(row.Name || "").toLowerCase();
@@ -292,7 +298,7 @@ export default function MonitorPanel({
       const mkt = String(row.WL_Source_Market || "").toLowerCase();
       return tk.includes(term) || nm.includes(term) || note.includes(term) || mkt.includes(term);
     });
-  }, [items, filterText]);
+  }, [items, filterText, mercatoMostrato]);
 
   // L'ordinamento agisce su cio' che si vede, dopo la ricerca: non cambia quali
   // titoli compaiono, solo in che ordine.
@@ -461,6 +467,14 @@ export default function MonitorPanel({
             <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
             <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
           </div>
+          {/* Scelta del mercato, come nella tab All. Solo mercati veri: le liste
+              personali arrivano dal backend come "WL:nome" e qui non servono. */}
+          <MarketChips
+            markets={["Tutti", ...markets.filter((m) => m !== "Preferite" && !m.startsWith("WL:"))]}
+            market={mercatoMostrato}
+            onSelect={setMercatoMostrato}
+            nomeProprio={() => null}
+          />
           <input
             className="monitor-filter-input"
             type="text"
@@ -526,10 +540,33 @@ export default function MonitorPanel({
       ) : filteredItems.length === 0 ? (
         <div style={{ textAlign: "center", padding: "50px 20px", background: "var(--bg-card, #262626)", borderRadius: 10, border: "1px solid var(--border-color, #333)" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>🎯</div>
-          <h3 style={{ margin: "0 0 8px 0" }}>Nessun titolo in monitoraggio</h3>
-          <p style={{ color: "var(--text-muted)", margin: "0 0 16px 0", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
-            Aggiungi i tuoi titoli chiave premendo il pulsante <strong>+ Monitor</strong> sulle card delle watchlist o inserendo il ticker qui sopra.
-          </p>
+          {items.length > 0 ? (
+            /* Ci sono titoli monitorati, ma nessuno corrisponde a cio' che stai
+               guardando: non dire "non hai titoli", sarebbe falso. */
+            <>
+              <h3 style={{ margin: "0 0 8px 0" }}>Nessun titolo per questa selezione</h3>
+              <p style={{ color: "var(--text-muted)", margin: "0 0 16px 0", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+                Hai <strong>{items.length}</strong> titoli monitorati, ma nessuno corrisponde
+                {mercatoMostrato !== "Tutti" ? <> al mercato <strong>{mercatoMostrato}</strong></> : null}
+                {filterText.trim() ? <> alla ricerca <strong>“{filterText.trim()}”</strong></> : null}.
+              </p>
+              <div style={{ display: "flex", gap: ".5rem", justifyContent: "center", flexWrap: "wrap" }}>
+                {mercatoMostrato !== "Tutti" ? (
+                  <button type="button" className="btn ghost" onClick={() => setMercatoMostrato("Tutti")}>Mostra tutti i mercati</button>
+                ) : null}
+                {filterText.trim() ? (
+                  <button type="button" className="btn ghost" onClick={() => setFilterText("")}>Togli la ricerca</button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 style={{ margin: "0 0 8px 0" }}>Nessun titolo in monitoraggio</h3>
+              <p style={{ color: "var(--text-muted)", margin: "0 0 16px 0", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+                Aggiungi i tuoi titoli chiave premendo il pulsante <strong>+ Monitor</strong> sulle card delle watchlist o inserendo il ticker qui sopra.
+              </p>
+            </>
+          )}
         </div>
       ) : view === "list" ? (
         <>

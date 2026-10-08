@@ -662,6 +662,34 @@ textarea {
 }
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 
+/* Scelta del mercato accanto al selettore di vista: prima stava in alto con
+   pulsanti grandi (padding .55rem .9rem, font .86rem) e occupava spazio in ogni
+   schermata. Ora sono pulsanti piccoli, della misura di Schede/Tabella/Lista
+   (padding .35rem .65rem). */
+.market-chips {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: .35rem .5rem; min-width: 0;
+}
+.market-chip-group {
+  display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; min-width: 0;
+}
+.market-chip-label {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .03em;
+  color: #7ea6c8; margin-right: .1rem;
+}
+.market-chip {
+  font: inherit; font-size: .78rem; cursor: pointer;
+  padding: .35rem .65rem; border-radius: 7px;
+  background: rgba(7,18,33,.65); color: #b8d4ee;
+  border: 1px solid rgba(174,216,249,.25);
+  white-space: nowrap;
+}
+.market-chip:hover { border-color: rgba(56,189,248,.6); }
+.market-chip.selected { background: #197b78; border-color: #2dd4bf; color: #fff; font-weight: 700; }
+.market-chip-action { font-size: .78rem; padding: .35rem .6rem; }
+.market-chip-volume { font-size: .75rem; gap: .3rem; }
+.market-chip-volume input { width: 72px; padding: .25rem .4rem; }
+
 /* Contatori dell'intestazione ora cliccabili: isolano un gruppo di titoli.
    E' la scorciatoia per arrivare al titolo che interessa senza scorrere. */
 .monitor-kpi { cursor: pointer; font: inherit; }

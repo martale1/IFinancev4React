@@ -11,6 +11,7 @@ import { AxesModelGuide } from "./components/AxesModelGuide";
 import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
+import { MarketChips } from "./components/MarketChips";
 import { ordinaPerRango, testaIndicazione } from "./ranking";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -1055,36 +1056,6 @@ export default function App() {
           ) : null}
         </section>
       ) : null}
-      <nav className="market-navigation" aria-label="Selezione mercato e liste">
-        <button className="btn ghost" onClick={() => setTab("Liste")}>Gestisci liste</button>
-        {[{ label: "Mercati", personal: false }, { label: "Le mie liste", personal: true }].map((group) => {
-          const options = (marketsQuery.data ?? ["MIB30"]).filter((m) =>
-            (m === "Preferite" || Boolean(parseCurrentWatchlistName(m))) === group.personal);
-          if (!options.length) return null;
-          return (
-            <div className="market-navigation-row" key={group.label}>
-              <span className="market-group-label">{group.label}</span>
-              <div className="market-options" role="group" aria-label={group.label}>
-                {options.map((m) => (
-                  <button key={m} className={`market-option${market === m ? " selected" : ""}`}
-                    aria-pressed={market === m}
-                    onClick={() => { setMarket(m); setPage(1); }}>
-                    {parseCurrentWatchlistName(m) ?? m.replace(/_/g, " ")}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </nav>
-      <div className="filter-toggle-row market-list-toolbar">
-        <strong className="current-market">{parseCurrentWatchlistName(market) ?? market.replace(/_/g, " ")}</strong>
-        <label className="volume-filter">
-          Volume minimo
-          <input type="number" min="0" value={minVolume}
-            onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
-        </label>
-      </div>
 
 
       <RuleGuide />
@@ -1364,6 +1335,22 @@ export default function App() {
               <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
               <button className={watchlistView === "list" ? "active" : ""} aria-pressed={watchlistView === "list"} onClick={() => changeWatchlistView("list")}>Lista</button>
             </div>
+              {/* Scelta del mercato accanto alla vista: prima stava in alto e
+                  occupava spazio in ogni schermata. */}
+              <MarketChips
+                markets={marketsQuery.data ?? ["MIB30"]}
+                market={market}
+                onSelect={(m) => { setMarket(m); setPage(1); }}
+                nomeProprio={(m) => parseCurrentWatchlistName(m)}
+                leading={<button type="button" className="btn ghost market-chip-action" onClick={() => setTab("Liste")}>Gestisci liste</button>}
+                trailing={
+                  <label className="volume-filter market-chip-volume">
+                    Volume min
+                    <input type="number" min="0" value={minVolume}
+                      onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
+                  </label>
+                }
+              />
             <div className="all-axis-tiles">
             <AxisTiles
               items={highlightsItems}
