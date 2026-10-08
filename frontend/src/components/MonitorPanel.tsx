@@ -486,6 +486,11 @@ export default function MonitorPanel({
       {/* Filter / Search inside Monitor + selettore visualizzazione */}
       {items.length > 0 && (
         <div className="monitor-filter-row">
+          <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
+            <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
+            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
+            <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
+          </div>
           <input
             className="monitor-filter-input"
             type="text"
@@ -493,11 +498,6 @@ export default function MonitorPanel({
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
-          <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
-            <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
-            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
-            <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
-          </div>
           <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
             {filteredItems.length === totalCount
               ? `${totalCount} titoli monitorati`

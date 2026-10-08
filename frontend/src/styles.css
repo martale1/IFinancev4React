@@ -3001,17 +3001,44 @@ td {
 }
 
 .monitor-filter-row {
-  display: grid;
-  grid-template-columns: minmax(200px, 1fr) auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   align-items: center;
 }
 
-/* Nel monitor il selettore Schede/Tabella sta DOPO il filtro: la regola
-   condivisa `.view-switch { order: -1 }` serve al tab All, dove il selettore
-   precede la barra dei filtri. */
+/* L'interruttore Schede/Tabella/Lista a sinistra, il box del filtro a destra:
+   l'input si prende lo spazio rimasto partendo da destra, cosi' il conteggio
+   resta accanto al selettore. */
+.monitor-filter-row .monitor-filter-input {
+  width: auto;
+  flex: 1 1 240px;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+/* La regola condivisa `.view-switch { order: -1 }` serve al tab All, dove il
+   selettore precede la barra dei filtri; qui l'ordine del documento e' gia'
+   quello giusto (selettore, filtro, conteggio). */
 .monitor-filter-row .view-switch {
   order: 0;
+}
+
+/* Sotto i 1100 px il selettore e il box del filtro non stanno piu' comodi sulla
+   stessa riga: si impilano a tutta larghezza. Il limite e' piu' alto di quello
+   del telefono (700 px) perche' a 1000 px il filtro, che sul PC e' spinto a
+   destra, finirebbe schiacciato contro il selettore. */
+@media (max-width: 1100px) {
+  .monitor-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .monitor-filter-row .monitor-filter-input {
+    margin-left: 0;
+    max-width: none;
+    flex: 1 1 auto;
+  }
 }
 
 .monitor-filter-input {
@@ -3260,11 +3287,6 @@ td {
   .monitor-add-form .monitor-market-select,
   .monitor-add-form .monitor-add-button {
     width: 100%;
-  }
-
-  .monitor-filter-row {
-    grid-template-columns: 1fr;
-    align-items: stretch;
   }
 
   .monitor-filter-row .view-switch {
