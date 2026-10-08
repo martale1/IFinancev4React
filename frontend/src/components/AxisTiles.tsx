@@ -96,8 +96,10 @@ export function AxisTiles({
 
   return (
     <div className="monitor-tile-groups">
-      {gruppo("Fase", "fase", "Market_Phase")}
+      {/* Ordine dei gruppi: prima l'indicazione, che e' cio' su cui si agisce,
+          poi la fase e infine il rischio. */}
       {gruppo("Indicazione", "indicazione", "Entry_Signal")}
+      {gruppo("Fase", "fase", "Market_Phase")}
       {gruppo("Rischio", "rischio", "Rischio_Trend")}
       {nota ? <span className="monitor-tile-nota">{nota}</span> : null}
     </div>
