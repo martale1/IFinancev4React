@@ -15,7 +15,6 @@ export function MarketChips({
   market,
   onSelect,
   nomeProprio,
-  leading,
   trailing,
 }: {
   markets: string[];
@@ -23,8 +22,6 @@ export function MarketChips({
   onSelect: (m: string) => void;
   /** Nome proprio di una lista personale, altrimenti null. */
   nomeProprio: (m: string) => string | null;
-  /** Contenuto prima dei mercati (di solito il pulsante per gestire le liste). */
-  leading?: ReactNode;
   /** Contenuto dopo i mercati (di solito il filtro del volume). */
   trailing?: ReactNode;
 }) {
@@ -59,7 +56,6 @@ export function MarketChips({
 
   return (
     <div className="market-chips" aria-label="Selezione mercato e liste">
-      {leading}
       {speciali.map((m) => (
         <button
           key={m}

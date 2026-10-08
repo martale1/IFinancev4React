@@ -1339,7 +1339,6 @@ export default function App() {
                 market={market}
                 onSelect={(m) => { setMarket(m); setPage(1); }}
                 nomeProprio={(m) => parseCurrentWatchlistName(m)}
-                leading={<button type="button" className="btn ghost market-chip-action" onClick={() => setTab("Liste")}>Gestisci liste</button>}
                 trailing={
                   <label className="volume-filter market-chip-volume">
                     Volume min

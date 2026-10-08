@@ -686,7 +686,6 @@ textarea {
 }
 .market-chip:hover { border-color: rgba(56,189,248,.6); }
 .market-chip.selected { background: #197b78; border-color: #2dd4bf; color: #fff; font-weight: 700; }
-.market-chip-action { font-size: .78rem; padding: .35rem .6rem; }
 .market-chip-volume { font-size: .75rem; gap: .3rem; }
 .market-chip-volume input { width: 72px; padding: .25rem .4rem; }
 
