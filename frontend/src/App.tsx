@@ -11,6 +11,7 @@ import { AxesModelGuide } from "./components/AxesModelGuide";
 import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
+import { ordinaPerRango } from "./ranking";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
@@ -878,6 +879,12 @@ export default function App() {
     if (!watchlistQuery.data?.items) return [];
     const items = [...watchlistQuery.data.items];
     if (!sortKey || !sortDir) return items;
+    // Indicazione, fase e rischio seguono l'anello: la testa la decide la tessera
+    // cliccata. Per questi tre campi l'ordine lo fa la funzione condivisa col
+    // Monitor, cosi' le due viste non possono divergere.
+    if (sortKey === "Entry_Signal" || sortKey === "Market_Phase" || sortKey === "Rischio_Trend") {
+      return ordinaPerRango(items, rango);
+    }
     return items.sort((a, b) => {
       if (sortKey === "ADX_DI_PLUS" || sortKey === "ADX_DI_MINUS") {
         const value = (row: WatchlistRow, key: string) => Number(row[key]);
@@ -943,7 +950,7 @@ export default function App() {
       }
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [watchlistQuery.data?.items, sortKey, sortDir]);
+  }, [watchlistQuery.data?.items, sortKey, sortDir, rango]);
 
   function clearGlobalSearch() {
     if (globalSearchBusy) return;
