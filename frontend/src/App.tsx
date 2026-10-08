@@ -11,7 +11,7 @@ import { AxesModelGuide } from "./components/AxesModelGuide";
 import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
-import { ordinaPerRango } from "./ranking";
+import { ordinaPerRango, testaIndicazione } from "./ranking";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
@@ -230,8 +230,10 @@ export default function App() {
   const [pageSize] = useState(50);
   // Testa dell'ordinamento scelta con le tessere degli assi. Non e' un filtro:
   // nessun titolo viene nascosto, cambia solo da quale valore si parte.
+  // Si parte senza scelta: la testa la decide il ripiego automatico (ENTRA, e se
+  // non c'e' OSSERVA, poi ATTENDI, poi EVITA).
   const [rango, setRango] = useState<{ indicazione: string | null; fase: string | null; rischio: string | null }>({
-    indicazione: "ENTRA",
+    indicazione: null,
     fase: null,
     rischio: null,
   });
@@ -526,13 +528,17 @@ export default function App() {
   // barra sta ordinando per uno dei tre campi dell'anello.
   const anelloAttivo = watchlistView === "list"
     || sortKey === "Entry_Signal" || sortKey === "Market_Phase" || sortKey === "Rischio_Trend";
+  // Testa effettiva dell'indicazione: quella scelta, oppure il primo valore
+  // presente partendo da ENTRA. Senza, su un mercato senza titoli ENTRA la
+  // freccia resterebbe su un gruppo vuoto.
+  const indicazioneInTesta = testaIndicazione(highlightsItems, rango.indicazione);
   const testaAttiva: AxisTileSelection | null = !anelloAttivo
     ? null
     : sortKey === "Market_Phase"
       ? (rango.fase ? { kind: "fase", value: rango.fase } : null)
       : sortKey === "Rischio_Trend"
         ? (rango.rischio ? { kind: "rischio", value: rango.rischio } : null)
-        : (rango.indicazione ? { kind: "indicazione", value: rango.indicazione } : null);
+        : { kind: "indicazione", value: indicazioneInTesta };
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume],
     queryFn: () => fetchWatchlist({

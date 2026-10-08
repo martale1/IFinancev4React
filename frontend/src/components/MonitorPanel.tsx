@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
-import { ordinaPerRango } from "../ranking";
+import { ordinaPerRango, testaIndicazione } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -273,8 +273,11 @@ export default function MonitorPanel({
    */
   // Testa dell'ordinamento: il valore scelto con un clic su una tessera.
   // Non e' un filtro: nessun titolo viene nascosto, cambia solo l'ordine.
+  // Si parte senza scelta: la testa la decide il ripiego automatico (ENTRA, e se
+  // non c'e' OSSERVA, poi ATTENDI, poi EVITA). Se fosse "ENTRA" a priori, su un
+  // mercato senza titoli ENTRA la prima riga sarebbe un gruppo vuoto.
   const [rango, setRango] = useState<{ indicazione: string | null; fase: string | null; rischio: string | null }>({
-    indicazione: "ENTRA",
+    indicazione: null,
     fase: null,
     rischio: null,
   });
@@ -293,16 +296,17 @@ export default function MonitorPanel({
 
   // L'ordinamento agisce su cio' che si vede, dopo la ricerca: non cambia quali
   // titoli compaiono, solo in che ordine.
-  // Tessera da segnare "in testa": deve essere quella che comanda DAVVERO l'ordine,
-  // e l'ordinamento mette prima l'indicazione. Se segnassi la fase mentre a
-  // comandare e' l'indicazione, la freccia indicherebbe la tessera sbagliata.
-  const testaAttiva = rango.indicazione
-    ? { kind: "indicazione" as const, value: rango.indicazione }
-    : rango.fase
-      ? { kind: "fase" as const, value: rango.fase }
-      : rango.rischio
-        ? { kind: "rischio" as const, value: rango.rischio }
-        : null;
+  // Testa effettiva dell'ordinamento: quella scelta, oppure il primo valore
+  // presente partendo da ENTRA (vedi testaIndicazione). Serve perche' le tessere
+  // non hanno una "naturale" come la barra: senza, nessuna risulterebbe in testa.
+  const testaIndicazioneEffettiva = testaIndicazione(filteredItems, rango.indicazione);
+
+  // Tessera da segnare "in testa": deve essere quella che comanda DAVVERO
+  // l'ordine, e l'ordinamento mette prima l'indicazione.
+  const testaAttiva = {
+    kind: "indicazione" as const,
+    value: testaIndicazioneEffettiva,
+  };
 
   const righeOrdinate = useMemo(
     () => ordinaPerRango(filteredItems, rango),

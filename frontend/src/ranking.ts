@@ -41,6 +41,27 @@ function posizione(valore: unknown, classifica: string[]): number {
   return i < 0 ? classifica.length : i;
 }
 
+/**
+ * Testa usata per l'ordinamento di indicazione.
+ *
+ * Se l'utente ha scelto un valore, si usa quello **solo se il mercato ha titoli
+ * con quel valore**: altrimenti si ripiega come per il predefinito. Serve a non
+ * creare una contraddizione: cliccando "EVITA" quando non ci sono titoli EVITA,
+ * la freccia direbbe "EVITA" ma a comandare resterebbe un altro gruppo.
+ *
+ * Senza scelta si parte da ENTRA e si scende: OSSERVA, ATTENDI, EVITA.
+ */
+export function testaIndicazione(rows: WatchlistRow[], preferita?: string | null): string {
+  const richiesta = String(preferita ?? "").toUpperCase();
+  const presenti = new Set(rows.map((r) => String(r.Entry_Signal ?? "").toUpperCase()));
+  const desiderata = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"];
+
+  if (richiesta && presenti.has(richiesta)) return richiesta;
+  const primo = desiderata.find((v) => presenti.has(v));
+  if (primo) return primo;
+  return richiesta || "ENTRA";
+}
+
 /** 0 se il valore corrisponde a quello scelto, 1 altrimenti. */
 function preferenza(valore: unknown, scelto: string | null | undefined): number {
   if (!scelto) return 0;
@@ -48,7 +69,9 @@ function preferenza(valore: unknown, scelto: string | null | undefined): number 
 }
 
 export function ordinaPerRango(rows: WatchlistRow[], rango: Rango): WatchlistRow[] {
-  const indicazioni = ruotaIndicazione(rango.indicazione || "ENTRA");
+  // Testa effettiva: quella scelta, oppure il primo valore presente partendo da
+  // ENTRA. Cosi' il gruppo in cima non e' mai vuoto.
+  const indicazioni = ruotaIndicazione(testaIndicazione(rows, rango.indicazione));
 
   return [...rows].sort((a, b) => {
     const diffInd = posizione(a.Entry_Signal, indicazioni) - posizione(b.Entry_Signal, indicazioni);
