@@ -3,7 +3,7 @@ import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
 import { MarketChips } from "./MarketChips";
-import { ordinaPerRango, testaIndicazione } from "../ranking";
+import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -286,6 +286,8 @@ export default function MonitorPanel({
     fase: null,
     rischio: null,
   });
+  // Su quale dimensione si e' cliccato per ultimo: e' quella che ordina per prima.
+  const [dimensione, setDimensione] = useState<Dimensione>("indicazione");
 
   const filteredItems = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -305,18 +307,17 @@ export default function MonitorPanel({
   // Testa effettiva dell'ordinamento: quella scelta, oppure il primo valore
   // presente partendo da ENTRA (vedi testaIndicazione). Serve perche' le tessere
   // non hanno una "naturale" come la barra: senza, nessuna risulterebbe in testa.
-  const testaIndicazioneEffettiva = testaIndicazione(filteredItems, rango.indicazione);
-
-  // Tessera da segnare "in testa": deve essere quella che comanda DAVVERO
-  // l'ordine, e l'ordinamento mette prima l'indicazione.
-  const testaAttiva = {
-    kind: "indicazione" as const,
-    value: testaIndicazioneEffettiva,
-  };
+  // La freccia sta sulla tessera che comanda l'ordine: quella della dimensione
+  // scelta, con il valore in testa dopo il ripiego sui valori presenti.
+  const testaAttiva = dimensione === "fase"
+    ? { kind: "fase" as const, value: testa(filteredItems, "Market_Phase", ANELLO_FASE, rango.fase) }
+    : dimensione === "rischio"
+      ? { kind: "rischio" as const, value: testa(filteredItems, "Rischio_Trend", ANELLO_RISCHIO, rango.rischio) }
+      : { kind: "indicazione" as const, value: testaIndicazione(filteredItems, rango.indicazione) };
 
   const righeOrdinate = useMemo(
-    () => ordinaPerRango(filteredItems, rango),
-    [filteredItems, rango],
+    () => ordinaPerRango(filteredItems, rango, dimensione),
+    [filteredItems, rango, dimensione],
   );
 
   // Statistics
@@ -418,9 +419,11 @@ export default function MonitorPanel({
         items={items}
         active={testaAttiva}
         onSelect={(selezione) => {
+          // La dimensione cliccata comanda l'ordine da qui in avanti.
+          setDimensione(selezione.kind);
           setRango((corrente) => ({
             ...corrente,
-            [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
+            [selezione.kind]: selezione.value,
           }));
         }}
       />

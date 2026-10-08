@@ -12,7 +12,7 @@ import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
-import { ordinaPerRango, testaIndicazione } from "./ranking";
+import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
@@ -238,6 +238,8 @@ export default function App() {
     fase: null,
     rischio: null,
   });
+  // Su quale dimensione si e' cliccato per ultimo: ordina per prima.
+  const [dimensione, setDimensione] = useState<Dimensione>("indicazione");
   const [watchlistView, setWatchlistView] = useState<"cards" | "table" | "list">(() => {
     const chiave = "ifinance-watchlist-view";
     const chiaveVersione = "ifinance-watchlist-view-default";
@@ -532,14 +534,13 @@ export default function App() {
   // Testa effettiva dell'indicazione: quella scelta, oppure il primo valore
   // presente partendo da ENTRA. Senza, su un mercato senza titoli ENTRA la
   // freccia resterebbe su un gruppo vuoto.
-  const indicazioneInTesta = testaIndicazione(highlightsItems, rango.indicazione);
   const testaAttiva: AxisTileSelection | null = !anelloAttivo
     ? null
-    : sortKey === "Market_Phase"
-      ? (rango.fase ? { kind: "fase", value: rango.fase } : null)
-      : sortKey === "Rischio_Trend"
-        ? (rango.rischio ? { kind: "rischio", value: rango.rischio } : null)
-        : { kind: "indicazione", value: indicazioneInTesta };
+    : dimensione === "fase"
+      ? { kind: "fase", value: testa(highlightsItems, "Market_Phase", ANELLO_FASE, rango.fase) }
+      : dimensione === "rischio"
+        ? { kind: "rischio", value: testa(highlightsItems, "Rischio_Trend", ANELLO_RISCHIO, rango.rischio) }
+        : { kind: "indicazione", value: testaIndicazione(highlightsItems, rango.indicazione) };
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume],
     queryFn: () => fetchWatchlist({
@@ -892,12 +893,12 @@ export default function App() {
     const items = [...watchlistQuery.data.items];
     // Vista Lista: l'ordine lo decide la tessera cliccata (l'anello). Non c'e'
     // barra "Ordina per" in questa vista, quindi non ha senso guardare sortKey.
-    if (watchlistView === "list") return ordinaPerRango(items, rango);
+    if (watchlistView === "list") return ordinaPerRango(items, rango, dimensione);
     if (!sortKey || !sortDir) return items;
     // Nella tabella i tre campi dell'anello passano alla funzione condivisa col
     // Monitor, cosi' le due viste non possono divergere.
     if (sortKey === "Entry_Signal" || sortKey === "Market_Phase" || sortKey === "Rischio_Trend") {
-      return ordinaPerRango(items, rango);
+      return ordinaPerRango(items, rango, dimensione);
     }
     return items.sort((a, b) => {
       if (sortKey === "ADX_DI_PLUS" || sortKey === "ADX_DI_MINUS") {
@@ -964,7 +965,7 @@ export default function App() {
       }
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [watchlistQuery.data?.items, sortKey, sortDir, rango, watchlistView]);
+  }, [watchlistQuery.data?.items, sortKey, sortDir, rango, dimensione, watchlistView]);
 
   function clearGlobalSearch() {
     if (globalSearchBusy) return;
@@ -1356,13 +1357,14 @@ export default function App() {
               items={highlightsItems}
               active={testaAttiva}
               onSelect={(selezione) => {
-                // Non filtra: mette quel valore in testa all'ordine. Nella vista
-                // lista l'ordine lo decide solo la tessera; nella vista Tabella
-                // invece si sposta anche la barra sul campo corrispondente,
+                // Non filtra: mette quel valore in testa all'ordine, e la
+                // dimensione cliccata diventa la prima da guardare. Nella vista
+                // Tabella si sposta anche la barra sul campo corrispondente,
                 // altrimenti il clic non si vedrebbe.
+                setDimensione(selezione.kind);
                 setRango((corrente) => ({
                   ...corrente,
-                  [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
+                  [selezione.kind]: selezione.value,
                 }));
                 if (watchlistView !== "list") {
                   setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");

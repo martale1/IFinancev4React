@@ -1,14 +1,11 @@
 import type { WatchlistRow } from "../types";
-import { ANELLO_INDICAZIONE, ruotaIndicazione } from "../ranking";
+import { ANELLO_INDICAZIONE, ANELLO_FASE, ANELLO_RISCHIO, ruota } from "../ranking";
 
 export type AxisTileKind = "fase" | "indicazione" | "rischio";
 
 /** Valore messo in testa all'ordinamento. */
 export type AxisTileSelection = { kind: AxisTileKind; value: string };
 
-const FASI = ["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"] as const;
-const INDICAZIONI = ANELLO_INDICAZIONE;
-const RISCHI = ["NORMALE", "TESO", "ESTREMO"] as const;
 
 /**
  * Tessere riassuntive dei quattro assi: quante fasi, quante indicazioni, quanti
@@ -62,12 +59,13 @@ export function AxisTiles({
 
   const inTesta = (kind: AxisTileKind, value: string) => active?.kind === kind && active.value === value;
 
-  const gruppo = (etichetta: string, kind: AxisTileKind, campo: string, valori: readonly string[]) => {
-    // Le indicazioni si mostrano nell'ordine che avranno i titoli: cliccandone
-    // una si vede subito dove finisce, perche' si sposta in testa.
-    const ordine = kind === "indicazione"
-      ? ruotaIndicazione(active?.kind === "indicazione" ? active.value : "ENTRA")
-      : valori;
+  const gruppo = (etichetta: string, kind: AxisTileKind, campo: string) => {
+    // Tutte le dimensioni si mostrano nell'ordine che avranno i titoli: cosi'
+    // cliccandone una si vede subito dove finisce, perche' si sposta in testa.
+    // Vale per Indicazione, Fase e Rischio, non solo per l'indicazione.
+    const anello = kind === "fase" ? ANELLO_FASE : kind === "rischio" ? ANELLO_RISCHIO : ANELLO_INDICAZIONE;
+    const inTestaOra = active?.kind === kind ? active.value : anello[0];
+    const ordine = ruota(anello, inTestaOra);
     return (
       <div className="monitor-tile-group">
         <span className="monitor-tile-label">{etichetta}</span>
@@ -98,9 +96,9 @@ export function AxisTiles({
 
   return (
     <div className="monitor-tile-groups">
-      {gruppo("Fase", "fase", "Market_Phase", FASI)}
-      {gruppo("Indicazione", "indicazione", "Entry_Signal", INDICAZIONI)}
-      {gruppo("Rischio", "rischio", "Rischio_Trend", RISCHI)}
+      {gruppo("Fase", "fase", "Market_Phase")}
+      {gruppo("Indicazione", "indicazione", "Entry_Signal")}
+      {gruppo("Rischio", "rischio", "Rischio_Trend")}
       {nota ? <span className="monitor-tile-nota">{nota}</span> : null}
     </div>
   );
