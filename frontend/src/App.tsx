@@ -68,12 +68,6 @@ const entrySignalOptions = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"];
 // Fasi e assi del nuovo modello: il valore deve combaciare con quello salvato
 // nell'Excel (four_axes.py), altrimenti il filtro non trova nulla.
 const marketPhaseOptions = ["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"];
-const trendPhaseDetailOptions = [
-  "EXPANSION",
-  "EARLY_TREND",
-  "RANGE",
-  "DOWNTREND",
-];
 
 /** Quanti titoli hanno quella proprietà. */
 function countBy<T>(items: T[], predicate: (item: T) => boolean): number {
@@ -139,17 +133,6 @@ function quickAlertFieldLabel(field: QuickAlertField): string {
   return field;
 }
 
-
-function filterLabel(v: string): string {
-  return v.replace(/_/g, " ");
-}
-
-function trendDetailForTab(tabName: string): string {
-  const t = String(tabName || "").trim().toLowerCase();
-  if (t === "early trend") return "EARLY_TREND";
-  if (t === "expansion") return "EXPANSION";
-  return "";
-}
 
 type QuickAlertConfig = {
   field: QuickAlertField;
@@ -242,12 +225,15 @@ export default function App() {
   const [minVolume, setMinVolume] = useState(2000);
   // I filtri si possono passare da URL (?entry_signal=ENTRA&market_phase=LATERALE):
   // servono per i link condivisibili e per verificare i conteggi delle tessere.
-  const [entrySignalFilter, setEntrySignalFilter] = useState(() => urlParams.get("entry_signal") || "");
-  const [marketPhaseFilter, setMarketPhaseFilter] = useState(() => urlParams.get("market_phase") || "");
-  const [trendPhaseDetailFilter, setTrendPhaseDetailFilter] = useState(() => urlParams.get("trend_detail") || "");
-  const [showStateFilters, setShowStateFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
+  // Testa dell'ordinamento scelta con le tessere degli assi. Non e' un filtro:
+  // nessun titolo viene nascosto, cambia solo da quale valore si parte.
+  const [rango, setRango] = useState<{ indicazione: string | null; fase: string | null; rischio: string | null }>({
+    indicazione: "ENTRA",
+    fase: null,
+    rischio: null,
+  });
   const [watchlistView, setWatchlistView] = useState<"cards" | "table" | "list">(() => {
     const chiave = "ifinance-watchlist-view";
     const chiaveVersione = "ifinance-watchlist-view-default";
@@ -473,21 +459,15 @@ export default function App() {
     setAiActiveChatMap((prev) => ({ ...prev, [key]: active }));
   }
 
-  const quickTrendDetail = trendDetailForTab(tab);
-  const effectiveTrendPhaseDetailFilter = quickTrendDetail || trendPhaseDetailFilter;
-  const tabForApi = quickTrendDetail ? "All" : tab;
-  const activeFilterCount = [entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter].filter(Boolean).length;
+  const tabForApi = tab;
 
   const watchlistQuery = useQuery({
-    queryKey: ["watchlist", market, tabForApi, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter, page, pageSize, rankN, sortKey, sortDir],
+    queryKey: ["watchlist", market, tabForApi, minVolume, page, pageSize, rankN, sortKey, sortDir],
     queryFn: () => fetchWatchlist({
       market,
       tab: tabForApi,
       search: "",
       minVolume,
-      entrySignal: entrySignalFilter,
-      marketPhase: marketPhaseFilter,
-      trendPhaseDetail: effectiveTrendPhaseDetailFilter,
       page,
       pageSize,
       rankN,
@@ -506,15 +486,12 @@ export default function App() {
    * tab All.
    */
   const highlightsFullQuery = useQuery({
-    queryKey: ["watchlist", market, "All", minVolume, "", "", "", 1, 500, rankN, sortKey, sortDir],
+    queryKey: ["watchlist", market, "All", minVolume, 1, 500, rankN, sortKey, sortDir],
     queryFn: () => fetchWatchlist({
       market,
       tab: "All",
       search: "",
       minVolume,
-      entrySignal: "",
-      marketPhase: "",
-      trendPhaseDetail: "",
       page: 1,
       pageSize: 500,
       rankN,
@@ -524,7 +501,6 @@ export default function App() {
     enabled: tab === "📊 Highlights" || tab === "All",
   });
   const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
-  const highlightsAreFiltered = Boolean(entrySignalFilter || marketPhaseFilter || effectiveTrendPhaseDetailFilter);
   // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
   // Volutamente separata dai filtri della tab All, che restano indipendenti.
   const [highlightTile, setHighlightTile] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
@@ -542,21 +518,22 @@ export default function App() {
   // Le tessere dei quattro assi contano TUTTI i titoli del mercato (query non
   // filtrata): cliccandone una l'elenco si restringe ma i numeri restano quelli
   // del mercato, altrimenti sembrerebbe che sia cambiato.
-  const selezioneAssi: AxisTileSelection | null = marketPhaseFilter
-    ? { kind: "fase", value: marketPhaseFilter }
-    : entrySignalFilter
-      ? { kind: "indicazione", value: entrySignalFilter }
-      : null;
+  // Dipende anche dalla barra: se ordina per Ticker, nessuna tessera comanda e
+  // resta l'anello naturale.
+  const testaAttiva: AxisTileSelection | null = sortKey === "Entry_Signal" && rango.indicazione
+    ? { kind: "indicazione", value: rango.indicazione }
+    : sortKey === "Market_Phase" && rango.fase
+      ? { kind: "fase", value: rango.fase }
+      : sortKey === "Rischio_Trend" && rango.rischio
+        ? { kind: "rischio", value: rango.rischio }
+        : null;
   const indicatorsQuery = useQuery({
-    queryKey: ["indicators", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
+    queryKey: ["indicators", market, minVolume],
     queryFn: () => fetchWatchlist({
       market,
       tab: "All",
       search: "",
       minVolume,
-      entrySignal: entrySignalFilter,
-      marketPhase: marketPhaseFilter,
-      trendPhaseDetail: effectiveTrendPhaseDetailFilter,
       page: 1,
       pageSize: 2000,
       rankN: 2000,
@@ -568,15 +545,12 @@ export default function App() {
   });
 
   const heatmapQuery = useQuery({
-    queryKey: ["heatmap", market, minVolume, entrySignalFilter, marketPhaseFilter, effectiveTrendPhaseDetailFilter],
+    queryKey: ["heatmap", market, minVolume],
     queryFn: () => fetchWatchlist({
       market,
       tab: "All",
       search: "",
       minVolume,
-      entrySignal: entrySignalFilter,
-      marketPhase: marketPhaseFilter,
-      trendPhaseDetail: effectiveTrendPhaseDetailFilter,
       page: 1,
       pageSize: 200,
       rankN: 100,
@@ -1090,78 +1064,9 @@ export default function App() {
           <input type="number" min="0" value={minVolume}
             onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
         </label>
-        <button
-          className={showStateFilters || activeFilterCount ? "btn filter-toggle active" : "btn ghost filter-toggle"}
-          onClick={() => setShowStateFilters((v) => !v)}
-        >
-          {showStateFilters ? "Nascondi filtri" : activeFilterCount ? `Filtri (${activeFilterCount})` : "Filtri"}
-        </button>
       </div>
 
 
-      {showStateFilters ? (
-        <section className="state-filters" aria-label="Filtri stato card">
-          <label>
-            Segnale ingresso
-            <select
-              value={entrySignalFilter}
-              onChange={(e) => {
-                setEntrySignalFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">Tutte</option>
-              {entrySignalOptions.map((v) => (
-                <option key={v} value={v}>{filterLabel(v)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Market phase
-            <select
-              value={marketPhaseFilter}
-              onChange={(e) => {
-                setMarketPhaseFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">Tutte</option>
-              {marketPhaseOptions.map((v) => (
-                <option key={v} value={v}>{filterLabel(v)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Trend detail
-            <select
-              value={effectiveTrendPhaseDetailFilter}
-              onChange={(e) => {
-                setTrendPhaseDetailFilter(e.target.value);
-                if (quickTrendDetail) setTab("All");
-                setPage(1);
-              }}
-            >
-              <option value="">Tutti</option>
-              {trendPhaseDetailOptions.map((v) => (
-                <option key={v} value={v}>{filterLabel(v)}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="btn ghost"
-            disabled={!entrySignalFilter && !marketPhaseFilter && !effectiveTrendPhaseDetailFilter}
-            onClick={() => {
-              setEntrySignalFilter("");
-              setMarketPhaseFilter("");
-              setTrendPhaseDetailFilter("");
-              if (quickTrendDetail) setTab("All");
-              setPage(1);
-            }}
-          >
-            Reset filtri
-          </button>
-        </section>
-      ) : null}
       <RuleGuide />
 
       <nav className="tabs" aria-label="Sezioni principali">
@@ -1171,9 +1076,6 @@ export default function App() {
             className={tab === t ? "tab active" : "tab"}
             onClick={() => {
               setTab(t);
-              if (trendDetailForTab(t)) {
-                setTrendPhaseDetailFilter("");
-              }
               setPage(1);
             }}
           >
@@ -1308,11 +1210,6 @@ export default function App() {
           <br />
           <small>Fase = dove sta andando il titolo (può essere TENDENZA e comunque non essere da comprare) · Indicazione = cosa fare, valutando anche rischio e liquidità.</small>
         </p>
-        {highlightsAreFiltered ? (
-          <p className="highlights-note">
-            ⓘ Questi numeri riguardano <b>tutto il mercato</b>, non i filtri attivi. Cliccando una tessera si filtra l'elenco qui sotto, restando in questa pagina.
-          </p>
-        ) : null}
         <div className="highlights-split">
           <section className="highlights-block">
             <h3>Fase di mercato <small>— clicca per filtrare</small></h3>
@@ -1446,19 +1343,17 @@ export default function App() {
             <div className="all-axis-tiles">
             <AxisTiles
               items={highlightsItems}
-              active={selezioneAssi}
+              active={testaAttiva}
               onSelect={(selezione) => {
-                if (selezione.kind === "fase") {
-                  setMarketPhaseFilter(selezione.value);
-                  setEntrySignalFilter("");
-                  } else if (selezione.kind === "indicazione") {
-                  setEntrySignalFilter(selezione.value);
-                  setMarketPhaseFilter("");
-                  } else {
-                  // Il rischio non ha un filtro dedicato: si filtra per fase TESO/ESTREMO
-                  setMarketPhaseFilter("");
-                  setEntrySignalFilter("");
-                }
+                // Non filtra: mette quel valore in testa all'ordine e sposta la
+                // barra sul campo corrispondente, altrimenti il clic non si
+                // vedrebbe finche' la barra ordina per un altro campo.
+                setRango((corrente) => ({
+                  ...corrente,
+                  [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
+                }));
+                setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");
+                setSortDir("asc");
                 setPage(1);
               }}
             />

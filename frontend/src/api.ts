@@ -140,9 +140,6 @@ export async function fetchWatchlist(params: {
   pageSize: number;
   search: string;
   minVolume: number;
-  entrySignal: string;
-  marketPhase: string;
-  trendPhaseDetail: string;
   rankN: number;
   sortKey?: string | null;
   sortDir?: "asc" | "desc" | null;
@@ -154,9 +151,6 @@ export async function fetchWatchlist(params: {
     page_size: String(params.pageSize),
     search: params.search,
     min_volume: String(params.minVolume),
-    entry_signal: params.entrySignal,
-    market_phase: params.marketPhase,
-    trend_phase_detail: params.trendPhaseDetail,
     rank_n: String(params.rankN),
     sort_key: params.sortKey ?? "",
     sort_dir: params.sortDir ?? ""

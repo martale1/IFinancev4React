@@ -1,5 +1,6 @@
 import type { WatchlistRow } from "../types";
 import { toNum } from "../format";
+import { ordinaPerRango } from "../ranking";
 
 /**
  * Barra di ordinamento condivisa fra la tab All e il Monitor.
@@ -65,14 +66,26 @@ export function prossimoOrdinamento(
   return { key: null, dir: null };
 }
 
-/** Ordina le righe secondo campo e verso. Restituisce una copia. */
+/** Ordina le righe secondo campo e verso. Restituisce una copia.
+ *
+ *  `ringHead` dice quale valore mettere in testa quando si ordina per
+ *  Indicazione o Fase: i valori seguono l'anello invece di una priorita' fissa,
+ *  cosi' cliccare una tessera cambia davvero l'ordine dei titoli.
+ */
 export function ordinaRighe(
   rows: WatchlistRow[],
   key: SortKey | null,
   dir: "asc" | "desc" | null,
+  ringHead?: { indicazione?: string | null; fase?: string | null; rischio?: string | null },
 ): WatchlistRow[] {
   const copia = [...rows];
   if (!key || !dir) return copia;
+
+  // Indicazione e fase seguono l'anello: la testa la decide la tessera cliccata.
+  if (key === "Entry_Signal" || key === "Market_Phase" || key === "Rischio_Trend") {
+    return ordinaPerRango(copia, ringHead ?? {});
+  }
+
   const segno = dir === "asc" ? 1 : -1;
 
   return copia.sort((a, b) => {

@@ -654,6 +654,12 @@ textarea {
   box-shadow: 0 0 0 2px #38bdf8, 0 0 10px rgba(56,189,248,.5);
 }
 .monitor-tile.active b { color:#e5f2ff; }
+/* La tessera che comanda l'ordine: un anello pieno, piu' evidente del passaggio
+   del mouse, e la freccia che indica "da qui in poi". */
+.monitor-tile.in-testa {
+  box-shadow: 0 0 0 2px currentColor;
+  font-weight: 700;
+}
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 
 /* Contatori dell'intestazione ora cliccabili: isolano un gruppo di titoli.

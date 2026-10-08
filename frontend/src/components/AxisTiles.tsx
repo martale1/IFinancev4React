@@ -1,31 +1,30 @@
 import type { WatchlistRow } from "../types";
+import { ANELLO_INDICAZIONE, ruotaIndicazione } from "../ranking";
 
 export type AxisTileKind = "fase" | "indicazione" | "rischio";
 
+/** Valore messo in testa all'ordinamento. */
 export type AxisTileSelection = { kind: AxisTileKind; value: string };
 
-/**
- * Tessere riassuntive dei quattro assi: quante fasi, quante indicazioni, quanti
- * livelli di rischio. Usate dal Monitor e dalla tab All, così i due posti non
- * possono divergere (prima il Monitor aveva tessere proprie e All nessuna).
- *
- * I conteggi riguardano SEMPRE tutti i titoli passati: cliccare una tessera
- * filtra l'elenco ma non cambia i numeri, altrimenti sembrerebbe che il mercato
- * sia cambiato.
- */
 const FASI = ["TENDENZA", "RIPRESA", "LATERALE", "RIBASSO"] as const;
-const INDICAZIONI = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"] as const;
+const INDICAZIONI = ANELLO_INDICAZIONE;
 const RISCHI = ["NORMALE", "TESO", "ESTREMO"] as const;
 
 /**
- * Classe di colore di una tessera, per tipo e valore.
+ * Tessere riassuntive dei quattro assi: quante fasi, quante indicazioni, quanti
+ * livelli di rischio. Usate dal Monitor e dalla tab All, cosi' i due posti non
+ * possono divergere.
  *
- * Gli stessi colori della tabella: cosi' "ENTRA" e' verde sia nella tessera sia
- * nella riga, e il colore significa la stessa cosa nei due posti.
+ * Il clic NON filtra: porta quel valore in testa all'ordinamento e gli altri lo
+ * seguono. I conteggi riguardano sempre tutti i titoli passati.
  */
+function conta(items: WatchlistRow[], campo: string, valore: string): number {
+  return items.filter((row) => String(row[campo] ?? "").toUpperCase() === valore).length;
+}
+
+/** Classe di colore di una tessera, con gli stessi colori della tabella. */
 function classeColore(kind: AxisTileKind, valore: string): string {
   const v = valore.toUpperCase();
-  // Indicazioni: sono le stesse classi usate dalla tabella.
   if (kind === "indicazione") {
     if (v === "ENTRA") return "tile-enter";
     if (v === "OSSERVA") return "tile-watch";
@@ -44,10 +43,6 @@ function classeColore(kind: AxisTileKind, valore: string): string {
   return "tile-avoid";
 }
 
-function conta(items: WatchlistRow[], campo: string, valore: string): number {
-  return items.filter((row) => String(row[campo] ?? "").toUpperCase() === valore).length;
-}
-
 export function AxisTiles({
   items,
   onSelect,
@@ -57,6 +52,7 @@ export function AxisTiles({
 }: {
   items: WatchlistRow[];
   onSelect?: (selection: AxisTileSelection) => void;
+  /** Valore attualmente in testa all'ordinamento, se scelto. */
   active?: AxisTileSelection | null;
   /** Con elenco paginato i conteggi sarebbero parziali: meglio dirlo. */
   disabled?: boolean;
@@ -64,39 +60,41 @@ export function AxisTiles({
 }) {
   if (!items.length) return null;
 
-  const attivo = (kind: AxisTileKind, value: string) => active?.kind === kind && active.value === value;
-  const clic = (kind: AxisTileKind, value: string, n: number) => {
-    if (!onSelect || disabled || !n) return;
-    onSelect({ kind, value });
-  };
+  const inTesta = (kind: AxisTileKind, value: string) => active?.kind === kind && active.value === value;
 
-  const gruppo = (etichetta: string, kind: AxisTileKind, campo: string, valori: readonly string[]) => (
-    <div className="monitor-tile-group">
-      <span className="monitor-tile-label">{etichetta}</span>
-      {valori.map((valore) => {
-        const n = conta(items, campo, valore);
-        const isActive = attivo(kind, valore);
-        return (
-          <button
-            type="button"
-            key={valore}
-            className={`monitor-tile ${classeColore(kind, valore)} ${isActive ? "active" : ""}`}
-            disabled={disabled || !n}
-            onClick={() => clic(kind, valore, n)}
-            title={
-              disabled
-                ? `${n} titoli con ${etichetta.toLowerCase()} ${valore}`
-                : n
-                  ? `Mostra i ${n} titoli con ${etichetta.toLowerCase()} ${valore}`
-                  : `Nessun titolo con ${etichetta.toLowerCase()} ${valore}`
-            }
-          >
-            <b>{n}</b> {valore}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const gruppo = (etichetta: string, kind: AxisTileKind, campo: string, valori: readonly string[]) => {
+    // Le indicazioni si mostrano nell'ordine che avranno i titoli: cliccandone
+    // una si vede subito dove finisce, perche' si sposta in testa.
+    const ordine = kind === "indicazione"
+      ? ruotaIndicazione(active?.kind === "indicazione" ? active.value : "ENTRA")
+      : valori;
+    return (
+      <div className="monitor-tile-group">
+        <span className="monitor-tile-label">{etichetta}</span>
+        {ordine.map((valore) => {
+          const n = conta(items, campo, valore);
+          const isTesta = inTesta(kind, valore);
+          return (
+            <button
+              type="button"
+              key={valore}
+              className={`monitor-tile ${classeColore(kind, valore)} ${isTesta ? "in-testa" : ""}`}
+              disabled={disabled}
+              onClick={() => onSelect?.({ kind, value: valore })}
+              title={
+                disabled
+                  ? `${n} titoli con ${etichetta.toLowerCase()} ${valore}`
+                  : `Metti ${valore} in testa all'ordine (${n} titoli)`
+              }
+            >
+              {isTesta ? "▼ " : null}
+              <b>{n}</b> {valore}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="monitor-tile-groups">
@@ -104,11 +102,6 @@ export function AxisTiles({
       {gruppo("Indicazione", "indicazione", "Entry_Signal", INDICAZIONI)}
       {gruppo("Rischio", "rischio", "Rischio_Trend", RISCHI)}
       {nota ? <span className="monitor-tile-nota">{nota}</span> : null}
-      {active && onSelect ? (
-        <button type="button" className="btn ghost monitor-tile-clear" onClick={() => onSelect({ kind: active.kind, value: "" })}>
-          ✕ Togli il filtro
-        </button>
-      ) : null}
     </div>
   );
 }

@@ -271,31 +271,21 @@ export default function MonitorPanel({
    * Filtro a tessera, sullo stesso principio di Highlights: i conteggi riguardano
    * sempre TUTTI i titoli monitorati, mentre il clic restringe l'elenco mostrato.
    */
-  // I filtri includono sia le tessere degli assi (fase/indicazione/rischio)
-  // sia i contatori dell'intestazione (entra/osserva/note).
-  const [tileFilter, setTileFilter] = useState<{ kind: string; value: string } | null>(null);
-  // Ordinamento delle righe in vista Lista. Stesso campo predefinito del tab All
-  // (S3 crescente, cioe' la striscia MACD), cosi' le due viste partono uguali.
-  const [sortKey, setSortKey] = useState<string | null>("MACD_vs_Signal");
+  // Testa dell'ordinamento: il valore scelto con un clic su una tessera.
+  // Non e' un filtro: nessun titolo viene nascosto, cambia solo l'ordine.
+  const [rango, setRango] = useState<{ indicazione: string | null; fase: string | null; rischio: string | null }>({
+    indicazione: "ENTRA",
+    fase: null,
+    rischio: null,
+  });
+  // Ordinamento delle righe: la barra sceglie il campo, le tessere mettono in
+  // testa il valore. Predefinito: indicazione, cioe' cio' su cui si agisce.
+  const [sortKey, setSortKey] = useState<string | null>("Entry_Signal");
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>("asc");
-
-  const matchesTile = (row: WatchlistRow): boolean => {
-    if (!tileFilter) return true;
-    if (tileFilter.kind === "fase") return String(row.Market_Phase ?? "").toUpperCase() === tileFilter.value;
-    if (tileFilter.kind === "indicazione") return String(row.Entry_Signal ?? "ATTENDI").toUpperCase() === tileFilter.value;
-    if (tileFilter.kind === "rischio") return String(row.Rischio_Trend ?? "").toUpperCase() === tileFilter.value;
-    // Filtri dei contatori in testa: isolano in un tocco i titoli su cui c'e'
-    // qualcosa da fare, senza scorrere tutto l'elenco monitorato.
-    if (tileFilter.kind === "entra") return String(row.Entry_Signal ?? "").toUpperCase() === "ENTRA";
-    if (tileFilter.kind === "osserva") return String(row.Entry_Signal ?? "").toUpperCase() === "OSSERVA";
-    if (tileFilter.kind === "note") return String(row.Monitor_Note ?? "").trim().length > 0;
-    return true;
-  };
 
   const filteredItems = useMemo(() => {
     const term = filterText.trim().toLowerCase();
     return items.filter((row) => {
-      if (!matchesTile(row)) return false;
       if (!term) return true;
       const tk = String(row.Ticker || "").toLowerCase();
       const nm = String(row.Name || "").toLowerCase();
@@ -303,13 +293,24 @@ export default function MonitorPanel({
       const mkt = String(row.WL_Source_Market || "").toLowerCase();
       return tk.includes(term) || nm.includes(term) || note.includes(term) || mkt.includes(term);
     });
-  }, [items, filterText, tileFilter]);
+  }, [items, filterText]);
 
-  // L'ordinamento agisce su cio' che si vede, dopo il filtro: ordinare non cambia
-  // quali titoli compaiono, solo in che ordine.
+  // L'ordinamento agisce su cio' che si vede, dopo la ricerca: non cambia quali
+  // titoli compaiono, solo in che ordine.
+  // Tessera da segnare come "in testa": e' quella che comanda l'ordine adesso,
+  // quindi dipende anche dalla barra. Se la barra ordina per Ticker, nessuna
+  // tessera e' in testa e l'ordinamento per indicazione resta quello naturale.
+  const testaAttiva = sortKey === "Entry_Signal" && rango.indicazione
+    ? { kind: "indicazione" as const, value: rango.indicazione }
+    : sortKey === "Market_Phase" && rango.fase
+      ? { kind: "fase" as const, value: rango.fase }
+      : sortKey === "Rischio_Trend" && rango.rischio
+        ? { kind: "rischio" as const, value: rango.rischio }
+        : null;
+
   const righeOrdinate = useMemo(
-    () => ordinaRighe(filteredItems, sortKey, sortDir),
-    [filteredItems, sortKey, sortDir],
+    () => ordinaRighe(filteredItems, sortKey, sortDir, rango),
+    [filteredItems, sortKey, sortDir, rango],
   );
 
   // Statistics
@@ -393,59 +394,32 @@ export default function MonitorPanel({
           <h2>🎯 Titoli in Monitoraggio Attivo</h2>
           <p className="muted">Nota operativa e segnali aggiornati in tempo reale.</p>
         </div>
-          {/* Contatori cliccabili: toccandoli si isola quel gruppo di titoli,
-              cosi' si arriva subito a quello che interessa. */}
+          {/* Contatori informativi: non filtrano piu' l'elenco. Per scegliere
+              cosa vedere prima si usano le tessere degli assi qui sotto. */}
           <div className="monitor-header-kpis">
-            <button
-              type="button"
-              className={`monitor-kpi ${!tileFilter ? "active" : ""}`}
-              onClick={() => setTileFilter(null)}
-              title="Mostra tutti i titoli monitorati"
-            >
-              <b>{totalCount}</b> monitorati
-            </button>
-            <button
-              type="button"
-              className={`monitor-kpi ${entraCount ? "kpi-enter" : ""} ${tileFilter?.kind === "entra" ? "active" : ""}`}
-              disabled={!entraCount}
-              onClick={() => setTileFilter((c) => (c?.kind === "entra" ? null : { kind: "entra", value: "ENTRA" }))}
-              title="Mostra solo i titoli con indicazione ENTRA"
-            >
-              <b>{entraCount}</b> entra
-            </button>
-            <button
-              type="button"
-              className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""} ${tileFilter?.kind === "osserva" ? "active" : ""}`}
-              disabled={!osservaCount}
-              onClick={() => setTileFilter((c) => (c?.kind === "osserva" ? null : { kind: "osserva", value: "OSSERVA" }))}
-              title="Mostra solo i titoli con indicazione OSSERVA"
-            >
-              <b>{osservaCount}</b> osserva
-            </button>
-            <button
-              type="button"
-              className={`monitor-kpi ${tileFilter?.kind === "note" ? "active" : ""}`}
-              disabled={!withNotesCount}
-              onClick={() => setTileFilter((c) => (c?.kind === "note" ? null : { kind: "note", value: "note" }))}
-              title="Mostra solo i titoli con una nota"
-            >
-              <b>{withNotesCount}</b> con note
-            </button>
-        </div>
+            <span className="monitor-kpi"><b>{totalCount}</b> monitorati</span>
+            <span className={`monitor-kpi ${entraCount ? "kpi-enter" : ""}`}><b>{entraCount}</b> entra</span>
+            <span className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""}`}><b>{osservaCount}</b> osserva</span>
+            <span className="monitor-kpi"><b>{withNotesCount}</b> con note</span>
+          </div>
       </div>
 
       {/* Fotografia dei titoli monitorati: componente condiviso con la tab All,
-          così i due posti non possono divergere. I conteggi riguardano sempre
-          tutti i titoli monitorati; il clic restringe l'elenco. */}
+          cosi' i due posti non possono divergere. I conteggi riguardano sempre
+          tutti i titoli; il clic mette quel valore IN TESTA all'ordine, senza
+          nascondere nulla. */}
       <AxisTiles
         items={items}
-        active={tileFilter as { kind: "fase" | "indicazione" | "rischio"; value: string } | null}
+        active={testaAttiva}
         onSelect={(selezione) => {
-          if (!selezione.value) {
-            setTileFilter(null);
-            return;
-          }
-          setTileFilter(tileFilter && tileFilter.kind === selezione.kind && tileFilter.value === selezione.value ? null : selezione);
+          setRango((corrente) => ({
+            ...corrente,
+            [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
+          }));
+          // La tessera sceglie anche il campo dell'ordinamento, altrimenti il
+          // clic non si vedrebbe finche' la barra ordina per un altro campo.
+          setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");
+          setSortDir("asc");
         }}
       />
 
@@ -501,7 +475,7 @@ export default function MonitorPanel({
           <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
             {filteredItems.length === totalCount
               ? `${totalCount} titoli monitorati`
-              : `Visualizzati ${filteredItems.length} di ${totalCount} titoli${tileFilter ? ` · filtro: ${tileFilter.value}` : ""}`}
+              : `Visualizzati ${filteredItems.length} di ${totalCount} titoli`}
           </div>
         </div>
       )}
