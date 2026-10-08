@@ -9,6 +9,8 @@ import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
 import { AxesModelGuide } from "./components/AxesModelGuide";
 import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
+import { DenseList } from "./components/DenseList";
+import { SortBar } from "./components/SortBar";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
@@ -246,9 +248,28 @@ export default function App() {
   const [showStateFilters, setShowStateFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
-  const [watchlistView, setWatchlistView] = useState<"cards" | "table">(() =>
-    window.localStorage.getItem("ifinance-watchlist-view") === "table" ? "table" : "cards"
-  );
+  const [watchlistView, setWatchlistView] = useState<"cards" | "table" | "list">(() => {
+    const chiave = "ifinance-watchlist-view";
+    const chiaveVersione = "ifinance-watchlist-view-default";
+    const versione = "2";
+    const telefono = typeof window.matchMedia === "function"
+      && window.matchMedia("(max-width: 700px)").matches;
+    let salvata: string | null = null;
+    try {
+      // Migrazione una tantum, come nel Monitor: senza, chi ha gia' una scelta
+      // salvata non vedrebbe mai la lista, perche' la scelta vince sul predefinito.
+      if (window.localStorage.getItem(chiaveVersione) !== versione) {
+        window.localStorage.setItem(chiaveVersione, versione);
+        window.localStorage.removeItem(chiave);
+      }
+      salvata = window.localStorage.getItem(chiave);
+    } catch {
+      salvata = null;
+    }
+    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    // Sul telefono la lista compatta; sul PC restano le schede.
+    return telefono ? "list" : "cards";
+  });
   const [rankN] = useState(15);
 
   const [chartTicker, setChartTicker] = useState("");
@@ -959,7 +980,7 @@ export default function App() {
     setPage(1);
   }
 
-  function changeWatchlistView(view: "cards" | "table") {
+  function changeWatchlistView(view: "cards" | "table" | "list") {
     setWatchlistView(view);
     window.localStorage.setItem("ifinance-watchlist-view", view);
   }
@@ -1408,57 +1429,19 @@ export default function App() {
             background: "rgba(10, 25, 47, 0.35)", border: "1px solid rgba(184, 216, 246, 0.12)",
             borderRadius: "10px", padding: "0.5rem 0.8rem", margin: "0.5rem 0 1rem 0"
           }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: "bold", color: "#8cb4d9", marginRight: "0.4rem" }}>
-              ⇅ Ordina per:
-            </span>
-            {[
-              { label: "Ticker", key: "Ticker" },
-              { label: "Prezzo", key: "Close" },
-              { label: "Var. Giorn. (1D)", key: "PCTV_1D" },
-              { label: "Var. 5D", key: "PCTV_5D" },
-              { label: "TECH SCORE", key: "TECH_SCORE" },
-              { label: "S3", key: "MACD_vs_Signal" },
-              { label: "SARMA", key: "SIG_MA_SAR" },
-              { label: "RSI", key: "RSI" },
-              { label: "ADX", key: "ADX" },
-              { label: "ADX + (DI+>DI−)", key: "ADX_DI_PLUS" },
-              { label: "ADX − (DI+<DI−)", key: "ADX_DI_MINUS" },
-              { label: "willR", key: "Williams_R" },
-            ].map((opt) => {
-              const active = sortKey === opt.key;
-              return (
-                <button
-                  key={opt.key}
-                  onClick={() => handleSort(opt.key)}
-                  style={{
-                    padding: "0.3rem 0.6rem", borderRadius: "6px", fontSize: "0.76rem", fontWeight: 600,
-                    cursor: "pointer",
-                    background: active ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${active ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.1)"}`,
-                    color: active ? "#60a5fa" : "#cfe5fa",
-                    transition: "all 0.15s ease", outline: "none",
-                    display: "flex", alignItems: "center", gap: "0.25rem"
-                  }}
-                >
-                  {opt.label}
-                  {active && (sortDir === "asc" ? "▲" : "▼")}
-                </button>
-              );
-            })}
-            {sortKey && (
-              <button
-                onClick={() => { setSortKey(null); setSortDir(null); }}
-                style={{
-                  background: "transparent", border: "none", color: "#f87171",
-                  fontSize: "0.75rem", cursor: "pointer", fontWeight: "bold", outline: "none"
-                }}
-              >
-                Reset
-              </button>
-            )}
+            <SortBar
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onChange={(chiave, verso) => {
+                setSortKey(chiave);
+                setSortDir(verso);
+                setPage(1);
+              }}
+            />
             <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
               <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
               <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
+              <button className={watchlistView === "list" ? "active" : ""} aria-pressed={watchlistView === "list"} onClick={() => changeWatchlistView("list")}>Lista</button>
             </div>
             <div className="all-axis-tiles">
             <AxisTiles
@@ -1507,8 +1490,23 @@ export default function App() {
                 onOpenMonitorModal={(r) => setMonitorModalRow(r)}
               />
             ))}
-          </section> : (
-            <WatchlistTable
+          </section> : watchlistView === "list" ? (
+              /* Nella lista le azioni sono essenziali: il grafico, l'analisi AI e la
+                 scheda completa. News e Alert chiedono una configurazione che qui non
+                 c'e' spazio per scegliere, e restano nelle Schede. */
+              <DenseList
+                rows={sortedWatchlistItems}
+                emptyText="Nessun titolo corrisponde ai filtri."
+                renderActions={(row) => (
+                  <>
+                    <button type="button" className="btn" onClick={() => openChart(row)}>Grafico</button>
+                    <button type="button" className="btn ghost" onClick={() => openTickerAi(row)}>AI</button>
+                    <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>Dettagli</button>
+                  </>
+                )}
+              />
+            ) : (
+              <WatchlistTable
               rows={sortedWatchlistItems}
               market={market}
               sortKey={sortKey}
