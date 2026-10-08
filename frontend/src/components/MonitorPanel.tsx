@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
-import { SortBar, ordinaRighe } from "./SortBar";
+import { ordinaPerRango } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -278,10 +278,6 @@ export default function MonitorPanel({
     fase: null,
     rischio: null,
   });
-  // Ordinamento delle righe: la barra sceglie il campo, le tessere mettono in
-  // testa il valore. Predefinito: indicazione, cioe' cio' su cui si agisce.
-  const [sortKey, setSortKey] = useState<string | null>("Entry_Signal");
-  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>("asc");
 
   const filteredItems = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -297,20 +293,20 @@ export default function MonitorPanel({
 
   // L'ordinamento agisce su cio' che si vede, dopo la ricerca: non cambia quali
   // titoli compaiono, solo in che ordine.
-  // Tessera da segnare come "in testa": e' quella che comanda l'ordine adesso,
-  // quindi dipende anche dalla barra. Se la barra ordina per Ticker, nessuna
-  // tessera e' in testa e l'ordinamento per indicazione resta quello naturale.
-  const testaAttiva = sortKey === "Entry_Signal" && rango.indicazione
+  // Tessera da segnare "in testa": deve essere quella che comanda DAVVERO l'ordine,
+  // e l'ordinamento mette prima l'indicazione. Se segnassi la fase mentre a
+  // comandare e' l'indicazione, la freccia indicherebbe la tessera sbagliata.
+  const testaAttiva = rango.indicazione
     ? { kind: "indicazione" as const, value: rango.indicazione }
-    : sortKey === "Market_Phase" && rango.fase
+    : rango.fase
       ? { kind: "fase" as const, value: rango.fase }
-      : sortKey === "Rischio_Trend" && rango.rischio
+      : rango.rischio
         ? { kind: "rischio" as const, value: rango.rischio }
         : null;
 
   const righeOrdinate = useMemo(
-    () => ordinaRighe(filteredItems, sortKey, sortDir, rango),
-    [filteredItems, sortKey, sortDir, rango],
+    () => ordinaPerRango(filteredItems, rango),
+    [filteredItems, rango],
   );
 
   // Statistics
@@ -416,10 +412,6 @@ export default function MonitorPanel({
             ...corrente,
             [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
           }));
-          // La tessera sceglie anche il campo dell'ordinamento, altrimenti il
-          // clic non si vedrebbe finche' la barra ordina per un altro campo.
-          setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");
-          setSortDir("asc");
         }}
       />
 
@@ -537,16 +529,8 @@ export default function MonitorPanel({
         </div>
       ) : view === "list" ? (
         <>
-        {/* Stessa barra del tab All: l'ordinamento non cambia i contatori in
-            testa, che restano calcolati su tutti i titoli monitorati. */}
-        <SortBar
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onChange={(chiave, verso) => {
-            setSortKey(chiave);
-            setSortDir(chiave === null ? null : verso);
-          }}
-        />
+        {/* Nessuna barra "Ordina per": in lista l'ordine lo decide la tessera
+            cliccata, che mette il suo valore in testa. */}
         <DenseList
           rows={righeOrdinate}
           emptyText="Nessun titolo monitorato corrisponde al filtro."

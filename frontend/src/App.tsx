@@ -521,13 +521,18 @@ export default function App() {
   // del mercato, altrimenti sembrerebbe che sia cambiato.
   // Dipende anche dalla barra: se ordina per Ticker, nessuna tessera comanda e
   // resta l'anello naturale.
-  const testaAttiva: AxisTileSelection | null = sortKey === "Entry_Signal" && rango.indicazione
-    ? { kind: "indicazione", value: rango.indicazione }
-    : sortKey === "Market_Phase" && rango.fase
-      ? { kind: "fase", value: rango.fase }
-      : sortKey === "Rischio_Trend" && rango.rischio
-        ? { kind: "rischio", value: rango.rischio }
-        : null;
+  // La freccia segna la tessera che comanda l'ordine adesso: in Lista comanda
+  // sempre (e l'ordinamento mette prima l'indicazione), in Tabella solo se la
+  // barra sta ordinando per uno dei tre campi dell'anello.
+  const anelloAttivo = watchlistView === "list"
+    || sortKey === "Entry_Signal" || sortKey === "Market_Phase" || sortKey === "Rischio_Trend";
+  const testaAttiva: AxisTileSelection | null = !anelloAttivo
+    ? null
+    : sortKey === "Market_Phase"
+      ? (rango.fase ? { kind: "fase", value: rango.fase } : null)
+      : sortKey === "Rischio_Trend"
+        ? (rango.rischio ? { kind: "rischio", value: rango.rischio } : null)
+        : (rango.indicazione ? { kind: "indicazione", value: rango.indicazione } : null);
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", market, minVolume],
     queryFn: () => fetchWatchlist({
@@ -878,9 +883,11 @@ export default function App() {
   const sortedWatchlistItems = useMemo(() => {
     if (!watchlistQuery.data?.items) return [];
     const items = [...watchlistQuery.data.items];
+    // Vista Lista: l'ordine lo decide la tessera cliccata (l'anello). Non c'e'
+    // barra "Ordina per" in questa vista, quindi non ha senso guardare sortKey.
+    if (watchlistView === "list") return ordinaPerRango(items, rango);
     if (!sortKey || !sortDir) return items;
-    // Indicazione, fase e rischio seguono l'anello: la testa la decide la tessera
-    // cliccata. Per questi tre campi l'ordine lo fa la funzione condivisa col
+    // Nella tabella i tre campi dell'anello passano alla funzione condivisa col
     // Monitor, cosi' le due viste non possono divergere.
     if (sortKey === "Entry_Signal" || sortKey === "Market_Phase" || sortKey === "Rischio_Trend") {
       return ordinaPerRango(items, rango);
@@ -950,7 +957,7 @@ export default function App() {
       }
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [watchlistQuery.data?.items, sortKey, sortDir, rango]);
+  }, [watchlistQuery.data?.items, sortKey, sortDir, rango, watchlistView]);
 
   function clearGlobalSearch() {
     if (globalSearchBusy) return;
@@ -1333,15 +1340,19 @@ export default function App() {
             background: "rgba(10, 25, 47, 0.35)", border: "1px solid rgba(184, 216, 246, 0.12)",
             borderRadius: "10px", padding: "0.5rem 0.8rem", margin: "0.5rem 0 1rem 0"
           }}>
-            <SortBar
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onChange={(chiave, verso) => {
-                setSortKey(chiave);
-                setSortDir(verso);
-                setPage(1);
-              }}
-            />
+            {/* La barra "Ordina per" non compare nella vista Lista: li' l'ordine
+                lo decide la tessera cliccata, che mette il suo valore in testa. */}
+            {watchlistView !== "list" ? (
+              <SortBar
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onChange={(chiave, verso) => {
+                  setSortKey(chiave);
+                  setSortDir(verso);
+                  setPage(1);
+                }}
+              />
+            ) : null}
             <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
               <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
               <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
@@ -1352,15 +1363,18 @@ export default function App() {
               items={highlightsItems}
               active={testaAttiva}
               onSelect={(selezione) => {
-                // Non filtra: mette quel valore in testa all'ordine e sposta la
-                // barra sul campo corrispondente, altrimenti il clic non si
-                // vedrebbe finche' la barra ordina per un altro campo.
+                // Non filtra: mette quel valore in testa all'ordine. Nella vista
+                // lista l'ordine lo decide solo la tessera; nella vista Tabella
+                // invece si sposta anche la barra sul campo corrispondente,
+                // altrimenti il clic non si vedrebbe.
                 setRango((corrente) => ({
                   ...corrente,
                   [selezione.kind === "indicazione" ? "indicazione" : selezione.kind === "fase" ? "fase" : "rischio"]: selezione.value,
                 }));
-                setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");
-                setSortDir("asc");
+                if (watchlistView !== "list") {
+                  setSortKey(selezione.kind === "indicazione" ? "Entry_Signal" : selezione.kind === "fase" ? "Market_Phase" : "Rischio_Trend");
+                  setSortDir("asc");
+                }
                 setPage(1);
               }}
             />
