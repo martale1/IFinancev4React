@@ -58,10 +58,6 @@ const tabs = [
   "AI chat",
   "🔧 Gestione Pattern",
   "Liste",
-  "Opportunità",
-  "Da osservare",
-  "Attendi",
-  "Da evitare",
   "Migliori (5D)",
   "Peggiori (5D)"
 ];
