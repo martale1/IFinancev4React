@@ -711,6 +711,46 @@ textarea {
 .monitor-add-compact > summary:hover { color: #e5f2ff; }
 .monitor-add-compact .monitor-add-form { padding: .2rem .5rem .6rem .5rem; }
 
+/* Comando per ordinare per variazione percentuale: sta accanto alle tessere
+   dell'indicazione, con pulsanti della stessa misura. */
+.monitor-sort-row {
+  display: flex; align-items: flex-start; flex-wrap: wrap; gap: .4rem .9rem;
+}
+.percent-sort {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .25rem;
+}
+.percent-sort-label {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .03em;
+  color: #7ea6c8; margin-right: .1rem;
+}
+.percent-chip {
+  font: inherit; font-size: .78rem; cursor: pointer;
+  padding: .3rem .55rem; border-radius: 7px;
+  background: rgba(10,25,47,.55); color: #cfe5fa;
+  border: 1px solid rgba(96,165,250,.25);
+  white-space: nowrap;
+}
+.percent-chip:hover { border-color: rgba(96,165,250,.6); }
+.percent-chip.selected {
+  background: rgba(56,189,248,.18);
+  border-color: #38bdf8;
+  color: #e5f2ff;
+  font-weight: 700;
+}
+.percent-reset {
+  background: transparent; border: none; cursor: pointer; outline: none;
+  color: #f87171; font-size: .75rem; font-weight: 700;
+}
+/* Etichetta del periodo accanto alla percentuale, quando si ordina per una
+   variazione diversa da quella a 1 giorno: senza, i numeri sembrano sbagliati. */
+.dense-pct-label {
+  font-style: normal;
+  font-size: .6rem;
+  font-weight: 700;
+  color: #7ea6c8;
+  margin-right: .18rem;
+}
+
 /* Contatori dell'intestazione ora cliccabili: isolano un gruppo di titoli.
    E' la scorciatoia per arrivare al titolo che interessa senza scorrere. */
 .monitor-kpi { cursor: pointer; font: inherit; }

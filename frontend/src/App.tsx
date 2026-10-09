@@ -12,6 +12,7 @@ import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
+import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -225,6 +226,9 @@ export default function App() {
   // servono per i link condivisibili e per verificare i conteggi delle tessere.
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
+  // Ordinamento per variazione percentuale: se attivo comanda lui.
+  const [ordinePerc, setOrdinePerc] = useState<OrdinePercentuale | null>(null);
+
   // Testa dell'ordinamento scelta con le tessere degli assi. Non e' un filtro:
   // nessun titolo viene nascosto, cambia solo da quale valore si parte.
   // Si parte senza scelta: la testa la decide il ripiego automatico (ENTRA, e se
@@ -530,7 +534,7 @@ export default function App() {
   // Testa effettiva dell'indicazione: quella scelta, oppure il primo valore
   // presente partendo da ENTRA. Senza, su un mercato senza titoli ENTRA la
   // freccia resterebbe su un gruppo vuoto.
-  const testaAttiva: AxisTileSelection | null = !anelloAttivo
+  const testaAttiva: AxisTileSelection | null = !anelloAttivo || ordinePerc
     ? null
     : dimensione === "fase"
       ? { kind: "fase", value: testa(highlightsItems, "Market_Phase", ANELLO_FASE, rango.fase) }
@@ -889,7 +893,9 @@ export default function App() {
     const items = [...watchlistQuery.data.items];
     // Vista Lista: l'ordine lo decide la tessera cliccata (l'anello). Non c'e'
     // barra "Ordina per" in questa vista, quindi non ha senso guardare sortKey.
-    if (watchlistView === "list") return ordinaPerRango(items, rango, dimensione);
+    if (watchlistView === "list") {
+      return ordinePerc ? ordinaPerPercentuale(items, ordinePerc) : ordinaPerRango(items, rango, dimensione);
+    }
     if (!sortKey || !sortDir) return items;
     // Nella tabella i tre campi dell'anello passano alla funzione condivisa col
     // Monitor, cosi' le due viste non possono divergere.
@@ -961,7 +967,7 @@ export default function App() {
       }
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [watchlistQuery.data?.items, sortKey, sortDir, rango, dimensione, watchlistView]);
+  }, [watchlistQuery.data?.items, sortKey, sortDir, rango, dimensione, watchlistView, ordinePerc]);
 
   function clearGlobalSearch() {
     if (globalSearchBusy) return;
@@ -1366,8 +1372,11 @@ export default function App() {
                   setSortDir("asc");
                 }
                 setPage(1);
+                // Scegliere una dimensione toglie l'ordinamento per percentuale.
+                setOrdinePerc(null);
               }}
             />
+            <PercentualeSort ordine={ordinePerc} onChange={setOrdinePerc} />
             </div>
           </div>
           {watchlistView === "cards" ? <section className="grid">
@@ -1402,6 +1411,9 @@ export default function App() {
                  c'e' spazio per scegliere, e restano nelle Schede. */
               <DenseList
                 rows={sortedWatchlistItems}
+                percentuale={ordinePerc
+                  ? { key: ordinePerc.key, label: PERIODI_PERCENTUALE.find((x) => x.key === ordinePerc.key)?.label ?? "" }
+                  : undefined}
                 emptyText="Nessun titolo corrisponde ai filtri."
                 renderActions={(row) => (
                   <>

@@ -3,6 +3,7 @@ import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
 import { MarketChips } from "./MarketChips";
+import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./PercentualeSort";
 import { ordinaPerRango, testaIndicazione } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
@@ -276,6 +277,10 @@ export default function MonitorPanel({
   // (i titoli monitorati possono essere di mercati diversi).
   const [mercatoMostrato, setMercatoMostrato] = useState("Tutti");
 
+  // Ordinamento per variazione percentuale: se e' attivo comanda lui, e le
+  // tessere dell'indicazione smettono di decidere l'ordine.
+  const [ordinePerc, setOrdinePerc] = useState<OrdinePercentuale | null>(null);
+
   // Testa dell'ordinamento: il valore scelto con un clic su una tessera.
   // Non e' un filtro: nessun titolo viene nascosto, cambia solo l'ordine.
   // Si parte senza scelta: la testa la decide il ripiego automatico (ENTRA, e se
@@ -309,12 +314,14 @@ export default function MonitorPanel({
   // con il valore in testa dopo il ripiego su quelli presenti.
   const testaAttiva = {
     kind: "indicazione" as const,
-    value: testaIndicazione(filteredItems, rango.indicazione),
+    value: ordinePerc ? "" : testaIndicazione(filteredItems, rango.indicazione),
   };
 
   const righeOrdinate = useMemo(
-    () => ordinaPerRango(filteredItems, rango, "indicazione"),
-    [filteredItems, rango],
+    () => ordinePerc
+      ? ordinaPerPercentuale(filteredItems, ordinePerc)
+      : ordinaPerRango(filteredItems, rango, "indicazione"),
+    [filteredItems, rango, ordinePerc],
   );
 
   // Statistics
@@ -455,6 +462,7 @@ export default function MonitorPanel({
           nascondere nulla. */}
       {/* Nel Monitor serve solo l'indicazione: fase e rischio non si usano per
           ordinare qui, e occupavano spazio. Restano nella tab All. */}
+      <div className="monitor-sort-row">
       <AxisTiles
         items={items}
         active={testaAttiva}
@@ -464,8 +472,13 @@ export default function MonitorPanel({
             ...corrente,
             [selezione.kind]: selezione.value,
           }));
+          // Scegliere un'indicazione toglie l'ordinamento per percentuale:
+          // altrimenti il clic non avrebbe alcun effetto visibile.
+          setOrdinePerc(null);
         }}
       />
+      <PercentualeSort ordine={ordinePerc} onChange={setOrdinePerc} />
+      </div>
 
 
       {/* Filter / Search inside Monitor + selettore visualizzazione */}
@@ -583,6 +596,9 @@ export default function MonitorPanel({
             cliccata, che mette il suo valore in testa. */}
         <DenseList
           rows={righeOrdinate}
+          percentuale={ordinePerc
+            ? { key: ordinePerc.key, label: PERIODI_PERCENTUALE.find((x) => x.key === ordinePerc.key)?.label ?? "" }
+            : undefined}
           emptyText="Nessun titolo monitorato corrisponde al filtro."
           renderActions={(row) => {
             const tk = String(row.Ticker || "").trim();

@@ -41,11 +41,15 @@ export function DenseList({
   rows,
   renderActions,
   emptyText = "Nessun titolo da mostrare.",
+  percentuale,
 }: {
   rows: WatchlistRow[];
   /** Azioni mostrate nel dettaglio aperto: ogni tab passa le sue. */
   renderActions?: (row: WatchlistRow) => ReactNode;
   emptyText?: string;
+  /** Percentuale da mostrare nella riga. Serve a mostrare quella su cui si sta
+   *  ordinando: altrimenti ordinando per 5D i numeri sembrano in disordine. */
+  percentuale?: { key: string; label: string };
 }) {
   const [aperta, setAperta] = useState<string | null>(null);
 
@@ -85,7 +89,10 @@ export function DenseList({
               </span>
               <span className="dense-numbers">
                 <b>{num(row.Close, 3)}</b>
-                <small className={pctClass(row.PCTV_1D)}>{pct(row.PCTV_1D)}</small>
+                <small className={pctClass(row[percentuale?.key ?? "PCTV_1D"])}>
+                  {percentuale ? <em className="dense-pct-label">{percentuale.label}</em> : null}
+                  {pct(row[percentuale?.key ?? "PCTV_1D"])}
+                </small>
               </span>
               <span className={`dense-tech ${techClass(row.TECH_SCORE)}`}>TECH {num(row.TECH_SCORE, 0)}</span>
               <span className="dense-caret" aria-hidden="true">{espansa ? "▴" : "▾"}</span>
