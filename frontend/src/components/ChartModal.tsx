@@ -598,19 +598,21 @@ export default function ChartModal(props: Props) {
     return v.toLocaleString("it-IT", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 
-  function fmtPctFromClose(level?: number | null): string {
-    const c = props.snapshotClose;
-    if (typeof c !== "number" || !Number.isFinite(c) || typeof level !== "number" || !Number.isFinite(level)) return "-";
-    const p = ((level / c) - 1) * 100;
-    const sign = p > 0 ? "+" : "";
-    return `${sign}${p.toFixed(2).replace(".", ",")}%`;
+
+  /**
+   * Colore di una VARIAZIONE percentuale: verde sopra zero, rosso sotto.
+   *
+   * Serve una funzione distinta dalla `pctClass` qui sotto, che confronta un
+   * LIVELLO con il prezzo e risponde a un'altra domanda ("sopra o sotto la
+   * chiusura?"). Usando quella, le variazioni ricevevano le classi "up"/"down"
+   * mentre il CSS ne cerca "positive"/"negative", quindi restavano bianche.
+   */
+  function coloreVariazione(valore: unknown): string {
+    const n = typeof valore === "number" ? valore : Number(valore);
+    if (!Number.isFinite(n) || n === 0) return "neutral";
+    return n > 0 ? "positive" : "negative";
   }
 
-  function pctClass(level?: number | null): string {
-    const c = props.snapshotClose;
-    if (typeof c !== "number" || !Number.isFinite(c) || typeof level !== "number" || !Number.isFinite(level)) return "neutral";
-    return level >= c ? "up" : "down";
-  }
 
   function applyAlertPreset() {
     if (props.alertConfig) {
@@ -937,7 +939,7 @@ export default function ChartModal(props: Props) {
                   if (n === null) return null;
                   const sign = n > 0 ? "+" : "";
                   return (
-                    <span key={item.label} className={`var-box ${pctClass(n)}`}>
+                    <span key={item.label} className={`var-box ${coloreVariazione(n)}`}>
                       <em>{item.label}</em>
                       <b>{sign}{n.toFixed(2)}%</b>
                     </span>
@@ -947,25 +949,6 @@ export default function ChartModal(props: Props) {
             </div>
           ) : null}
 
-          {props.levels?.sl1 != null || props.levels?.sl2 != null || props.levels?.pbStop != null || props.levels?.ppLevel != null ? (
-            <div className="dati-gruppo">
-              <span className="dati-label">Livelli</span>
-              <div className="dati-livelli">
-                {props.levels?.sl1 != null ? (
-                  <span className={`level-chip ${pctClass(props.levels.sl1)}`}>SL1: {fmtPrice(props.levels.sl1)} ({fmtPctFromClose(props.levels.sl1)})</span>
-                ) : null}
-                {props.levels?.sl2 != null ? (
-                  <span className={`level-chip ${pctClass(props.levels.sl2)}`}>SL2: {fmtPrice(props.levels.sl2)} ({fmtPctFromClose(props.levels.sl2)})</span>
-                ) : null}
-                {props.levels?.pbStop != null ? (
-                  <span className={`level-chip ${pctClass(props.levels.pbStop)}`}>PB Stop: {fmtPrice(props.levels.pbStop)} ({fmtPctFromClose(props.levels.pbStop)})</span>
-                ) : null}
-                {props.levels?.ppLevel != null ? (
-                  <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         {forceLineFallback ? <div className="chart-snapshot stale">Fallback attivo: grafico line per stabilita.</div> : null}
