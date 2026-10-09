@@ -486,8 +486,8 @@ export default function MonitorPanel({
         <div className="monitor-filter-row">
           <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
             <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
-            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
             <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
+            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
           </div>
           {/* Scelta del mercato, come nella tab All. Solo mercati veri: le liste
               personali arrivano dal backend come "WL:nome" e qui non servono. */}

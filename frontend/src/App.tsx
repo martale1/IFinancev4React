@@ -1357,8 +1357,8 @@ export default function App() {
             ) : null}
             <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
               <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
-              <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
               <button className={watchlistView === "list" ? "active" : ""} aria-pressed={watchlistView === "list"} onClick={() => changeWatchlistView("list")}>Lista</button>
+              <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
             </div>
               {/* Scelta del mercato accanto alla vista: prima stava in alto e
                   occupava spazio in ogni schermata. */}
