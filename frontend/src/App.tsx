@@ -8,7 +8,7 @@ import ChartModal from "./components/ChartModal";
 import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
 import { AxesModelGuide } from "./components/AxesModelGuide";
-import { AxisTiles, type AxisTileSelection } from "./components/AxisTiles";
+import { AxisTiles, DIMENSIONI_TUTTE, type AxisTileSelection } from "./components/AxisTiles";
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
@@ -62,6 +62,10 @@ const tabs = [
   "Migliori (5D)",
   "Peggiori (5D)"
 ];
+
+// Nella vista Lista si mostra solo l'indicazione, come nel Monitor: la costante
+// deriva da quella condivisa, cosi' non nasce una seconda lista da tenere allineata.
+const DIMENSIONI_SOLA_INDICAZIONE = DIMENSIONI_TUTTE.slice(0, 1);
 
 const entrySignalOptions = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"];
 // Fasi e assi del nuovo modello: il valore deve combaciare con quello salvato
@@ -228,6 +232,10 @@ export default function App() {
   const [pageSize] = useState(50);
   // Ordinamento per variazione percentuale: se attivo comanda lui.
   const [ordinePerc, setOrdinePerc] = useState<OrdinePercentuale | null>(null);
+
+  // Ricerca dentro l'elenco, come nel Monitor. Agisce sulle righe caricate:
+  // con un mercato su piu' pagine restringe la pagina, non tutto il mercato.
+  const [filtroElenco, setFiltroElenco] = useState("");
 
   // Testa dell'ordinamento scelta con le tessere degli assi. Non e' un filtro:
   // nessun titolo viene nascosto, cambia solo da quale valore si parte.
@@ -969,6 +977,20 @@ export default function App() {
     });
   }, [watchlistQuery.data?.items, sortKey, sortDir, rango, dimensione, watchlistView, ordinePerc]);
 
+  // Righe della vista Lista: prima la ricerca, poi l'ordinamento (che e' gia'
+  // dentro sortedWatchlistItems).
+  const righeLista = useMemo(() => {
+    const termine = filtroElenco.trim().toLowerCase();
+    if (!termine) return sortedWatchlistItems;
+    return sortedWatchlistItems.filter((row) => {
+      const tk = String(row.Ticker ?? "").toLowerCase();
+      const nm = String(row.Name ?? "").toLowerCase();
+      const mkt = String(row.WL_Source_Market ?? "").toLowerCase();
+      return tk.includes(termine) || nm.includes(termine) || mkt.includes(termine);
+    });
+  }, [sortedWatchlistItems, filtroElenco]);
+
+
   function clearGlobalSearch() {
     if (globalSearchBusy) return;
     setQuickChartInput("");
@@ -1354,9 +1376,12 @@ export default function App() {
                 }
               />
             <div className="all-axis-tiles">
+            {/* In vista Lista gli stessi filtraggi del Monitor: solo
+                l'indicazione. A schede e in tabella restano tutte e tre. */}
             <AxisTiles
               items={highlightsItems}
               active={testaAttiva}
+              dimensioni={watchlistView === "list" ? DIMENSIONI_SOLA_INDICAZIONE : undefined}
               onSelect={(selezione) => {
                 // Non filtra: mette quel valore in testa all'ordine, e la
                 // dimensione cliccata diventa la prima da guardare. Nella vista
@@ -1377,6 +1402,17 @@ export default function App() {
               }}
             />
             <PercentualeSort ordine={ordinePerc} onChange={setOrdinePerc} />
+            {/* Ricerca dentro l'elenco, come nel Monitor. Solo in vista Lista:
+                a schede e in tabella c'e' gia' la barra di ordinamento. */}
+            {watchlistView === "list" ? (
+              <input
+                className="monitor-filter-input"
+                type="text"
+                placeholder="🔍 Filtra fra i titoli mostrati..."
+                value={filtroElenco}
+                onChange={(e) => setFiltroElenco(e.target.value)}
+              />
+            ) : null}
             </div>
           </div>
           {watchlistView === "cards" ? <section className="grid">
@@ -1410,7 +1446,7 @@ export default function App() {
                  scheda completa. News e Alert chiedono una configurazione che qui non
                  c'e' spazio per scegliere, e restano nelle Schede. */
               <DenseList
-                rows={sortedWatchlistItems}
+                rows={righeLista}
                 percentuale={ordinePerc
                   ? { key: ordinePerc.key, label: PERIODI_PERCENTUALE.find((x) => x.key === ordinePerc.key)?.label ?? "" }
                   : undefined}
