@@ -1534,20 +1534,8 @@ td {
   color: #dbeafe;
 }
 
-.level-chip.down {
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fca5a5;
-}
 
-.level-chip.up {
-  border-color: rgba(74, 222, 128, 0.45);
-  color: #86efac;
-}
 
-.level-chip.neutral {
-  border-color: rgba(148, 163, 184, 0.35);
-  color: #cbd5e1;
-}
 
 .chart-wrap {
   margin-top: 0.8rem;
@@ -2541,9 +2529,7 @@ td {
   .var-box.negative b { color: #fca5a5; }
 
   /* Livelli: uno per riga, cosi' il testo non va a capo. */
-  .dati-livelli { display: flex; flex-direction: column; gap: .22rem; }
-  .dati-livelli .level-chip { text-align: left; }
-  
+      
   /* "flex-start" e non "normal": in un contenitore che va a capo, "stretch"
      riallungherebbe le pillole sulle righe miste. */
   .chart-levels { align-items: flex-start; }
