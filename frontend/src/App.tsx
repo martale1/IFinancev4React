@@ -14,7 +14,6 @@ import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
-import WatchlistTable from "./components/WatchlistTable";
 import WatchlistsPanel from "./components/WatchlistsPanel";
 import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
@@ -248,7 +247,7 @@ export default function App() {
   });
   // Su quale dimensione si e' cliccato per ultimo: ordina per prima.
   const [dimensione, setDimensione] = useState<Dimensione>("indicazione");
-  const [watchlistView, setWatchlistView] = useState<"cards" | "table" | "list">(() => {
+  const [watchlistView, setWatchlistView] = useState<"cards" | "list">(() => {
     const chiave = "ifinance-watchlist-view";
     const chiaveVersione = "ifinance-watchlist-view-default";
     const versione = "2";
@@ -266,7 +265,7 @@ export default function App() {
     } catch {
       salvata = null;
     }
-    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    if (salvata === "cards" || salvata === "list") return salvata;
     // Sul telefono la lista compatta; sul PC restano le schede.
     return telefono ? "list" : "cards";
   });
@@ -338,33 +337,6 @@ export default function App() {
 
   const [sortKey, setSortKey] = useState<string | null>("MACD_vs_Signal");
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>("asc");
-
-  function handleSort(key: string) {
-    if (key === "MACD_vs_Signal" || key === "SIG_MA_SAR") {
-      if (sortKey === key) {
-        setSortKey(null);
-        setSortDir(null);
-      } else {
-        setSortKey(key);
-        setSortDir("asc");
-      }
-      setPage(1);
-      return;
-    }
-    const preferredDirection: "asc" | "desc" = ["MACD_vs_Signal", "SIG_MA_SAR"].includes(key) ? "asc" : "desc";
-    if (sortKey !== key) {
-      setSortKey(key);
-      setSortDir(preferredDirection);
-    } else {
-      if (sortDir === preferredDirection) {
-        setSortDir(preferredDirection === "asc" ? "desc" : "asc");
-      } else {
-        setSortKey(null);
-        setSortDir(null);
-      }
-    }
-    setPage(1);
-  }
 
   function toNum(v: unknown): number | null {
     if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -1000,7 +972,7 @@ export default function App() {
     setPage(1);
   }
 
-  function changeWatchlistView(view: "cards" | "table" | "list") {
+  function changeWatchlistView(view: "cards" | "list") {
     setWatchlistView(view);
     window.localStorage.setItem("ifinance-watchlist-view", view);
   }
@@ -1356,9 +1328,8 @@ export default function App() {
               />
             ) : null}
             <div className="view-switch" role="group" aria-label="Visualizzazione titoli">
-              <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
               <button className={watchlistView === "list" ? "active" : ""} aria-pressed={watchlistView === "list"} onClick={() => changeWatchlistView("list")}>Lista</button>
-              <button className={watchlistView === "table" ? "active" : ""} aria-pressed={watchlistView === "table"} onClick={() => changeWatchlistView("table")}>Tabella</button>
+              <button className={watchlistView === "cards" ? "active" : ""} aria-pressed={watchlistView === "cards"} onClick={() => changeWatchlistView("cards")}>Schede</button>
             </div>
               {/* Scelta del mercato accanto alla vista: prima stava in alto e
                   occupava spazio in ogni schermata. */}
@@ -1402,8 +1373,8 @@ export default function App() {
               }}
             />
             <PercentualeSort ordine={ordinePerc} onChange={setOrdinePerc} />
-            {/* Ricerca dentro l'elenco, come nel Monitor. Solo in vista Lista:
-                a schede e in tabella c'e' gia' la barra di ordinamento. */}
+            {/* Ricerca dentro l'elenco, come nel Monitor: solo in vista Lista,
+                perche' a schede c'e' gia' la barra di ordinamento. */}
             {watchlistView === "list" ? (
               <input
                 className="monitor-filter-input"
@@ -1459,24 +1430,7 @@ export default function App() {
                   </>
                 )}
               />
-            ) : (
-              <WatchlistTable
-              rows={sortedWatchlistItems}
-              market={market}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={handleSort}
-              onChart={openChart}
-              onAi={openTickerAi}
-              aiAlertMap={aiAlertCardMap}
-              aiLevelMap={aiLevelCardMap}
-              alertMap={quickAlertMap}
-              alertConfigMap={quickAlertConfigMap}
-              alertBusyMap={quickAlertBusyMap}
-              onCreateAlert={handleCreateQuickAlert}
-              onRemoveAlert={handleRemoveQuickAlert}
-            />
-          )}
+            ) : null}
           <footer className="pager">
             <button className="btn ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               Prev

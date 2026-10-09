@@ -5,7 +5,6 @@ import { DenseList } from "./DenseList";
 import { MarketChips } from "./MarketChips";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./PercentualeSort";
 import { ordinaPerRango, testaIndicazione } from "../ranking";
-import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
   field: QuickAlertField;
@@ -13,107 +12,7 @@ type QuickAlertConfig = {
   value: number | string | null;
 };
 
-type MonitorView = "cards" | "table" | "list";
-
-/** Tabella del monitor: colonne allineate a quelle usate per il tab All. */
-function MonitorTable({
-  rows,
-  onChart,
-  onAi,
-  onNews,
-  onOpenNoteModal,
-  onRemoveMonitor,
-  openAlertBox,
-  alertMap,
-}: {
-  rows: WatchlistRow[];
-  onChart: (row: WatchlistRow) => void;
-  onAi: (row: WatchlistRow) => void;
-  onNews: (ticker: string) => void;
-  onOpenNoteModal: (row: WatchlistRow) => void;
-  onRemoveMonitor: (ticker: string, sourceMarket?: string) => Promise<void>;
-  openAlertBox: (row: WatchlistRow) => void;
-  alertMap: Record<string, boolean>;
-}) {
-  return (
-    <div className="watchlist-table-wrap">
-      <table className="watchlist-table">
-        <thead>
-          <tr>
-            <th>Titolo</th>
-            <th>Indicazione</th>
-            <th>Fase</th>
-            <th>Prezzo</th>
-            <th>1D</th>
-            <th>5D</th>
-            <th>30D</th>
-            <th>Direzione</th>
-            <th>Forza</th>
-            <th>Momento</th>
-            <th>Rischio</th>
-            <th>TECH</th>
-            <th>ADX</th>
-            <th>Liquidità</th>
-            <th>Nota</th>
-            <th>Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => {
-            const ticker = String(row.Ticker ?? "-").trim();
-            const source = String(row.WL_Source_Market || "MIB30");
-            const key = `${source}::${ticker.toUpperCase()}`;
-            const signal = String(row.Entry_Signal ?? "ATTENDI").toUpperCase();
-            const note = String(row.Monitor_Note || "").trim();
-            const phase = String(row.Market_Phase ?? "-").replace(/_/g, " ");
-            const liquidity = String(row.Liquidity ?? "-");
-            const direzione = String(row.Direzione_Trend ?? "-");
-            const forza = String(row.Forza_Trend ?? "-").replace("FORTE_", "");
-            const momento = String(row.Momento_Trend ?? "-");
-            const rischio = String(row.Rischio_Trend ?? "-");
-            const segno = (v: string) => v === "SU" || v === "FORTE_SU" || v === "CRESCENTE" || v === "NORMALE";
-            const segnoNegativo = (v: string) => v === "GIU" || v === "FORTE_GIU" || v === "CALANTE" || v === "ESTREMO";
-            return (
-              <tr key={`${source}-${ticker}-${index}`}>
-                <td className="ticker-cell">
-                  <strong>{ticker}</strong>
-                  <small>{String(row.Name ?? "-")} · {source}</small>
-                </td>
-                <td><span className={`table-signal ${tableSignalClass(signal)}`}>{signal}</span></td>
-                <td><span className="scenario-label">{phase}</span></td>
-                <td className="numeric">{num(row.Close, 3)}</td>
-                <td className={`numeric ${tablePctClass(row.PCTV_1D)}`}>{pct(row.PCTV_1D)}</td>
-                <td className={`numeric ${tablePctClass(row.PCTV_5D)}`}>{pct(row.PCTV_5D)}</td>
-                <td className={`numeric ${tablePctClass(row.PCTV_30D)}`}>{pct(row.PCTV_30D)}</td>
-                <td><span className={segno(direzione) ? "positive" : segnoNegativo(direzione) ? "negative" : ""}>{direzione}</span></td>
-                <td><span className={segno(forza) ? "positive" : segnoNegativo(forza) ? "negative" : ""}>{forza}</span></td>
-                <td><span className={segno(momento) ? "positive" : segnoNegativo(momento) ? "negative" : ""}>{momento}</span></td>
-                <td><span className={segno(rischio) ? "positive" : segnoNegativo(rischio) ? "negative" : ""}>{rischio}</span></td>
-                <td className="numeric">{num(row.TECH_SCORE, 0)}</td>
-                <td className="numeric">{num(row.ADX, 1)}</td>
-                <td>
-                  <span className={liquidity.toUpperCase() === "OK" ? "positive" : "negative"}>{liquidity}</span>
-                </td>
-                <td className="monitor-note-cell" title={note}>{note || "-"}</td>
-                <td className="table-actions">
-                  <button className="btn" onClick={() => onChart(row)}>Grafico</button>
-                  <button className="btn ghost" onClick={() => onAi(row)}>AI</button>
-                  <button className="btn ghost" onClick={() => onNews(ticker)}>News</button>
-                  <button className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
-                  <button className={alertMap[key] ? "btn alert-on" : "btn ghost"} onClick={() => openAlertBox(row)}>
-                    {alertMap[key] ? "Alert ON" : "Alert"}
-                  </button>
-                  <button className="btn ghost danger" onClick={() => { void onRemoveMonitor(ticker, source); }}>Rimuovi</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
+type MonitorView = "cards" | "list";
 type Props = {
   monitorData: MonitorResponse | undefined;
   isLoading: boolean;
@@ -256,7 +155,7 @@ export default function MonitorPanel({
       salvata = null;
     }
 
-    if (salvata === "cards" || salvata === "table" || salvata === "list") return salvata;
+    if (salvata === "cards" || salvata === "list") return salvata;
     // Sul telefono la lista densa: misurata 47 px per riga contro 385 di una
     // scheda (18 righe per schermata contro 2,2). Sul PC restano le schede.
     return telefono ? "list" : "cards";
@@ -485,9 +384,8 @@ export default function MonitorPanel({
       {items.length > 0 && (
         <div className="monitor-filter-row">
           <div className="view-switch" role="group" aria-label="Visualizzazione monitor">
-            <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
             <button className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => changeView("list")}>Lista</button>
-            <button className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => changeView("table")}>Tabella</button>
+            <button className={view === "cards" ? "active" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>Schede</button>
           </div>
           {/* Scelta del mercato, come nella tab All. Solo mercati veri: le liste
               personali arrivano dal backend come "WL:nome" e qui non servono. */}
@@ -622,17 +520,6 @@ export default function MonitorPanel({
           }}
         />
         </>
-      ) : view === "table" ? (
-        <MonitorTable
-          rows={filteredItems}
-          onChart={onChart}
-          onAi={onAi}
-          onNews={onNews}
-          onOpenNoteModal={onOpenNoteModal}
-          onRemoveMonitor={onRemoveMonitor}
-          openAlertBox={openAlertBox}
-          alertMap={alertMap}
-        />
       ) : (
         <div className="monitor-card-grid">
           {filteredItems.map((row) => {
