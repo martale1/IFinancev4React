@@ -3,7 +3,7 @@ import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
 import { MarketChips } from "./MarketChips";
-import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "../ranking";
+import { ordinaPerRango, testaIndicazione } from "../ranking";
 import { pctClass as tablePctClass, signalClass as tableSignalClass } from "./WatchlistTable";
 
 type QuickAlertConfig = {
@@ -286,8 +286,6 @@ export default function MonitorPanel({
     fase: null,
     rischio: null,
   });
-  // Su quale dimensione si e' cliccato per ultimo: e' quella che ordina per prima.
-  const [dimensione, setDimensione] = useState<Dimensione>("indicazione");
 
   const filteredItems = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -307,17 +305,16 @@ export default function MonitorPanel({
   // Testa effettiva dell'ordinamento: quella scelta, oppure il primo valore
   // presente partendo da ENTRA (vedi testaIndicazione). Serve perche' le tessere
   // non hanno una "naturale" come la barra: senza, nessuna risulterebbe in testa.
-  // La freccia sta sulla tessera che comanda l'ordine: quella della dimensione
-  // scelta, con il valore in testa dopo il ripiego sui valori presenti.
-  const testaAttiva = dimensione === "fase"
-    ? { kind: "fase" as const, value: testa(filteredItems, "Market_Phase", ANELLO_FASE, rango.fase) }
-    : dimensione === "rischio"
-      ? { kind: "rischio" as const, value: testa(filteredItems, "Rischio_Trend", ANELLO_RISCHIO, rango.rischio) }
-      : { kind: "indicazione" as const, value: testaIndicazione(filteredItems, rango.indicazione) };
+  // Nel Monitor comanda sempre l'indicazione: la freccia sta sulla sua tessera,
+  // con il valore in testa dopo il ripiego su quelli presenti.
+  const testaAttiva = {
+    kind: "indicazione" as const,
+    value: testaIndicazione(filteredItems, rango.indicazione),
+  };
 
   const righeOrdinate = useMemo(
-    () => ordinaPerRango(filteredItems, rango, dimensione),
-    [filteredItems, rango, dimensione],
+    () => ordinaPerRango(filteredItems, rango, "indicazione"),
+    [filteredItems, rango],
   );
 
   // Statistics
@@ -456,12 +453,13 @@ export default function MonitorPanel({
           cosi' i due posti non possono divergere. I conteggi riguardano sempre
           tutti i titoli; il clic mette quel valore IN TESTA all'ordine, senza
           nascondere nulla. */}
+      {/* Nel Monitor serve solo l'indicazione: fase e rischio non si usano per
+          ordinare qui, e occupavano spazio. Restano nella tab All. */}
       <AxisTiles
         items={items}
         active={testaAttiva}
+        dimensioni={["indicazione"]}
         onSelect={(selezione) => {
-          // La dimensione cliccata comanda l'ordine da qui in avanti.
-          setDimensione(selezione.kind);
           setRango((corrente) => ({
             ...corrente,
             [selezione.kind]: selezione.value,

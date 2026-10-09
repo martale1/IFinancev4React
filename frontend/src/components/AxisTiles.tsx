@@ -40,12 +40,15 @@ function classeColore(kind: AxisTileKind, valore: string): string {
   return "tile-avoid";
 }
 
+export const DIMENSIONI_TUTTE: AxisTileKind[] = ["indicazione", "fase", "rischio"];
+
 export function AxisTiles({
   items,
   onSelect,
   active = null,
   disabled = false,
   nota,
+  dimensioni = DIMENSIONI_TUTTE,
 }: {
   items: WatchlistRow[];
   onSelect?: (selection: AxisTileSelection) => void;
@@ -54,6 +57,8 @@ export function AxisTiles({
   /** Con elenco paginato i conteggi sarebbero parziali: meglio dirlo. */
   disabled?: boolean;
   nota?: string;
+  /** Quali gruppi mostrare. Il Monitor mostra solo l'indicazione. */
+  dimensioni?: AxisTileKind[];
 }) {
   if (!items.length) return null;
 
@@ -97,10 +102,10 @@ export function AxisTiles({
   return (
     <div className="monitor-tile-groups">
       {/* Ordine dei gruppi: prima l'indicazione, che e' cio' su cui si agisce,
-          poi la fase e infine il rischio. */}
-      {gruppo("Indicazione", "indicazione", "Entry_Signal")}
-      {gruppo("Fase", "fase", "Market_Phase")}
-      {gruppo("Rischio", "rischio", "Rischio_Trend")}
+          poi la fase e infine il rischio. Quali mostrare lo decide `dimensioni`. */}
+      {dimensioni.includes("indicazione") ? gruppo("Indicazione", "indicazione", "Entry_Signal") : null}
+      {dimensioni.includes("fase") ? gruppo("Fase", "fase", "Market_Phase") : null}
+      {dimensioni.includes("rischio") ? gruppo("Rischio", "rischio", "Rischio_Trend") : null}
       {nota ? <span className="monitor-tile-nota">{nota}</span> : null}
     </div>
   );
