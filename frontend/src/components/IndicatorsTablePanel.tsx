@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import type { WatchlistRow } from "../types";
-import { AxesModelGuide } from "./AxesModelGuide";
 
 type ColumnKind = "text" | "number" | "percent" | "date" | "bool";
 
@@ -717,8 +716,9 @@ export default function IndicatorsTablePanel({ rows, market, loading, error, sou
           <small>{INDICATOR_GUIDE.length} famiglie · come sono calcolate e come si leggono</small>
         </summary>
         <div className="indicators-guide-body">
-          <AxesModelGuide />
-
+          {/* La spiegazione del modello (assi, TECH_SCORE, fasi, indicazioni,
+              diciture delle card) sta in un posto solo: il dropdown sotto le tab.
+              Qui resta cio' che riguarda solo questa tab. */}
           <section className="indicators-guide-block">
             <h3>Convenzioni comuni</h3>
             <ul className="indicators-guide-conventions">

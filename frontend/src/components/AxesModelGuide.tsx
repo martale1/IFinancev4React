@@ -9,6 +9,12 @@
 export function AxesModelGuide() {
   return (
     <>
+      <p className="indicators-guide-intro">
+        <b>Lettura veloce:</b> la prima etichetta risponde a una sola domanda —
+        <b>conviene valutare un nuovo ingresso?</b> Fase e dettaglio tecnico spiegano il
+        contesto, ma non sono comandi operativi.
+      </p>
+
       <section className="indicators-guide-block">
         <h3>1 · I quattro assi (dove sta andando il titolo)</h3>
         <p className="indicators-guide-note">
@@ -194,6 +200,12 @@ export function AxesModelGuide() {
           <b>AVOID</b> = stare fuori, <b>WAIT</b> = attendere per liquidità insufficiente.
         </p>
       </section>
+      <p className="indicators-guide-intro">
+        <b>UPTREND</b>, <b>PULLBACK</b>, <b>RANGE</b> e gli altri dettagli del contesto restano
+        visibili per spiegare perché il titolo è stato classificato. Le decisioni sulle posizioni
+        già possedute saranno gestite nella futura schermata Portafoglio.
+      </p>
+
     </>
   );
 }

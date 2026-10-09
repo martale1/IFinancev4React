@@ -5,7 +5,6 @@ import MultiPatternLabPanel from "./components/MultiPatternLabPanel";
 import AiChatPanel from "./components/AiChatPanel";
 import AiTickerModal from "./components/AiTickerModal";
 import ChartModal from "./components/ChartModal";
-import RuleGuide from "./components/RuleGuide";
 import WatchlistCard from "./components/WatchlistCard";
 import { AxesModelGuide } from "./components/AxesModelGuide";
 import { AxisTiles, DIMENSIONI_TUTTE, type AxisTileSelection } from "./components/AxisTiles";
@@ -1055,8 +1054,6 @@ export default function App() {
       ) : null}
 
 
-      <RuleGuide />
-
       <nav className="tabs" aria-label="Sezioni principali">
         {tabs.map((t) => (
           <button
@@ -1071,6 +1068,19 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {/* Spiegazioni in un punto solo: prima erano due dropdown in posti diversi
+          ("Guida regole" sopra le tab e "Cosa significano le sigle" nella tab
+          All) e si sovrapponevano. Ora e' uno, chiuso, subito sotto le tab. */}
+      <details className="indicators-guide card-legend">
+        <summary>
+          <span>❓ Guida: come leggere le card</span>
+          <small>Quattro assi · TECH_SCORE · fasi · indicazioni · tutte le diciture</small>
+        </summary>
+        <div className="indicators-guide-body">
+          <AxesModelGuide />
+        </div>
+      </details>
       {tab === "🎯 Monitor" ? (
         <MonitorPanel
           monitorData={monitorQuery.data}
@@ -1098,17 +1108,6 @@ export default function App() {
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}
       {/* Legenda delle sigle: le card usano quattro assi e molte abbreviazioni.
           Richiudibile e sempre presente, così chi guarda capisce senza chiedere. */}
-      {tab === "All" ? (
-        <details className="indicators-guide card-legend">
-          <summary>
-            <span>❓ Cosa significano le sigle sulle card</span>
-            <small>Direzione · Forza · Momento · Rischio · segnale operativo</small>
-          </summary>
-          <div className="indicators-guide-body">
-            <AxesModelGuide />
-          </div>
-        </details>
-      ) : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && watchlistQuery.data ? (
         <div className="source-meta">
           Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
