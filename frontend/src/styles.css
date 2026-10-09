@@ -2504,14 +2504,50 @@ td {
     padding: 0.4rem 0.6rem;
   }
 
-  /* Chart levels bar: scroll orizzontale */
-  .chart-levels {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
+  /* Dati del grafico: gruppi etichettati, non piu' una fila di pillole.
+     Prima c'era `flex-wrap: nowrap` con scroll orizzontale: il flex allungava
+     tutte le pillole all'altezza della piu' alta (la data su tre righe), quindi
+     diventavano ovali da 75 px con una riga di testo dentro. Misurato: 9 pillole,
+     tutte 59-71 x 75. Ora ogni pillola si dimensiona sul proprio contenuto. */
+  .chart-dati { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
+  .dati-gruppo { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+  .dati-label {
+    font-size: .66rem; text-transform: uppercase; letter-spacing: .04em;
+    color: #7ea6c8; font-weight: 700;
   }
-  .chart-levels::-webkit-scrollbar { display: none; }
+  .dati-riga { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+
+  /* Variazioni: griglia regolare, cosi' i periodi si allineano e si leggono. */
+  .dati-variazioni {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+    gap: .28rem;
+  }
+  .var-box {
+    display: flex; flex-direction: column; align-items: center; gap: .08rem;
+    padding: .28rem .15rem;
+    border: 1px solid rgba(148,163,184,.28);
+    border-radius: 8px;
+    background: rgba(10,22,38,.5);
+  }
+  .var-box em {
+    font-style: normal; font-size: .58rem; font-weight: 700;
+    color: #7ea6c8; letter-spacing: .03em;
+  }
+  .var-box b { font-size: .8rem; font-weight: 700; color: #cfe5fa; }
+  .var-box.positive { border-color: rgba(74,222,128,.4); }
+  .var-box.positive b { color: #4ade80; }
+  .var-box.negative { border-color: rgba(248,113,113,.4); }
+  .var-box.negative b { color: #fca5a5; }
+
+  /* Livelli: uno per riga, cosi' il testo non va a capo. */
+  .dati-livelli { display: flex; flex-direction: column; gap: .22rem; }
+  .dati-livelli .level-chip { text-align: left; }
+  .level-chip.fonte { font-weight: 600; color: #93b4d4; }
+
+  /* "flex-start" e non "normal": in un contenitore che va a capo, "stretch"
+     riallungherebbe le pillole sulle righe miste. */
+  .chart-levels { align-items: flex-start; }
 }
 
 /* ===== EXTRA SMALL (≤ 380px) ===== */

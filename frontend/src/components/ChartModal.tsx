@@ -908,52 +908,64 @@ export default function ChartModal(props: Props) {
             </button>
           ))}
         </div>
-        <div className="chart-levels">
+        {/* Dati del titolo, in gruppi etichettati: prima il prezzo, poi le
+            variazioni su una griglia regolare, infine i livelli operativi. */}
+        <div className="chart-dati">
           {!props.isQuickChart && (
-            <>
-              <span className="level-chip close">Close: {fmtPrice(close)}</span>
-              {props.row ? (
-                <>
-                  {props.row.Chart_Data_Source ? <span className="level-chip">Yahoo delayed · {String(props.row.Date ?? "").slice(0, 10)}</span> : null}
-                  {[
-                    { label: "1D", val: props.row.PCTV_1D },
-                    { label: "5D", val: props.row.PCTV_5D },
-                    { label: "10D", val: props.row.PCTV_10D },
-                    { label: "30D", val: props.row.PCTV_30D },
-                    { label: "180D", val: props.row.PCTV_180D }
-                  ].map((item) => {
-                    const n = toNum(item.val);
-                    if (n === null) return null;
-                    const sign = n > 0 ? "+" : "";
-                    const color = n > 0 ? "#22c55e" : (n < 0 ? "#ef4444" : "#f59e0b");
-                    return (
-                      <span
-                        key={item.label}
-                        className="level-chip"
-                        style={{
-                          border: "1px solid rgba(174,216,249,0.2)",
-                          color: "#cfe5fa"
-                        }}
-                      >
-                        {item.label}: <span style={{ color, fontWeight: "bold" }}>{sign}{n.toFixed(2)}%</span>
-                      </span>
-                    );
-                  })}
-                </>
-              ) : null}
-            </>
+            <div className="dati-gruppo">
+              <span className="dati-label">Prezzo</span>
+              <div className="dati-riga">
+                <span className="level-chip close">Close: {fmtPrice(close)}</span>
+                {props.row?.Chart_Data_Source ? (
+                  <span className="level-chip fonte">Yahoo delayed · {String(props.row.Date ?? "").slice(0, 10)}</span>
+                ) : null}
+              </div>
+            </div>
           )}
-          {props.levels?.sl1 != null ? (
-            <span className={`level-chip ${pctClass(props.levels.sl1)}`}>SL1: {fmtPrice(props.levels.sl1)} ({fmtPctFromClose(props.levels.sl1)})</span>
+
+          {!props.isQuickChart && props.row ? (
+            <div className="dati-gruppo">
+              <span className="dati-label">Variazioni</span>
+              <div className="dati-variazioni">
+                {[
+                  { label: "1D", val: props.row.PCTV_1D },
+                  { label: "5D", val: props.row.PCTV_5D },
+                  { label: "10D", val: props.row.PCTV_10D },
+                  { label: "30D", val: props.row.PCTV_30D },
+                  { label: "180D", val: props.row.PCTV_180D }
+                ].map((item) => {
+                  const n = toNum(item.val);
+                  if (n === null) return null;
+                  const sign = n > 0 ? "+" : "";
+                  return (
+                    <span key={item.label} className={`var-box ${pctClass(n)}`}>
+                      <em>{item.label}</em>
+                      <b>{sign}{n.toFixed(2)}%</b>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
-          {props.levels?.sl2 != null ? (
-            <span className={`level-chip ${pctClass(props.levels.sl2)}`}>SL2: {fmtPrice(props.levels.sl2)} ({fmtPctFromClose(props.levels.sl2)})</span>
-          ) : null}
-          {props.levels?.pbStop != null ? (
-            <span className={`level-chip ${pctClass(props.levels.pbStop)}`}>PB Stop: {fmtPrice(props.levels.pbStop)} ({fmtPctFromClose(props.levels.pbStop)})</span>
-          ) : null}
-          {props.levels?.ppLevel != null ? (
-            <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
+
+          {props.levels?.sl1 != null || props.levels?.sl2 != null || props.levels?.pbStop != null || props.levels?.ppLevel != null ? (
+            <div className="dati-gruppo">
+              <span className="dati-label">Livelli</span>
+              <div className="dati-livelli">
+                {props.levels?.sl1 != null ? (
+                  <span className={`level-chip ${pctClass(props.levels.sl1)}`}>SL1: {fmtPrice(props.levels.sl1)} ({fmtPctFromClose(props.levels.sl1)})</span>
+                ) : null}
+                {props.levels?.sl2 != null ? (
+                  <span className={`level-chip ${pctClass(props.levels.sl2)}`}>SL2: {fmtPrice(props.levels.sl2)} ({fmtPctFromClose(props.levels.sl2)})</span>
+                ) : null}
+                {props.levels?.pbStop != null ? (
+                  <span className={`level-chip ${pctClass(props.levels.pbStop)}`}>PB Stop: {fmtPrice(props.levels.pbStop)} ({fmtPctFromClose(props.levels.pbStop)})</span>
+                ) : null}
+                {props.levels?.ppLevel != null ? (
+                  <span className={`level-chip ${pctClass(props.levels.ppLevel)}`}>Profit Protect: {fmtPrice(props.levels.ppLevel)} ({fmtPctFromClose(props.levels.ppLevel)})</span>
+                ) : null}
+              </div>
+            </div>
           ) : null}
         </div>
 
