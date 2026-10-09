@@ -1316,9 +1316,13 @@ def _mount_frontend() -> None:
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
 
+    # La pagina non va mai messa in cache: e' lei a indicare quale bundle
+    # caricare, e con il nome che contiene un'impronta non serve trattenerla.
+    senza_cache = {"Cache-Control": "no-cache, must-revalidate"}
+
     @app.get("/", include_in_schema=False)
     def frontend_root():
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers=senza_cache)
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def frontend_spa(full_path: str):
@@ -1331,7 +1335,9 @@ def _mount_frontend() -> None:
 
         if requested_file.is_file():
             return FileResponse(requested_file)
-        return FileResponse(index_file)
+        # Qualsiasi altro percorso e' una rotta dell'app: si serve la pagina, che
+        # deve essere sempre fresca per lo stesso motivo.
+        return FileResponse(index_file, headers=senza_cache)
 
 
 _mount_frontend()
