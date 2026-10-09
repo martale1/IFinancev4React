@@ -225,9 +225,6 @@ export default function MonitorPanel({
 
   // Statistics
   const totalCount = items.length;
-  const entraCount = items.filter((r) => r.Entry_Signal === "ENTRA").length;
-  const osservaCount = items.filter((r) => r.Entry_Signal === "OSSERVA").length;
-  const withNotesCount = items.filter((r) => String(r.Monitor_Note || "").trim().length > 0).length;
 
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,17 +298,11 @@ export default function MonitorPanel({
       {/* Intestazione compatta: titolo + KPI come pillole su una sola riga */}
       <div className="monitor-header">
         <div className="monitor-header-title">
-          <h2>🎯 Titoli in Monitoraggio Attivo</h2>
+          {/* I conteggi per indicazione sono nelle tessere qui sotto: ripeterli
+              qui era un doppione e occupava due righe sul telefono. */}
+          <h2>🎯 Titoli monitorati <b className="monitor-total">{totalCount}</b></h2>
           <p className="muted">Nota operativa e segnali aggiornati in tempo reale.</p>
         </div>
-          {/* Contatori informativi: non filtrano piu' l'elenco. Per scegliere
-              cosa vedere prima si usano le tessere degli assi qui sotto. */}
-          <div className="monitor-header-kpis">
-            <span className="monitor-kpi"><b>{totalCount}</b> monitorati</span>
-            <span className={`monitor-kpi ${entraCount ? "kpi-enter" : ""}`}><b>{entraCount}</b> entra</span>
-            <span className={`monitor-kpi ${osservaCount ? "kpi-watch" : ""}`}><b>{osservaCount}</b> osserva</span>
-            <span className="monitor-kpi"><b>{withNotesCount}</b> con note</span>
-          </div>
       </div>
 
       {/* Aggiunta di un titolo: in alto e richiudibile, perche' su telefono i
@@ -402,11 +393,13 @@ export default function MonitorPanel({
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
-          <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-            {filteredItems.length === totalCount
-              ? `${totalCount} titoli monitorati`
-              : `Visualizzati ${filteredItems.length} di ${totalCount} titoli`}
-          </div>
+          {/* Il conteggio compare solo quando un filtro e' attivo: senza filtri il
+              numero e' gia' nell'intestazione, e ripeterlo era un doppione. */}
+          {filteredItems.length !== totalCount ? (
+            <div className="monitor-filter-count" style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+              {`Visualizzati ${filteredItems.length} di ${totalCount} titoli`}
+            </div>
+          ) : null}
         </div>
       )}
 

@@ -662,6 +662,10 @@ textarea {
 }
 .monitor-tile-clear { font-size:.75rem; padding:.3rem .55rem; }
 
+/* Il numero dei titoli monitorati, dentro il titolo: prima erano quattro pillole
+   su due righe, e i conteggi per indicazione stanno gia' nelle tessere. */
+.monitor-total { font-size: 1.05em; color: #67e8f9; }
+
 /* Scelta del mercato accanto al selettore di vista: prima stava in alto con
    pulsanti grandi (padding .55rem .9rem, font .86rem) e occupava spazio in ogni
    schermata. Ora sono pulsanti piccoli, della misura di Schede/Tabella/Lista
