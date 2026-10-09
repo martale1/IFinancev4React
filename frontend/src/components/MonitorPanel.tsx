@@ -411,6 +411,47 @@ export default function MonitorPanel({
           </div>
       </div>
 
+      {/* Aggiunta di un titolo: in alto e richiudibile, perche' su telefono i
+          quattro campi occupavano meta' schermo. Si apre da solo se c'e' un
+          messaggio da leggere, cosi' non passa inosservato. */}
+      <details className="monitor-add-compact" open={Boolean(error || added)}>
+        <summary>
+          <span>➕ Aggiungi un titolo al monitor</span>
+        </summary>
+        <form className="monitor-add-form" onSubmit={handleQuickAdd}>
+          <input
+            className="monitor-ticker-input"
+            type="text"
+            placeholder="Ticker o nome (es. LTMC.MI, Lottomatica)"
+            value={newTicker}
+            onChange={(e) => { setNewTicker(e.target.value); if (added) setAdded(""); if (error) setError(""); }}
+            required
+          />
+          <select
+            className="monitor-market-select"
+            value={newMarket}
+            onChange={(e) => setNewMarket(e.target.value)}
+          >
+            {markets.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          <input
+            className="monitor-note-input"
+            type="text"
+            placeholder="Nota opzionale (es. breakout sopra 12.20)"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+          />
+          <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()}>
+            {adding ? "Aggiungo..." : "+ Aggiungi a Monitor"}
+          </button>
+        </form>
+      </details>
+
+      {error && <div className="error-banner">{error}</div>}
+      {added && <div className="monitor-added-banner" role="status">{added}</div>}
+
       {/* Fotografia dei titoli monitorati: componente condiviso con la tab All,
           cosi' i due posti non possono divergere. I conteggi riguardano sempre
           tutti i titoli; il clic mette quel valore IN TESTA all'ordine, senza
@@ -428,39 +469,6 @@ export default function MonitorPanel({
         }}
       />
 
-      {/* Barra di aggiunta compatta: ticker flessibile, mercato stretto */}
-      <form className="monitor-add-form" onSubmit={handleQuickAdd}>
-        <input
-          className="monitor-ticker-input"
-          type="text"
-          placeholder="Ticker o nome (es. LTMC.MI, Lottomatica)"
-          value={newTicker}
-          onChange={(e) => { setNewTicker(e.target.value); if (added) setAdded(""); if (error) setError(""); }}
-          required
-        />
-        <select
-          className="monitor-market-select"
-          value={newMarket}
-          onChange={(e) => setNewMarket(e.target.value)}
-        >
-          {markets.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-        <input
-          className="monitor-note-input"
-          type="text"
-          placeholder="Nota opzionale (es. breakout sopra 12.20)"
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-        />
-        <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()}>
-          {adding ? "Aggiungo..." : "+ Aggiungi a Monitor"}
-        </button>
-      </form>
-
-      {error && <div className="error-banner">{error}</div>}
-      {added && <div className="monitor-added-banner" role="status">{added}</div>}
 
       {/* Filter / Search inside Monitor + selettore visualizzazione */}
       {items.length > 0 && (
