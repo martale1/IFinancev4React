@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AlertsPanel from "./components/AlertsPanel";
 import MultiPatternLabPanel from "./components/MultiPatternLabPanel";
 import AiChatPanel from "./components/AiChatPanel";
@@ -226,6 +226,12 @@ export default function App() {
   const [minVolume, setMinVolume] = useState(2000);
   // I filtri si possono passare da URL (?entry_signal=ENTRA&market_phase=LATERALE):
   // servono per i link condivisibili e per verificare i conteggi delle tessere.
+  // Ancoraggio da rimettere dopo un cambio di mercato: quante righe c'erano sopra
+  // la vista. In pixel non funziona, perche' se il nuovo mercato ha meno titoli la
+  // pagina si accorcia e quei pixel non esistono piu' (misurato: da 3000 a 2268
+  // passando da 150 a 42 righe).
+  const righeSopra = useRef<number | null>(null);
+
   const [page, setPage] = useState(1);
   // Ordinamento per variazione percentuale: se attivo comanda lui.
   const [ordinePerc, setOrdinePerc] = useState<OrdinePercentuale | null>(null);
@@ -463,9 +469,37 @@ export default function App() {
       sortKey,
       sortDir
     }),
+    // Mentre carica un altro mercato restano i titoli di quello precedente: senza
+    // questo l'elenco sparisce, la pagina si accorcia e il browser riporta in cima
+    // (misurato: da 8723px a 844px). Cosi' la posizione di scorrimento si conserva.
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
     enabled: tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
   });
+
+  // Ripristino la posizione quando i dati del nuovo mercato sono a schermo.
+  // Dopo il disegno (useLayoutEffect): prima la pagina non e' ancora alta
+  // abbastanza e il browser rifiuterebbe la posizione.
+  useLayoutEffect(() => {
+    if (watchlistQuery.isFetching || righeSopra.current === null) return;
+    const quante = righeSopra.current;
+    // Dopo il disegno: dentro l'effetto il browser non ha ancora ricalcolato il
+    // layout con i titoli nuovi, quindi le righe non sono ancora posizionate.
+    const id = window.requestAnimationFrame(() => {
+      const righe = document.querySelectorAll(".monitor-dense-item");
+      // Se le righe non ci sono (vista Schede, o elenco vuoto) non c'e' niente da
+      // ancorare: si lascia la pagina dove sta.
+      if (righe.length === 0) {
+        righeSopra.current = null;
+        return;
+      }
+      const indice = Math.min(quante, righe.length - 1);
+      // block: "start" mette quella riga in cima alla vista, come era prima.
+      righe[indice].scrollIntoView({ block: "start" });
+      righeSopra.current = null;
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [watchlistQuery.isFetching, watchlistQuery.dataUpdatedAt]);
 
   /**
    * Highlights fotografa il MERCATO, non il sottoinsieme filtrato: le sue tessere
@@ -1308,6 +1342,7 @@ export default function App() {
       </section> : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && !watchlistQuery.isLoading && watchlistQuery.isFetching ? <p className="muted" style={{ margin: ".2rem 0 .4rem 0", fontSize: ".78rem" }}>Aggiorno {market.replace(/_/g, " ")}… i titoli a schermo sono ancora quelli di prima</p> : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
@@ -1339,7 +1374,18 @@ export default function App() {
               <MarketChips
                 markets={marketsQuery.data ?? ["MIB30"]}
                 market={market}
-                onSelect={(m) => { setMarket(m); setPage(1); }}
+                onSelect={(m) => {
+                  // Conto le righe sopra la vista adesso, prima che i dati
+                  // cambino: e' l'unico momento in cui la pagina e' quella giusta.
+                  const righe = document.querySelectorAll(".monitor-dense-item");
+                  let sopra = 0;
+                  for (const r of Array.from(righe)) {
+                    if (r.getBoundingClientRect().bottom < 0) sopra += 1;
+                  }
+                  righeSopra.current = sopra;
+                  setMarket(m);
+                  setPage(1);
+                }}
                 nomeProprio={(m) => parseCurrentWatchlistName(m)}
                 trailing={
                   <label className="volume-filter market-chip-volume">
