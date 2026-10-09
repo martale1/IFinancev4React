@@ -652,6 +652,14 @@ export default function App() {
     });
   }, [chartTicker, chartBars, chartType, chartLevels, chartRow, chartSnapshot]);
 
+  /** Solo il nome del file, senza il percorso: su telefono il percorso intero
+   *  occupa piu' righe e non aggiunge nulla a chi guarda. */
+  function nomeFile(percorso?: string | null): string {
+    if (!percorso) return "-";
+    const parti = String(percorso).split(/[\\/]/);
+    return parti[parti.length - 1] || String(percorso);
+  }
+
   function fmtSourceTs(v?: string | null): string {
     if (!v) return "-";
     const d = new Date(v);
@@ -1112,9 +1120,17 @@ export default function App() {
           All) e si sovrapponevano. Ora e' uno, chiuso, subito sotto le tab. */}
       <details className="indicators-guide card-legend">
         <summary>
-          <span>❓ Guida: come leggere le card</span>
-          <small>Quattro assi · TECH_SCORE · fasi · indicazioni · tutte le diciture</small>
+          <span>❓ Guida</span>
         </summary>
+        {/* Sotto la guida, il file su cui sono calcolati i dati con data e ora:
+            dice su cosa si sta leggendo la spiegazione. */}
+        {watchlistQuery.data ? (
+          <div className="source-meta guida-fonte">
+            {fmtSourceTs(watchlistQuery.data.source_updated_at)}
+            {" · "}
+            <span className="source-path">{nomeFile(watchlistQuery.data.source_path ?? watchlistQuery.data.source_file)}</span>
+          </div>
+        ) : null}
         <div className="indicators-guide-body">
           <AxesModelGuide />
         </div>
@@ -1146,12 +1162,6 @@ export default function App() {
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}
       {/* Legenda delle sigle: le card usano quattro assi e molte abbreviazioni.
           Richiudibile e sempre presente, così chi guarda capisce senza chiedere. */}
-      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && watchlistQuery.data ? (
-        <div className="source-meta">
-          Last update: {fmtSourceTs(watchlistQuery.data.source_updated_at)} · Source:{" "}
-          <span className="source-path">{watchlistQuery.data.source_path ?? watchlistQuery.data.source_file ?? "-"}</span>
-        </div>
-      ) : null}
 
       {tab === "Alerts" ? <AlertsPanel market={market} onOpenChart={async (ticker) => {
         const found = await findTickerAcrossMarkets(ticker);
