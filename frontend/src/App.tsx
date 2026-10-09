@@ -44,8 +44,8 @@ import {
 
 const tabs = [
   "🎯 Monitor",
-  "📊 Highlights",
   "All",
+  "📊 Highlights",
   "🧪 Multi-Pattern Lab",
   "Analizza",
   "Alerts",
