@@ -908,17 +908,16 @@ export default function ChartModal(props: Props) {
             </button>
           ))}
         </div>
-        {/* Dati del titolo, in gruppi etichettati: prima il prezzo, poi le
-            variazioni su una griglia regolare, infine i livelli operativi. */}
+        {/* Dati del titolo, in gruppi etichettati: il prezzo, poi le variazioni
+            su una griglia regolare, infine i livelli operativi.
+            La fonte della quotazione ("Yahoo delayed · data") e' stata tolta su
+            richiesta: era un'etichetta che non serve al momento della decisione. */}
         <div className="chart-dati">
           {!props.isQuickChart && (
             <div className="dati-gruppo">
               <span className="dati-label">Prezzo</span>
               <div className="dati-riga">
                 <span className="level-chip close">Close: {fmtPrice(close)}</span>
-                {props.row?.Chart_Data_Source ? (
-                  <span className="level-chip fonte">Yahoo delayed · {String(props.row.Date ?? "").slice(0, 10)}</span>
-                ) : null}
               </div>
             </div>
           )}

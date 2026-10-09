@@ -2543,8 +2543,7 @@ td {
   /* Livelli: uno per riga, cosi' il testo non va a capo. */
   .dati-livelli { display: flex; flex-direction: column; gap: .22rem; }
   .dati-livelli .level-chip { text-align: left; }
-  .level-chip.fonte { font-weight: 600; color: #93b4d4; }
-
+  
   /* "flex-start" e non "normal": in un contenitore che va a capo, "stretch"
      riallungherebbe le pillole sulle righe miste. */
   .chart-levels { align-items: flex-start; }
