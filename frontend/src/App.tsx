@@ -227,7 +227,6 @@ export default function App() {
   // I filtri si possono passare da URL (?entry_signal=ENTRA&market_phase=LATERALE):
   // servono per i link condivisibili e per verificare i conteggi delle tessere.
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
   // Ordinamento per variazione percentuale: se attivo comanda lui.
   const [ordinePerc, setOrdinePerc] = useState<OrdinePercentuale | null>(null);
 
@@ -268,6 +267,11 @@ export default function App() {
     // Sul telefono la lista compatta; sul PC restano le schede.
     return telefono ? "list" : "cards";
   });
+
+  // La vista Lista mostra piu' titoli per pagina: le righe sono compatte (47 px
+  // contro 385 di una scheda), quindi se ne possono leggere molte di piu' prima
+  // di dover cambiare pagina. Con 50, ETF faceva 34 pagine; con 150 ne fa 12.
+  const pageSize = watchlistView === "list" ? 150 : 50;
   const [rankN] = useState(15);
 
   const [chartTicker, setChartTicker] = useState("");
