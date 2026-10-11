@@ -12,6 +12,7 @@ import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
 import MarketPickerBar from "./components/MarketPickerBar";
+import { c_eUnaVersioneNuova } from "./version";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -309,6 +310,34 @@ export default function App() {
 
   const globalTicker = String(globalSearchRow?.Ticker ?? "");
   const globalMarket = String(globalSearchRow?.WL_Source_Market ?? "");
+  /**
+   * Se il server serve una versione diversa da questa pagina, ricarica.
+   *
+   * Serve perche' la `index.html` puo' restare in cache nel browser: cambia solo
+   * nella riga del bundle, quindi il browser puo' non ricontrollarla e continuare
+   * a mostrare la versione vecchia anche dopo un deploy. Con questo controllo la
+   * pagina se ne accorge da sola, senza che l'utente debba svuotare la cache.
+   * Gira al caricamento e ogni cinque minuti; ricarica una volta sola, altrimenti
+   * un disallineamento continuo produrrebbe un ciclo di ricariche.
+   */
+  useEffect(() => {
+    let annullato = false;
+    let giaRicaricato = false;
+    const controlla = async () => {
+      if (annullato || giaRicaricato) return;
+      if (await c_eUnaVersioneNuova()) {
+        giaRicaricato = true;
+        window.location.reload();
+      }
+    };
+    void controlla();
+    const timer = window.setInterval(controlla, 5 * 60_000);
+    return () => {
+      annullato = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   useEffect(() => {
     if (!globalTicker || !globalMarket) return;
     let cancelled = false;
