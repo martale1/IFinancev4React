@@ -44,6 +44,7 @@ import {
 
 const tabs = [
   "🎯 Monitor",
+  "🔥 Heatmap",
   "All",
   "📊 Highlights",
   "🧪 Multi-Pattern Lab",
@@ -52,7 +53,6 @@ const tabs = [
   "Migliori (1D)",
   "Peggiori (1D)",
   "📈 Indicatori",
-  "🔥 Heatmap",
   "📰 Archivio News",
   "AI chat",
   "🔧 Gestione Pattern",
