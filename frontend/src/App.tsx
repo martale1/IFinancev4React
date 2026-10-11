@@ -1362,6 +1362,32 @@ export default function App() {
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && !watchlistQuery.isLoading && watchlistQuery.isFetching ? <p className="muted" style={{ margin: ".2rem 0 .4rem 0", fontSize: ".78rem" }}>Aggiorno {market.replace(/_/g, " ")}… i titoli a schermo sono ancora quelli di prima</p> : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
+      {/* Nella tab Heatmap serve SOLO il selettore del mercato: senza, la mappa
+          restava ferma sull'ultimo mercato scelto altrove (di solito MIB30) e non
+          c'era modo di passare agli ETF. La barra completa resta esclusa li',
+          perche' ordinamento, ricerca e tessere dell'indicazione non servono. */}
+      {tab === "🔥 Heatmap" && marketsQuery.data ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
+          background: "rgba(10, 25, 47, 0.35)", border: "1px solid rgba(184, 216, 246, 0.12)",
+          borderRadius: "10px", padding: "0.5rem 0.8rem", margin: "0.5rem 0 1rem 0"
+        }}>
+          <MarketChips
+            markets={marketsQuery.data}
+            market={market}
+            onSelect={(m) => { setMarket(m); setPage(1); }}
+            nomeProprio={(m) => parseCurrentWatchlistName(m)}
+            trailing={
+              <label className="volume-filter market-chip-volume">
+                Volume min
+                <input type="number" min="0" value={minVolume}
+                  onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
+              </label>
+            }
+          />
+        </div>
+      ) : null}
+
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
