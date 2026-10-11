@@ -301,7 +301,6 @@ export default function MonitorPanel({
           {/* I conteggi per indicazione sono nelle tessere qui sotto: ripeterli
               qui era un doppione e occupava due righe sul telefono. */}
           <h2>🎯 Titoli monitorati <b className="monitor-total">{totalCount}</b></h2>
-          <p className="muted">Nota operativa e segnali aggiornati in tempo reale.</p>
         </div>
       </div>
 
