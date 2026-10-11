@@ -137,7 +137,12 @@ export function DenseList({
                   <div className="monitor-group">
                     <span className="monitor-group-title">Contesto</span>
                     <div className="monitor-metrics">
-                      <span>Rischio <b className={statoClass(row.Rischio_Trend)}>{String(row.Rischio_Trend ?? "-")}</b></span>
+                      {/* L'ATR e' uno dei due numeri che decidono il rischio (soglie 3% e
+                          5%): mostrarlo rende visibile perche' un titolo e' TESO o ESTREMO. */}
+                      <span title={`Volatilità: ATR ${num(row.ATR_PCT, 2)}% · soglie 3% teso, 5% estremo`}>
+                        Rischio <b className={statoClass(row.Rischio_Trend)}>{String(row.Rischio_Trend ?? "-")}</b>
+                        {" "}<small className="atr-rischio">{toNum(row.ATR_PCT) === null ? "" : `${num(row.ATR_PCT, 2)}%`}</small>
+                      </span>
                       <span>Fase <b>{fase}</b></span>
                       <span>Liquidità <b className={statoClass(row.Liquidity)}>{String(row.Liquidity ?? "-")}</b></span>
                       <span>Azioni <b className={statoClass(row.Action)}>{String(row.Action ?? "-")}</b></span>

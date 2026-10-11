@@ -666,6 +666,15 @@ textarea {
    su due righe, e i conteggi per indicazione stanno gia' nelle tessere. */
 .monitor-total { font-size: 1.05em; color: #67e8f9; }
 
+/* L'ATR accanto al rischio: e' uno dei due numeri che lo decidono (3% teso,
+   5% estremo), quindi sta nella stessa riga ma piu' discreto del giudizio. */
+.atr-rischio {
+  font-size: .78em;
+  font-weight: 600;
+  color: #9fb7cf;
+  margin-left: .1rem;
+}
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna

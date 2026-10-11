@@ -671,7 +671,9 @@ export default function WatchlistCard({
         <div className="monitor-group">
           <span className="monitor-group-title">Contesto</span>
           <div className="monitor-metrics">
-            <span>Rischio <b className={row.Rischio_Trend === "NORMALE" ? "good" : row.Rischio_Trend === "ESTREMO" ? "bad" : ""}>{String(row.Rischio_Trend ?? "-")}</b></span>
+            {/* L'ATR e' uno dei due numeri che decidono il rischio (soglie 3% e 5%):
+                mostrarlo rende visibile perche' un titolo e' TESO o ESTREMO. */}
+            <span title={`Volatilità: ATR ${num(row.ATR_PCT, 2)}% · soglie 3% teso, 5% estremo`}>Rischio <b className={row.Rischio_Trend === "NORMALE" ? "good" : row.Rischio_Trend === "ESTREMO" ? "bad" : ""}>{String(row.Rischio_Trend ?? "-")}</b>{" "}<small className="atr-rischio">{toNum(row.ATR_PCT) === null ? "" : `${num(row.ATR_PCT, 2)}%`}</small></span>
             <span title="Fase derivata dagli assi: TENDENZA, RIPRESA, LATERALE, RIBASSO">{String(row.Market_Phase ?? "-")}</span>
             <span title="Stato dell'Alligator di Bill Williams: usato dai pattern S7, non dagli assi">Alligator <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")}{row.Signal6_Trend_Days !== undefined ? ` (${row.Signal6_Trend_Days}g)` : ""}</b></span>
             {toNum(row.Pattern_S2_Days_Ago) !== null && (
