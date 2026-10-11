@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { WatchlistRow } from "../types";
 import mib30Sectors from "../data/mib30_sectors.json";
+import daxSectors from "../data/dax_sectors.json";
 import { ORDINE_ETC, ORDINE_TIPI, isLiquido, tipoEtc, tipoEtf } from "../etfTypes";
 
 /**
@@ -39,6 +40,19 @@ const PERIODS: Array<{ key: PeriodKey; label: string }> = [
   { key: "PCTV_30D", label: "30D" }, { key: "PCTV_180D", label: "180D" },
 ];
 const SECTORS = mib30Sectors as Record<string, string>;
+/**
+ * Settori del DAX, per lo stesso motivo del MIB30: il file di analisi non ha una
+ * colonna di settore (168 campi, nessuno di categoria), quindi la mappatura sta
+ * qui ed e' curata a mano. Usa lo stesso vocabolario dei settori del MIB30, cosi'
+ * le due heatmap si leggono allo stesso modo.
+ */
+const DAX_SECTORS = daxSectors as Record<string, string>;
+/** Vocabolario dei settori: MIB30 + l'unico del DAX che il MIB30 non ha. */
+const ORDINE_SETTORI = [
+  "Aerospazio e difesa", "Assicurazioni", "Automotive", "Banche", "Beni di consumo",
+  "Energia", "Immobiliare", "Industria", "Lusso e consumi", "Salute",
+  "Servizi finanziari", "Tecnologia e pagamenti", "Telecomunicazioni", "Utility",
+];
 
 /** I quattro colori delle indicazioni, gli stessi delle card e delle tessere. */
 const COLORE_INDICAZIONE: Record<string, string> = {
@@ -93,12 +107,13 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
   const [layout, setLayout] = useState<LayoutMode>("sectorGrid");
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const isMib = market.toUpperCase() === "MIB30";
+  const isDax = market.toUpperCase() === "DAX";
   const isEtf = market.toUpperCase() === "ETF";
   const isEtc = market.toUpperCase() === "ETC";
-  // ETF ed ETC si raggruppano per tipologia: sono "panieri", e 419 ETF o 93 ETC
-  // in un blocco unico non si leggono. Il DAX sono 40 aziende singole e resta
-  // piatto, come gli altri mercati.
+  // ETF ed ETC si raggruppano per tipologia (sono "panieri"); MIB30 e DAX per
+  // settore. Gli altri mercati restano in un blocco unico.
   const perTipologia = isEtf || isEtc;
+  const perSettore = isMib || isDax;
   // Sigla per i testi: il filtro ora vale per ETF ed ETC, non solo per gli ETF.
   const sigla = isEtc ? "ETC" : "ETF";
   // Il filtro esiste dove ci sono davvero titoli non negoziabili: sugli ETF
@@ -107,10 +122,11 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
   const [soloLiquidi, setSoloLiquidi] = useState(true);
   const soloLiquidiAttivo = perTipologia && soloLiquidi;
 
-  const mappedRows = useMemo(
-    () => isMib ? rows.filter((row) => Boolean(SECTORS[tickerOf(row)])) : rows,
-    [isMib, rows],
-  );
+  const mappedRows = useMemo(() => {
+    if (isMib) return rows.filter((row) => Boolean(SECTORS[tickerOf(row)]));
+    if (isDax) return rows.filter((row) => Boolean(DAX_SECTORS[tickerOf(row)]));
+    return rows;
+  }, [isDax, isMib, rows]);
   const liquidi = useMemo(
     () => mappedRows.filter((row) => isLiquido(row as Record<string, unknown>)),
     [mappedRows],
@@ -137,11 +153,23 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
     }
     const result = new Map<string, WatchlistRow[]>();
     mostrati.forEach((row) => {
-      const settore = isMib ? SECTORS[tickerOf(row)] : "Tutti i titoli";
+      // I settori sono curati a mano in due file (MIB30 e DAX): il file di
+      // analisi non ha una colonna di categoria.
+      const tabella = isDax ? DAX_SECTORS : SECTORS;
+      const settore = perSettore ? tabella[tickerOf(row)] ?? "Altro" : "Tutti i titoli";
       result.set(settore, [...(result.get(settore) ?? []), row]);
     });
+    // Per i settori si usa l'ordine dichiarato, non l'alfabetico: cosi' le due
+    // heatmap ordinano i gruppi allo stesso modo e "Altro" resta in fondo.
+    if (perSettore) {
+      return [...result.entries()].sort(([a], [b]) => {
+        const ia = ORDINE_SETTORI.indexOf(a);
+        const ib = ORDINE_SETTORI.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+    }
     return [...result.entries()].sort(([a], [b]) => a.localeCompare(b, "it"));
-  }, [isEtc, isMib, perTipologia, mostrati]);
+  }, [isDax, isEtc, perSettore, perTipologia, mostrati]);
   const visibleGroups = selectedSector ? groups.filter(([sector]) => sector === selectedSector) : groups;
 
   // Conteggi complessivi per indicazione: sostituiscono "80% in rialzo / sopra
@@ -165,7 +193,7 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
 
   return <section className="heatmap-panel">
     <div className="heatmap-header">
-      <div><h2>Heatmap · {market}{isMib ? " per settore" : perTipologia ? " per tipologia" : ""}</h2></div>
+      <div><h2>Heatmap · {market}{perSettore ? " per settore" : perTipologia ? " per tipologia" : ""}</h2></div>
       <div className="heatmap-controls">
         <div className="heatmap-periods" aria-label="Cosa mostra il colore">
           <button className={mode === "indicazioni" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("indicazioni")}>Indicazioni</button>
@@ -189,7 +217,7 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
             </button>
           </div>
         ) : null}
-        {isMib ? <div className="heatmap-periods heatmap-layout-switch" aria-label="Formato heatmap">
+        {perSettore ? <div className="heatmap-periods heatmap-layout-switch" aria-label="Formato heatmap">
           <button className={layout === "sections" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sections")}>☰ Sezioni</button>
           <button className={layout === "sectorGrid" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sectorGrid")}>▦ Griglia settoriale</button>
         </div> : null}
@@ -208,21 +236,21 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
       <div><strong>{stats.alerts}</strong><span> alert attivi</span></div>
     </div>
 
-    {(isMib || perTipologia) && groups.length > 1 ? <div className="sector-filter-row">
+    {(perSettore || perTipologia) && groups.length > 1 ? <div className="sector-filter-row">
       <button className={!selectedSector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(null)}>
         {perTipologia ? "Tutte le tipologie" : "Tutti i settori"}
       </button>
       {groups.map(([sector, items]) => <button key={sector} className={selectedSector === sector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(selectedSector === sector ? null : sector)}>{sector} <small>{items.length}</small></button>)}
     </div> : null}
 
-    <div className={`sector-groups ${layout === "sectorGrid" && isMib ? "grid-layout" : "sections-layout"}`}>{visibleGroups.map(([sector, sectorRows]) => {
+    <div className={`sector-groups ${layout === "sectorGrid" && perSettore ? "grid-layout" : "sections-layout"}`}>{visibleGroups.map(([sector, sectorRows]) => {
       const values = sectorRows.map((row) => num(row[period])).filter((value): value is number => value !== null);
       const sectorMedian = median(values);
       const perIndicazione = contaIndicazioni(sectorRows);
       const sorted = [...sectorRows].sort((a, b) => (num(b[period]) ?? -Infinity) - (num(a[period]) ?? -Infinity));
       const sectorAlerts = sectorRows.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length;
       return <article className="sector-group" key={sector}>
-        <div className="sector-heading"><button onClick={() => (isMib || perTipologia) && setSelectedSector(selectedSector === sector ? null : sector)} title={perTipologia ? "Mostra solo questa tipologia" : "Mostra solo questo settore"}><strong>{sector}</strong><span>{sectorRows.length} titoli</span></button>
+        <div className="sector-heading"><button onClick={() => (perSettore || perTipologia) && setSelectedSector(selectedSector === sector ? null : sector)} title={perTipologia ? "Mostra solo questa tipologia" : "Mostra solo questo settore"}><strong>{sector}</strong><span>{sectorRows.length} titoli</span></button>
           <div className={`sector-median ${(sectorMedian ?? 0) >= 0 ? "positive" : "negative"}`}>Mediana {sectorMedian === null ? "n/d" : `${sectorMedian >= 0 ? "+" : ""}${sectorMedian.toFixed(2)}%`}</div></div>
 
         {/* Le tipologie sono dedotte dal nome, non lette da una colonna: quando
@@ -272,10 +300,10 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
       </article>;
     })}</div>
 
-    {(isMib && rows.length > mappedRows.length) || (soloLiquidiAttivo && nascosti > 0) ? (
+    {(perSettore && rows.length > mappedRows.length) || (soloLiquidiAttivo && nascosti > 0) ? (
       <p className="heatmap-excluded">
-        {isMib && rows.length > mappedRows.length
-          ? `${rows.length - mappedRows.length} elementi non appartenenti al mapping MIB esclusi dalla vista settoriale. `
+        {perSettore && rows.length > mappedRows.length
+          ? `${rows.length - mappedRows.length} elementi non appartenenti al mapping ${isDax ? "DAX" : "MIB"} esclusi dalla vista settoriale. `
           : ""}
         {soloLiquidiAttivo && nascosti > 0
           ? `${nascosti} ${sigla} non mostrati perché illiquidi (liquidità non OK). Usa "Solo liquidi" per vederli.`
