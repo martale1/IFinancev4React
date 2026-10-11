@@ -1047,7 +1047,7 @@ export default function App() {
               id="global-ticker-search"
               value={quickChartInput}
               onChange={(e) => setQuickChartInput(e.target.value)}
-              placeholder="Ticker o nome, es. FCT o Fincantieri"
+              placeholder="Ticker o nome"
               onKeyDown={(e) => {
                 if (e.key === "Escape") clearGlobalSearch();
                 if (e.key === "Enter" && quickChartInput.trim()) handleShowGlobalCard(quickChartInput);

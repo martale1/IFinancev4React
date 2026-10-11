@@ -165,7 +165,7 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
 
   return <section className="heatmap-panel">
     <div className="heatmap-header">
-      <div><h2>Heatmap · {market}{isMib ? " per settore" : perTipologia ? " per tipologia" : ""}</h2><div className="muted">Dati dall'ultimo Excel di analisi. Clicca un titolo per aprire il grafico.</div></div>
+      <div><h2>Heatmap · {market}{isMib ? " per settore" : perTipologia ? " per tipologia" : ""}</h2></div>
       <div className="heatmap-controls">
         <div className="heatmap-periods" aria-label="Cosa mostra il colore">
           <button className={mode === "indicazioni" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("indicazioni")}>Indicazioni</button>
