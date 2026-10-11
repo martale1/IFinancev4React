@@ -607,9 +607,6 @@ export default function MultiPatternLabPanel({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
           <div>
             <h2 style={{ fontSize: "1.15rem", margin: 0, color: "#ffffff" }}>🧪 Laboratorio Multi-Pattern</h2>
-            <p style={{ fontSize: "0.78rem", color: "#8cb4d9", margin: "0.2rem 0 0 0" }}>
-              Scansione pattern di inversione (S2–S4) con simulazione vectorbt istantanea.
-            </p>
           </div>
           {/* Config toggle */}
           <button
