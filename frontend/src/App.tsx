@@ -342,8 +342,15 @@ export default function App() {
     return () => window.removeEventListener("ifinance-alerts-changed", refresh);
   }, []);
 
-  const [sortKey, setSortKey] = useState<string | null>("MACD_vs_Signal");
-  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>("asc");
+  // Ordinamento chiesto all'API. Parte da NESSUN ordinamento, e non e' una
+  // mancanza: senza `sort_key` il backend ordina per indicazione, quindi tutti i
+  // titoli ENTRA stanno nelle prime righe. Con un sort (prima era
+  // "MACD_vs_Signal") l'ordine diventa quello del campo scelto e gli ENTRA
+  // finiscono sparsi su tutte le pagine: misurato su ETF, prima pagina da 150
+  // righe, 2 ENTRA visibili invece di 34, mentre le tessere ne contavano 31 su
+  // 500. Cioe' la lista mostrava un decimo di quello che le tessere dicevano.
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
 
   function toNum(v: unknown): number | null {
     if (typeof v === "number" && Number.isFinite(v)) return v;
