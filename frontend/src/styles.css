@@ -666,6 +666,105 @@ textarea {
    su due righe, e i conteggi per indicazione stanno gia' nelle tessere. */
 .monitor-total { font-size: 1.05em; color: #67e8f9; }
 
+/* Guida: una tabella sola con le quattro indicazioni.
+   Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
+   "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna
+   della regola non schiaccia le altre. */
+.guida-tabella {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: .76rem;
+  line-height: 1.4;
+}
+.guida-tabella th,
+.guida-tabella td {
+  text-align: left;
+  vertical-align: top;
+  padding: .35rem .4rem;
+  border-bottom: 1px solid rgba(174, 216, 249, .14);
+}
+.guida-tabella th {
+  color: #8cb4d9;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.guida-tabella tr:last-child td { border-bottom: none; }
+/* La prima colonna non va a capo: "OSSERVA" spezzato si legge male. */
+.guida-tabella td:first-child { white-space: nowrap; padding-right: .2rem; }
+.guida-tabella th:nth-child(1) { width: 22%; }
+.guida-tabella th:nth-child(2) { width: 22%; }
+.guida-tabella th:nth-child(3) { width: 28%; }
+.guida-tabella th:nth-child(4) { width: 28%; }
+
+/* Colori come le tessere: verde entra, azzurro osserva, grigio attendi, rosso evita. */
+.guida-entra { color: #4ade80; }
+.guida-osserva { color: #93c5fd; }
+.guida-attendi { color: #cbd5e1; }
+.guida-evita { color: #fca5a5; }
+
+.guida-parole {
+  margin: .6rem 0 0 0;
+  font-size: .72rem;
+  line-height: 1.5;
+  color: #9fb7cf;
+}
+.guida-parole b { color: #cfe5fa; }
+
+/* Sul telefono quattro colonne di testo non entrano in 390px: misurato, la
+   tabella andava in scorrimento orizzontale. Invece di rimpicciolire il testo
+   fino a renderlo illeggibile, ogni riga diventa una scheda: le intestazioni
+   spariscono e l'etichetta di ogni colonna compare davanti al suo valore
+   (attributo data-etichetta). Su PC resta una tabella normale. */
+@media (max-width: 700px) {
+  /* "min-width: 0" e' la parte che conta: il contenitore della guida e' un grid,
+     e un elemento grid non scende sotto la larghezza minima del suo contenuto
+     (per le tabelle anche 540px) finche' non glielo si dice. Senza questo, il
+     testo veniva tagliato a destra e la pagina scorreva in orizzontale. */
+  .indicators-guide,
+  .indicators-guide-body { min-width: 0; }
+  .indicators-guide-body > * { min-width: 0; }
+
+  /* Il vincolo va tolto anche da table-layout e dalle larghezze percentuali:
+     "fixed" + percentuali impone una larghezza minima propria. */
+  .guida-tabella { table-layout: auto; width: 100%; min-width: 0; }
+  .guida-tabella thead { display: none; }
+  .guida-tabella th { width: auto; }
+  .guida-tabella,
+  .guida-tabella tbody,
+  .guida-tabella tr,
+  .guida-tabella td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .guida-tabella tr {
+    border: 1px solid rgba(174, 216, 249, .18);
+    border-radius: 10px;
+    padding: .5rem .6rem;
+    margin-bottom: .5rem;
+    background: rgba(6, 16, 30, .45);
+  }
+  .guida-tabella td {
+    border: none;
+    padding: .12rem 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* L'indicazione in testa alla scheda, piu' grande delle altre righe. */
+  .guida-tabella td:first-child {
+    font-size: .92rem;
+    margin-bottom: .2rem;
+  }
+  .guida-tabella td[data-etichetta]:not(:first-child)::before {
+    content: attr(data-etichetta) ": ";
+    color: #7ea6c8;
+    font-weight: 700;
+  }
+}
+
 /* Scelta del mercato accanto al selettore di vista: prima stava in alto con
    pulsanti grandi (padding .55rem .9rem, font .86rem) e occupava spazio in ogni
    schermata. Ora sono pulsanti piccoli, della misura di Schede/Tabella/Lista
