@@ -56,9 +56,7 @@ const tabs = [
   "📰 Archivio News",
   "AI chat",
   "🔧 Gestione Pattern",
-  "Liste",
-  "Migliori (5D)",
-  "Peggiori (5D)"
+  "Liste"
 ];
 
 // Nella vista Lista si mostra solo l'indicazione, come nel Monitor: la costante
