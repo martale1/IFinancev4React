@@ -11,6 +11,7 @@ import { AxisTiles, DIMENSIONI_TUTTE, type AxisTileSelection } from "./component
 import { DenseList } from "./components/DenseList";
 import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
+import MarketPickerBar from "./components/MarketPickerBar";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -512,14 +513,17 @@ export default function App() {
    * tab All.
    */
   const highlightsFullQuery = useQuery({
-    queryKey: ["watchlist", market, "All", minVolume, 1, 500, rankN, sortKey, sortDir],
+    queryKey: ["watchlist", market, "All", minVolume, 1, 2000, rankN, sortKey, sortDir],
     queryFn: () => fetchWatchlist({
       market,
       tab: "All",
       search: "",
       minVolume,
       page: 1,
-      pageSize: 500,
+      // Tutto il mercato, non 500 righe. Le tessere di Highlights contano i
+      // titoli per fase e per indicazione: con 500 righe su 1684 ETF contavano
+      // meno di un terzo del mercato e le percentuali erano sbagliate.
+      pageSize: 2000,
       rankN,
       sortKey,
       sortDir
@@ -1235,6 +1239,16 @@ export default function App() {
           onChart={openChart}
         />
       ) : null}
+      {/* Anche gli Indicatori mostrano un mercato solo ('Indicatori calcolati ·
+          <mercato>') e non avevano il selettore. */}
+      {tab === "📈 Indicatori" ? (
+        <MarketPickerBar
+          markets={marketsQuery.data}
+          market={market}
+          onSelect={(m) => { setMarket(m); setPage(1); }}
+        />
+      ) : null}
+
       {tab === "📈 Indicatori" ? <IndicatorsTablePanel
         rows={indicatorsQuery.data?.items ?? []}
         market={market}
@@ -1245,6 +1259,19 @@ export default function App() {
         onChart={openChart}
         onAi={openTickerAi}
       /> : null}
+      {/* Anche in Highlights serve il selettore del mercato: la sezione mostra
+          "Highlights <mercato>" ma senza selettore restava ferma sull'ultimo
+          mercato scelto altrove, senza modo di cambiarlo. Qui basta il mercato:
+          la sezione ha gia' i suoi filtri per fase e indicazione, e non usa ne'
+          il volume minimo ne' la barra di ordinamento. */}
+      {tab === "📊 Highlights" ? (
+        <MarketPickerBar
+          markets={marketsQuery.data}
+          market={market}
+          onSelect={(m) => { setMarket(m); setPage(1); setHighlightTile(null); }}
+        />
+      ) : null}
+
       {tab === "📊 Highlights" && highlightsItems.length ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
         <p className="muted">
@@ -1366,26 +1393,15 @@ export default function App() {
           restava ferma sull'ultimo mercato scelto altrove (di solito MIB30) e non
           c'era modo di passare agli ETF. La barra completa resta esclusa li',
           perche' ordinamento, ricerca e tessere dell'indicazione non servono. */}
-      {tab === "🔥 Heatmap" && marketsQuery.data ? (
-        <div style={{
-          display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
-          background: "rgba(10, 25, 47, 0.35)", border: "1px solid rgba(184, 216, 246, 0.12)",
-          borderRadius: "10px", padding: "0.5rem 0.8rem", margin: "0.5rem 0 1rem 0"
-        }}>
-          <MarketChips
-            markets={marketsQuery.data}
-            market={market}
-            onSelect={(m) => { setMarket(m); setPage(1); }}
-            nomeProprio={(m) => parseCurrentWatchlistName(m)}
-            trailing={
-              <label className="volume-filter market-chip-volume">
-                Volume min
-                <input type="number" min="0" value={minVolume}
-                  onChange={(e) => { setMinVolume(Math.max(0, Number(e.target.value) || 0)); setPage(1); }} />
-              </label>
-            }
-          />
-        </div>
+      {tab === "🔥 Heatmap" ? (
+        <MarketPickerBar
+          markets={marketsQuery.data}
+          market={market}
+          onSelect={(m) => { setMarket(m); setPage(1); }}
+          conVolume
+          minVolume={minVolume}
+          onVolume={(v) => { setMinVolume(v); setPage(1); }}
+        />
       ) : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (

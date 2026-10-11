@@ -675,6 +675,21 @@ textarea {
   margin-left: .1rem;
 }
 
+/* Barra con il solo selettore del mercato: la usano le tab che mostrano un
+   mercato per volta (Heatmap, Highlights, Indicatori) e che prima non avevano
+   modo di cambiarlo. */
+.market-picker-bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  background: rgba(10, 25, 47, .35);
+  border: 1px solid rgba(184, 216, 246, .12);
+  border-radius: 10px;
+  padding: .5rem .8rem;
+  margin: .5rem 0 1rem 0;
+}
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna
