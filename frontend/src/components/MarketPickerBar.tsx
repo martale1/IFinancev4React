@@ -9,10 +9,13 @@ import { MarketChips } from "./MarketChips";
  * cambiarlo. Questa barra risolve quei casi una volta sola, invece di ripetere
  * il selettore in ogni tab.
  *
- * Non include ordinamento, ricerca ne' le tessere dell'indicazione: quelle
- * servono solo dove c'e' un elenco da ordinare. Il volume minimo invece e' un
- * filtro sui dati, quindi si puo' mostrare.
+ * IMPORTANTE: se l'elenco dei mercati non e' ancora arrivato dal server, la
+ * barra NON sparisce — mostra un elenco di riserva. Prima dipendeva dalla
+ * chiamata `/api/markets` per esistere: se quella falliva o tardava, il selettore
+ * non compariva affatto, e sembrava che la funzione non esistesse.
  */
+const MERCATI_DI_RISERVA = ["MIB30", "ETF", "ETC", "DAX", "US_Others", "Crypto"];
+
 export default function MarketPickerBar({
   markets,
   market,
@@ -29,12 +32,12 @@ export default function MarketPickerBar({
   minVolume?: number;
   onVolume?: (v: number) => void;
 }) {
-  if (!markets) return null;
+  const elenco = markets && markets.length ? markets : MERCATI_DI_RISERVA;
 
   return (
     <div className="market-picker-bar">
       <MarketChips
-        markets={markets}
+        markets={elenco}
         market={market}
         onSelect={onSelect}
         // Le liste personali arrivano come "WL:<nome>": si mostra solo il nome.
