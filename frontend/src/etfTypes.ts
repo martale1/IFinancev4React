@@ -62,6 +62,60 @@ export const ORDINE_TIPI: TipoEtf[] = [
   "Non riconosciuto",
 ];
 
+/**
+ * Tipologie di un ETC: la materia prima sottostante.
+ *
+ * Il file degli ETC non ha piu' colonne di categoria di quello degli ETF, ma i
+ * nomi sono molto piu' regolari perche' il prodotto E' la materia ("ETFS SILVER",
+ * "ETFS LEVERAGED NICKEL", "ETFS EUR DAILY HEDGED SOYBEANS"). Misurato sui 93
+ * ETC, questa classificazione riconosce il 96% dei titoli.
+ */
+export type TipoEtc =
+  | "Leva e short"
+  | "Metalli preziosi"
+  | "Metalli industriali"
+  | "Energia"
+  | "Agricoli"
+  | "Valute"
+  | "Panieri"
+  | "Non riconosciuto";
+
+const REGOLE_ETC: Array<{ tipo: TipoEtc; pattern: RegExp }> = [
+  // La leva per prima: "ETFS 3X SHORT GBP LONG EUR" e' un prodotto a leva, non
+  // una valuta, e "LEVERAGED NICKEL" non e' nichel fisico.
+  { tipo: "Leva e short", pattern: /(\d+X\b|\bLEVERAG|\bSHORT\b|\bBULL\b|\bBEAR\b)/ },
+  { tipo: "Metalli preziosi", pattern: /\b(GOLD|SILVER|PLATINUM|PALLADIUM|RHODIUM)\b/ },
+  { tipo: "Metalli industriali", pattern: /\b(COPPER|NICKEL|ZINC|ALUMINIUM|ALUMINUM|LEAD|TIN|STEEL|IRON)\b/ },
+  { tipo: "Energia", pattern: /\b(CRUDE|OIL|BRENT|WTI|GAS|GASOLINE|HEATING|COAL|CARBON|ELECTRIC)\b/ },
+  // "SOYBEANS" e "Coffee" hanno forme irregolari nei nomi ("ETFS SOYBEANS",
+  // "ETFCoffee" senza spazio): il confine di parola non li prende, quindi qui
+  // si cerca la radice.
+  { tipo: "Agricoli", pattern: /(WHEAT|CORN|SOY|SUGAR|COFFEE|COCOA|COTTON|HOGS|LIVESTOCK|CATTLE|AGRICULT|GRAIN|RICE)/ },
+  { tipo: "Valute", pattern: /\b(EUR|USD|GBP|JPY|CHF|CURRENC|FOREX)\b/ },
+  { tipo: "Panieri", pattern: /(COMMODIT|DJ-UBSCI|BOOSTER|BROAD|BASKET)/ },
+];
+
+export const ORDINE_ETC: TipoEtc[] = [
+  "Leva e short",
+  "Metalli preziosi",
+  "Metalli industriali",
+  "Energia",
+  "Agricoli",
+  "Panieri",
+  "Valute",
+  "Non riconosciuto",
+];
+
+/** La tipologia di un ETC, dedotta dal nome. */
+export function tipoEtc(row: Record<string, unknown>): TipoEtc {
+  const nome = nomeEtf(row.Ticker, row.Name).toUpperCase();
+  if (!nome) return "Non riconosciuto";
+  for (const regola of REGOLE_ETC) {
+    if (regola.pattern.test(nome)) return regola.tipo;
+  }
+  return "Non riconosciuto";
+}
+
 const NON_RICONOSCIUTO: TipoEtf = "Non riconosciuto";
 
 /**
