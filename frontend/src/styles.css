@@ -941,6 +941,22 @@ textarea {
 }
 .dense-ticker { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .dense-ticker b { font-size: .84rem; }
+/* Nome del titolo nella riga della Lista: su una riga sua, troncato con i
+   puntini quando e' lungo (gli ETF arrivano a 72 caratteri). Il nome intero
+   resta nel suggerimento e fra i dettagli aperti. */
+.dense-nome {
+  font-style: normal;
+  font-size: .7rem;
+  font-weight: 600;
+  color: #a9c4dd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Nei dettagli aperti il nome va a capo per intero: e' li' che si legge tutto. */
+.dense-nome-intero b { white-space: normal; }
+
 .dense-ticker small {
   font-size: .68rem; color: #8fb1d1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

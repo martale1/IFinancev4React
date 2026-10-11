@@ -69,6 +69,18 @@ export function DenseList({
         const nota = String(row.Monitor_Note || "").trim();
         const chiave = `${src}-${tk}-${indice}`;
         const espansa = aperta === chiave;
+        // Nome leggibile: si toglie il suffisso di mercato attaccato in coda
+        // ("Amundi MSCI Semiconductors UCITS ETF Acc.MI") solo se coincide con
+        // quello del ticker, cosi' non si taglia altro.
+        const nomeBreve = (() => {
+          const grezzo = String(row.Name ?? "").replace(/\s+/g, " ").trim();
+          if (!grezzo) return "";
+          const suffisso = tk.includes(".") ? tk.slice(tk.indexOf(".")) : "";
+          if (suffisso && grezzo.endsWith(suffisso)) {
+            return grezzo.slice(0, -suffisso.length).trim();
+          }
+          return grezzo;
+        })();
 
         return (
           <div className={`monitor-dense-item ${espansa ? "open" : ""}`} key={chiave}>
@@ -82,6 +94,11 @@ export function DenseList({
               <span className={`dense-signal table-signal ${signalClass(segnale)}`}>{segnale}</span>
               <span className="dense-ticker">
                 <b>{tk}</b>
+                {/* Il nome sta accanto al ticker perche' "EMQQ.MI" da solo non dice
+                    cosa sia. Alcuni nomi arrivano con il suffisso di mercato
+                    attaccato ("... UCITS ETF Acc.MI"): si toglie solo quando
+                    coincide con quello del ticker, cosi' non si taglia altro. */}
+                {nomeBreve ? <em className="dense-nome" title={nomeBreve}>{nomeBreve}</em> : null}
                 <small>
                   {fase} · {direzione}/{forza}
                   {nota ? " · 📝" : ""}
@@ -146,6 +163,9 @@ export function DenseList({
                       <span>Fase <b>{fase}</b></span>
                       <span>Liquidità <b className={statoClass(row.Liquidity)}>{String(row.Liquidity ?? "-")}</b></span>
                       <span>Azioni <b className={statoClass(row.Action)}>{String(row.Action ?? "-")}</b></span>
+                      {/* Nome intero: nella riga e' troncato con i puntini, qui si legge
+                          tutto (gli ETF arrivano a 72 caratteri). */}
+                      {nomeBreve ? <span className="dense-nome-intero">Nome <b>{nomeBreve}</b></span> : null}
                     </div>
                   </div>
                 </div>
