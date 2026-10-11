@@ -1303,11 +1303,6 @@ export default function App() {
 
       {tab === "📊 Highlights" && highlightsItems.length ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
-        <p className="muted">
-          La fotografia del mercato: quante fasi, quante indicazioni, e i titoli su cui vale la pena guardare.
-          <br />
-          <small>Fase = dove sta andando il titolo (può essere TENDENZA e comunque non essere da comprare) · Indicazione = cosa fare, valutando anche rischio e liquidità.</small>
-        </p>
         <div className="highlights-split">
           <section className="highlights-block">
             <h3>Fase di mercato <small>— clicca per filtrare</small></h3>
