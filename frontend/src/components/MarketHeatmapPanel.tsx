@@ -3,6 +3,7 @@ import type { WatchlistRow } from "../types";
 import mib30Sectors from "../data/mib30_sectors.json";
 import daxSectors from "../data/dax_sectors.json";
 import { ORDINE_ETC, ORDINE_TIPI, isLiquido, tipoEtc, tipoEtf } from "../etfTypes";
+import MarketPickerBar from "./MarketPickerBar";
 
 /**
  * Heatmap: il COLORE indica la decisione, non l'entita' del movimento.
@@ -33,7 +34,24 @@ import { ORDINE_ETC, ORDINE_TIPI, isLiquido, tipoEtc, tipoEtf } from "../etfType
 type PeriodKey = "PCTV_1D" | "PCTV_5D" | "PCTV_10D" | "PCTV_30D" | "PCTV_180D";
 type ViewMode = "indicazioni" | "performance" | "assi";
 type LayoutMode = "sections" | "sectorGrid";
-type Props = { market: string; rows: WatchlistRow[]; alertMap: Record<string, boolean>; loading?: boolean; error?: string; onChart: (row: WatchlistRow) => void };
+type Props = {
+  market: string;
+  rows: WatchlistRow[];
+  alertMap: Record<string, boolean>;
+  loading?: boolean;
+  error?: string;
+  onChart: (row: WatchlistRow) => void;
+  /**
+   * Cambio di mercato. La heatmap mostra UN mercato per volta e deve poterlo
+   * cambiare da se': prima il selettore stava fuori, in App, e se non compariva
+   * la mappa restava bloccata sull'ultimo mercato senza modo di cambiarlo.
+   */
+  onMarket: (m: string) => void;
+  markets?: string[];
+  /** Volume minimo: la query della heatmap ci filtra sopra. */
+  minVolume?: number;
+  onMinVolume?: (v: number) => void;
+};
 
 const PERIODS: Array<{ key: PeriodKey; label: string }> = [
   { key: "PCTV_1D", label: "1D" }, { key: "PCTV_5D", label: "5D" }, { key: "PCTV_10D", label: "10D" },
@@ -101,7 +119,7 @@ function contaIndicazioni(rows: WatchlistRow[]): Record<string, number> {
   return out;
 }
 
-export default function MarketHeatmapPanel({ market, rows, alertMap, loading, error, onChart }: Props) {
+export default function MarketHeatmapPanel({ market, rows, alertMap, loading, error, onChart, onMarket, markets, minVolume, onMinVolume }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("PCTV_1D");
   const [mode, setMode] = useState<ViewMode>("indicazioni");
   const [layout, setLayout] = useState<LayoutMode>("sectorGrid");
@@ -193,6 +211,17 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
 
   return <section className="heatmap-panel">
     <div className="heatmap-header">
+      {/* Il selettore sta DENTRO la heatmap, non fuori: cosi' la mappa non puo'
+          restare bloccata su un mercato senza modo di cambiarlo. Senza elenco
+          dal server mostra comunque quello di riserva. */}
+      <MarketPickerBar
+        markets={markets}
+        market={market}
+        onSelect={onMarket}
+        conVolume
+        minVolume={minVolume}
+        onVolume={onMinVolume}
+      />
       <div><h2>Heatmap · {market}{perSettore ? " per settore" : perTipologia ? " per tipologia" : ""}</h2></div>
       <div className="heatmap-controls">
         <div className="heatmap-periods" aria-label="Cosa mostra il colore">

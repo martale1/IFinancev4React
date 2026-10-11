@@ -1266,6 +1266,10 @@ export default function App() {
           loading={heatmapQuery.isLoading}
           error={heatmapQuery.isError ? String(heatmapQuery.error) : undefined}
           onChart={openChart}
+          onMarket={(m) => { setMarket(m); setPage(1); }}
+          markets={marketsQuery.data}
+          minVolume={minVolume}
+          onMinVolume={(v) => { setMinVolume(v); setPage(1); }}
         />
       ) : null}
       {/* Anche gli Indicatori mostrano un mercato solo ('Indicatori calcolati ·
@@ -1412,21 +1416,6 @@ export default function App() {
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && !watchlistQuery.isLoading && watchlistQuery.isFetching ? <p className="muted" style={{ margin: ".2rem 0 .4rem 0", fontSize: ".78rem" }}>Aggiorno {market.replace(/_/g, " ")}… i titoli a schermo sono ancora quelli di prima</p> : null}
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
-
-      {/* Nella tab Heatmap serve SOLO il selettore del mercato: senza, la mappa
-          restava ferma sull'ultimo mercato scelto altrove (di solito MIB30) e non
-          c'era modo di passare agli ETF. La barra completa resta esclusa li',
-          perche' ordinamento, ricerca e tessere dell'indicazione non servono. */}
-      {tab === "🔥 Heatmap" ? (
-        <MarketPickerBar
-          markets={marketsQuery.data}
-          market={market}
-          onSelect={(m) => { setMarket(m); setPage(1); }}
-          conVolume
-          minVolume={minVolume}
-          onVolume={(v) => { setMinVolume(v); setPage(1); }}
-        />
-      ) : null}
 
       {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
