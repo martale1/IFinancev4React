@@ -50,8 +50,6 @@ const tabs = [
   "🧪 Multi-Pattern Lab",
   "Analizza",
   "Alerts",
-  "Migliori (1D)",
-  "Peggiori (1D)",
   "📈 Indicatori",
   "📰 Archivio News",
   "AI chat",
