@@ -2723,6 +2723,7 @@ td {
 .heatmap-summary > div {
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid rgba(148, 184, 219, 0.16);
   border-radius: 9px;
@@ -2764,6 +2765,35 @@ td {
 .heatmap-value { font-weight: 700; font-size: 0.82rem; }
 .heatmap-phase { font-size: 0.65rem; opacity: 0.82; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .heatmap-alert { position: absolute; right: 0.35rem; top: 0.3rem; font-size: 0.75rem; }
+
+/* Conteggi delle indicazioni dentro il settore: e' il dato con cui si decide,
+   prima erano "Sopra SAR" e "Alligator Up", misure del modello precedente.
+   I chip non accesi restano spenti, cosi' si vede a colpo d'occhio cosa c'e'. */
+.sector-conteggi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  margin: 0 0 .5rem 0;
+}
+.sector-conteggi .conteggio {
+  font-size: .66rem;
+  padding: .12rem .4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 184, 219, .18);
+  color: #64809c;
+}
+.sector-conteggi .conteggio b { font-weight: 700; }
+.sector-conteggi .conteggio.acceso { font-weight: 600; }
+
+/* Legenda a elenco (indicazioni e assi) invece della scala di colore. */
+.heatmap-legend-indicazioni { justify-content: flex-start; gap: .8rem; }
+.heatmap-legend-indicazioni .voce { display: inline-flex; align-items: center; gap: .3rem; }
+.heatmap-legend-indicazioni i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
 
 .heatmap-legend {
   display: flex;

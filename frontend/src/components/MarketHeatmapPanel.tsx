@@ -2,8 +2,34 @@ import { useMemo, useState } from "react";
 import type { WatchlistRow } from "../types";
 import mib30Sectors from "../data/mib30_sectors.json";
 
+/**
+ * Heatmap: il COLORE indica la decisione, non l'entita' del movimento.
+ *
+ * Prima le tessere erano colorate con `PCTV_1D` (quanto si e' mosso oggi) ma
+ * dentro scrivevano `Market_Phase`. Il risultato era che i titoli in ribasso che
+ * oggi rimbalzavano apparivano VERDI e intensi, con scritto RIBASSO: le tessere
+ * piu' accese della mappa erano proprio quelle che il resto del sistema
+ * classifica come EVITA. Misurato sui MIB30:
+ *
+ *   LDO.MI   +1,92%  RIBASSO  EVITA  ADX 40   -> verde intenso
+ *   STLAM.MI +2,63%  RIBASSO  EVITA  ADX 25   -> verde intenso
+ *   G.MI     +1,16%  RIBASSO  EVITA  ADX 32   -> verde
+ *
+ * Inoltre il colore non discriminava: l'80% dei titoli era "in rialzo", quindi
+ * quasi tutto era verde.
+ *
+ * Ora il colore e' l'indicazione (i quattro colori delle card), la variazione
+ * resta scritta sulla tessera, e i riepiloghi contano le indicazioni invece di
+ * "Sopra SAR" e "Alligator Up", che venivano dal modello precedente.
+ *
+ * La modalita' "Trend e forza" mostra i QUATTRO ASSI veri invece delle 4
+ * conferme di prima (SAR, Alligator, ADX >= 20, DI+): quel punteggio era una
+ * scala a parte, non coincideva con le indicazioni e usava ADX >= 20 mentre gli
+ * assi usano >= 22.
+ */
+
 type PeriodKey = "PCTV_1D" | "PCTV_5D" | "PCTV_10D" | "PCTV_30D" | "PCTV_180D";
-type ViewMode = "performance" | "technical";
+type ViewMode = "indicazioni" | "performance" | "assi";
 type LayoutMode = "sections" | "sectorGrid";
 type Props = { market: string; rows: WatchlistRow[]; alertMap: Record<string, boolean>; loading?: boolean; error?: string; onChart: (row: WatchlistRow) => void };
 
@@ -13,53 +39,56 @@ const PERIODS: Array<{ key: PeriodKey; label: string }> = [
 ];
 const SECTORS = mib30Sectors as Record<string, string>;
 
+/** I quattro colori delle indicazioni, gli stessi delle card e delle tessere. */
+const COLORE_INDICAZIONE: Record<string, string> = {
+  ENTRA: "#4ade80",
+  OSSERVA: "#93c5fd",
+  ATTENDI: "#cbd5e1",
+  EVITA: "#fca5a5",
+};
+const INDICAZIONI = ["ENTRA", "OSSERVA", "ATTENDI", "EVITA"] as const;
+/** Un valore mancante non deve sparire dalla mappa: colore neutro e leggibile. */
+const COLORE_SCONOSCIUTO = "#94a3b8";
+
 function num(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") { const parsed = Number(value.replace(",", ".").trim()); return Number.isFinite(parsed) ? parsed : null; }
   return null;
 }
-function bool(value: unknown): boolean | null {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value !== 0;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "1", "yes", "si", "sì"].includes(normalized)) return true;
-    if (["false", "0", "no"].includes(normalized)) return false;
-  }
-  return null;
-}
 const tickerOf = (row: WatchlistRow) => String(row.Ticker ?? "").trim().toUpperCase();
 const alertKey = (market: string, ticker: string) => `${market.trim().toUpperCase()}::${ticker.trim().toUpperCase()}`;
-const isUptrend = (row: WatchlistRow) => String(row.Signal6 ?? "").toLowerCase().startsWith("uptrend");
-function isAboveSar(row: WatchlistRow): boolean {
-  const flag = bool(row.SAR_Above_Price);
-  if (flag !== null) return !flag;
-  const sar = num(row.SAR); const close = num(row.Close);
-  return sar !== null && close !== null && close > sar;
+/** Testo scuro sulle tessere chiare: i quattro colori sono tutti pastello. */
+const TESTO_SCURO = "#0d1b2a";
+
+/** L'indicazione del titolo, normalizzata: ENTRA, OSSERVA, ATTENDI, EVITA. */
+function indicazioneDi(row: WatchlistRow): string {
+  const grezzo = String(row.Entry_Signal ?? "").trim().toUpperCase();
+  return grezzo || "ATTENDI";
+}
+function coloreDi(row: WatchlistRow): string {
+  return COLORE_INDICAZIONE[indicazioneDi(row)] ?? COLORE_SCONOSCIUTO;
+}
+function assiDi(row: WatchlistRow): string {
+  const due = (v: unknown, fallback: string) => {
+    const s = String(v ?? "").trim();
+    return s ? s.replace(/^FORTE_/, "").replace(/^FORTE/, "FORTE ") : fallback;
+  };
+  return `${due(row.Direzione_Trend, "?")} · ${due(row.Forza_Trend, "?")} · ${due(row.Momento_Trend, "?")} · ${due(row.Rischio_Trend, "?")}`;
 }
 function median(values: number[]): number | null {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
-function technicalScore(row: WatchlistRow): number {
-  let score = Number(isAboveSar(row)) + Number(isUptrend(row)) + Number((num(row.ADX) ?? -Infinity) >= 20);
-  const plus = num(row.PLUS_DI); const minus = num(row.MINUS_DI);
-  if (plus !== null && minus !== null && plus > minus) score += 1;
-  return score;
-}
-function isDirectionalPositive(row: WatchlistRow): boolean {
-  const plus = num(row.PLUS_DI); const minus = num(row.MINUS_DI);
-  return plus !== null && minus !== null && plus > minus;
-}
-function hasRecentPattern(row: WatchlistRow): boolean {
-  return [row.Pattern_S2_Days_Ago, row.Pattern_S3_Days_Ago, row.Pattern_S4_Days_Ago, row.Pattern_Combined_Days_Ago, row.Pattern_Days_Ago]
-    .some((value) => { const days = num(value); return days !== null && days >= 0 && days <= 3; });
+function contaIndicazioni(rows: WatchlistRow[]): Record<string, number> {
+  const out: Record<string, number> = { ENTRA: 0, OSSERVA: 0, ATTENDI: 0, EVITA: 0 };
+  rows.forEach((row) => { const k = indicazioneDi(row); out[k] = (out[k] ?? 0) + 1; });
+  return out;
 }
 
 export default function MarketHeatmapPanel({ market, rows, alertMap, loading, error, onChart }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("PCTV_1D");
-  const [mode, setMode] = useState<ViewMode>("performance");
+  const [mode, setMode] = useState<ViewMode>("indicazioni");
   const [layout, setLayout] = useState<LayoutMode>("sectorGrid");
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const isMib = market.toUpperCase() === "MIB30";
@@ -70,77 +99,114 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
     return [...result.entries()].sort(([a], [b]) => a.localeCompare(b, "it"));
   }, [isMib, mappedRows]);
   const visibleGroups = selectedSector ? groups.filter(([sector]) => sector === selectedSector) : groups;
+
+  // Conteggi complessivi per indicazione: sostituiscono "80% in rialzo / sopra
+  // SAR / Alligator Up", che descrivevano il movimento o il modello precedente.
+  const totali = useMemo(() => contaIndicazioni(mappedRows), [mappedRows]);
   const stats = useMemo(() => {
     const values = mappedRows.map((row) => num(row[period])).filter((value): value is number => value !== null);
+    // La scala del colore si calcola UNA volta: dentro il ciclo delle tessere
+    // sarebbe O(n^2), e con un mercato da 1684 titoli si sente.
     const sortedAbs = values.map(Math.abs).sort((a, b) => a - b);
     return {
-      scale: Math.max(sortedAbs[Math.max(0, Math.ceil(sortedAbs.length * 0.9) - 1)] ?? 0, 0.25),
-      positive: values.filter((value) => value > 0).length, negative: values.filter((value) => value < 0).length,
-      aboveSar: mappedRows.filter(isAboveSar).length, uptrend: mappedRows.filter(isUptrend).length,
       alerts: mappedRows.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length,
+      scala: Math.max(sortedAbs[Math.max(0, Math.ceil(sortedAbs.length * 0.9) - 1)] ?? 0, 0.25),
     };
   }, [alertMap, mappedRows, market, period]);
 
   if (loading) return <p>Carico heatmap {market}...</p>;
   if (error) return <p className="err">{error}</p>;
   if (!rows.length) return <p>Nessun titolo disponibile per la heatmap di {market}.</p>;
-  const pct = (value: number) => mappedRows.length ? Math.round(value / mappedRows.length * 100) : 0;
+  const etichettaPeriodo = (PERIODS.find((p) => p.key === period)?.label ?? "").toLowerCase();
 
   return <section className="heatmap-panel">
     <div className="heatmap-header">
       <div><h2>Heatmap · {market}{isMib ? " per settore" : ""}</h2><div className="muted">Dati dall'ultimo Excel di analisi. Clicca un titolo per aprire il grafico.</div></div>
       <div className="heatmap-controls">
-        <div className="heatmap-periods">
+        <div className="heatmap-periods" aria-label="Cosa mostra il colore">
+          <button className={mode === "indicazioni" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("indicazioni")}>Indicazioni</button>
           <button className={mode === "performance" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("performance")}>Performance</button>
-          <button className={mode === "technical" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("technical")}>Trend tecnico</button>
+          <button className={mode === "assi" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("assi")}>Trend e forza</button>
         </div>
         {isMib ? <div className="heatmap-periods heatmap-layout-switch" aria-label="Formato heatmap">
           <button className={layout === "sections" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sections")}>☰ Sezioni</button>
           <button className={layout === "sectorGrid" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sectorGrid")}>▦ Griglia settoriale</button>
         </div> : null}
-        {mode === "performance" ? <div className="heatmap-periods">{PERIODS.map((item) => <button key={item.key} className={period === item.key ? "quick-bar active" : "quick-bar"} onClick={() => setPeriod(item.key)}>{item.label}</button>)}</div> : null}
+        {/* Il periodo riguarda la variazione, che resta scritta anche quando il
+            colore e' l'indicazione: serve in tutte le modalita' tranne gli assi. */}
+        {mode !== "assi" ? <div className="heatmap-periods" aria-label="Periodo della variazione">{PERIODS.map((item) => <button key={item.key} className={period === item.key ? "quick-bar active" : "quick-bar"} onClick={() => setPeriod(item.key)}>{item.label}</button>)}</div> : null}
       </div>
     </div>
+
+    {/* In alto i conteggi delle indicazioni: e' il dato con cui si decide. */}
     <div className="heatmap-summary">
-      <div><strong>{pct(stats.positive)}%</strong><span>In rialzo</span></div><div><strong>{pct(stats.negative)}%</strong><span>In ribasso</span></div>
-      <div><strong>{pct(stats.aboveSar)}%</strong><span>Sopra SAR</span></div><div><strong>{pct(stats.uptrend)}%</strong><span>Alligator Uptrend</span></div>
-      <div><strong>{stats.alerts}</strong><span>Alert attivi</span></div>
+      {INDICAZIONI.map((ind) => <div key={ind}>
+        <strong style={{ color: COLORE_INDICAZIONE[ind] }}>{totali[ind] ?? 0}</strong>
+        <span>{" "}{ind.toLowerCase()}</span>
+      </div>)}
+      <div><strong>{stats.alerts}</strong><span> alert attivi</span></div>
     </div>
+
     {isMib ? <div className="sector-filter-row">
       <button className={!selectedSector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(null)}>Tutti i settori</button>
       {groups.map(([sector, items]) => <button key={sector} className={selectedSector === sector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(selectedSector === sector ? null : sector)}>{sector} <small>{items.length}</small></button>)}
     </div> : null}
+
     <div className={`sector-groups ${layout === "sectorGrid" && isMib ? "grid-layout" : "sections-layout"}`}>{visibleGroups.map(([sector, sectorRows]) => {
       const values = sectorRows.map((row) => num(row[period])).filter((value): value is number => value !== null);
       const sectorMedian = median(values);
-      const adxMedian = median(sectorRows.map((row) => num(row.ADX)).filter((value): value is number => value !== null));
+      const perIndicazione = contaIndicazioni(sectorRows);
       const sorted = [...sectorRows].sort((a, b) => (num(b[period]) ?? -Infinity) - (num(a[period]) ?? -Infinity));
       const sectorAlerts = sectorRows.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length;
       return <article className="sector-group" key={sector}>
         <div className="sector-heading"><button onClick={() => isMib && setSelectedSector(selectedSector === sector ? null : sector)} title="Mostra solo questo settore"><strong>{sector}</strong><span>{sectorRows.length} titoli</span></button>
           <div className={`sector-median ${(sectorMedian ?? 0) >= 0 ? "positive" : "negative"}`}>Mediana {sectorMedian === null ? "n/d" : `${sectorMedian >= 0 ? "+" : ""}${sectorMedian.toFixed(2)}%`}</div></div>
+
+        {/* Riepilogo: le indicazioni del settore, cioe' come e' messo davvero,
+            poi la variazione (che ora non e' piu' il colore) e i dettagli. */}
+        <div className="sector-conteggi">
+          {INDICAZIONI.map((ind) => <span key={ind} className={perIndicazione[ind] ? "conteggio acceso" : "conteggio"} style={perIndicazione[ind] ? { color: COLORE_INDICAZIONE[ind], borderColor: COLORE_INDICAZIONE[ind] } : undefined}>
+            <b>{perIndicazione[ind] ?? 0}</b> {ind.toLowerCase()}
+          </span>)}
+        </div>
+
         <details className="sector-details"><summary>Riepilogo settore</summary><div>
-          <span>Positivi <b>{sectorRows.filter((row) => (num(row[period]) ?? 0) > 0).length}/{sectorRows.length}</b></span><span>Sopra SAR <b>{sectorRows.filter(isAboveSar).length}/{sectorRows.length}</b></span>
-          <span>Alligator Up <b>{sectorRows.filter(isUptrend).length}/{sectorRows.length}</b></span><span>ADX mediano <b>{adxMedian?.toFixed(1) ?? "n/d"}</b></span>
-          <span>Pattern ≤3gg <b>{sectorRows.filter(hasRecentPattern).length}</b></span><span>Alert <b>{sectorAlerts}</b></span>
+          <span>Variazione {etichettaPeriodo} mediana <b>{sectorMedian === null ? "n/d" : `${sectorMedian >= 0 ? "+" : ""}${sectorMedian.toFixed(2)}%`}</b></span>
+          <span>Positivi <b>{sectorRows.filter((row) => (num(row[period]) ?? 0) > 0).length}/{sectorRows.length}</b></span>
+          <span>Alert <b>{sectorAlerts}</b></span>
           <span>Migliore <b>{tickerOf(sorted[0])} {num(sorted[0]?.[period])?.toFixed(2) ?? "n/d"}%</b></span><span>Peggiore <b>{tickerOf(sorted[sorted.length - 1] ?? {})} {num(sorted[sorted.length - 1]?.[period])?.toFixed(2) ?? "n/d"}%</b></span>
         </div></details>
+
         <div className="heatmap-grid">{sectorRows.map((row) => {
-          const ticker = tickerOf(row) || "-"; const value = num(row[period]); const score = technicalScore(row);
-          const intensity = value === null ? 0 : Math.min(Math.abs(value) / stats.scale, 1); const alpha = 0.18 + intensity * 0.7;
-          const background = mode === "technical" ? ["#991b1b", "#c2410c", "#a16207", "#15803d", "#047857"][score] : value === null ? "rgba(100,116,139,.28)" : value >= 0 ? `rgba(22,163,74,${alpha})` : `rgba(220,38,38,${alpha})`;
+          const ticker = tickerOf(row) || "-"; const value = num(row[period]);
           const sourceMarket = String(row.WL_Source_Market ?? market); const hasAlert = Boolean(alertMap[alertKey(sourceMarket, ticker)]);
-          const variation = value === null ? "n/d" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-          return <button key={`${sourceMarket}-${ticker}`} className={hasAlert ? "heatmap-tile has-alert" : "heatmap-tile"} style={{ background }} onClick={() => onChart(row)} title={`${String(row.Name ?? ticker)} · ${variation} · clicca per il grafico`}>
-            <span className="heatmap-ticker">{ticker} <small className={value !== null && value >= 0 ? "positive" : "negative"}>{variation}</small></span><span className="heatmap-value">{mode === "technical" ? `${score}/4 conferme` : variation}</span>
-            <span className="heatmap-phase">{mode === "technical"
-              ? `SAR ${isAboveSar(row) ? "✓" : "✕"} · Allig. ${isUptrend(row) ? "✓" : "✕"} · ADX ${(num(row.ADX) ?? -Infinity) >= 20 ? "✓" : "✕"} ${num(row.ADX)?.toFixed(0) ?? "-"} · DI ${isDirectionalPositive(row) ? "✓" : "✕"}`
-              : String(row.Market_Phase ?? "-")}</span>{hasAlert ? <span className="heatmap-alert">🔔</span> : null}
+          const variazione = value === null ? "n/d" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+          const ind = indicazioneDi(row);
+          // In "Performance" il colore torna a essere l'entita' del movimento,
+          // come prima: la modalita' esiste ancora, non e' piu' quella di default.
+          const intensita = value === null ? 0 : Math.min(Math.abs(value) / stats.scala, 1);
+          const sfondo = mode === "performance"
+            ? (value === null ? "rgba(100,116,139,.28)" : value >= 0 ? `rgba(22,163,74,${0.18 + intensita * 0.7})` : `rgba(220,38,38,${0.18 + intensita * 0.7})`)
+            : coloreDi(row);
+          const testoSfondo = mode === "performance" ? undefined : TESTO_SCURO;
+          return <button key={`${sourceMarket}-${ticker}`} className={hasAlert ? "heatmap-tile has-alert" : "heatmap-tile"} style={{ background: sfondo, color: testoSfondo }} onClick={() => onChart(row)} title={`${String(row.Name ?? ticker)} · ${variazione} · ${ind} · clicca per il grafico`}>
+            <span className="heatmap-ticker">{ticker} <small className={mode === "performance" ? (value !== null && value >= 0 ? "positive" : "negative") : ""} style={mode === "performance" ? undefined : { color: TESTO_SCURO, opacity: .85 }}>{variazione}</small></span>
+            <span className="heatmap-value">{ind}</span>
+            <span className="heatmap-phase">{mode === "assi" ? assiDi(row) : `variazione ${etichettaPeriodo}`}</span>
+            {hasAlert ? <span className="heatmap-alert">🔔</span> : null}
           </button>;
         })}</div>
       </article>;
     })}</div>
+
     {isMib && rows.length > mappedRows.length ? <p className="heatmap-excluded">{rows.length - mappedRows.length} elementi non appartenenti al mapping MIB esclusi dalla vista settoriale.</p> : null}
-    <div className="heatmap-legend"><span>{mode === "technical" ? "0 conferme" : "Ribasso forte"}</span><i className="legend-red"/><i className="legend-neutral"/><i className="legend-green"/><span>{mode === "technical" ? "4 conferme" : "Rialzo forte"}</span></div>
+
+    {/* Legenda: in "Performance" e' una scala, nelle altre e' l'elenco dei colori. */}
+    {mode === "performance"
+      ? <div className="heatmap-legend"><span>Ribasso forte</span><i className="legend-red"/><i className="legend-neutral"/><i className="legend-green"/><span>Rialzo forte</span></div>
+      : <div className="heatmap-legend heatmap-legend-indicazioni">
+        {INDICAZIONI.map((ind) => <span key={ind} className="voce"><i style={{ background: COLORE_INDICAZIONE[ind] }} />{ind.toLowerCase()}</span>)}
+        <span className="muted">ogni tessera mostra la variazione {etichettaPeriodo}</span>
+      </div>}
   </section>;
 }
