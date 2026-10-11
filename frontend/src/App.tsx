@@ -586,8 +586,12 @@ export default function App() {
       search: "",
       minVolume,
       page: 1,
-      pageSize: 200,
-      rankN: 100,
+      // Tutto il mercato, non una pagina. Prima erano 200 righe con rankN 100:
+      // su 1684 ETF la heatmap vedeva solo i 200 titoli con i punteggi migliori,
+      // cioe' i piu' rialzisti, e infatti risultavano 0 EVITA. Il backend accetta
+      // fino a 2000 righe, che coprono il mercato piu' grande (ETF, 1684).
+      pageSize: 2000,
+      rankN: 15,
     }),
     refetchInterval: 60_000,
     enabled: tab === "🔥 Heatmap",

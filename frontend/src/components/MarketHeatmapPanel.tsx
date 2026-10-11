@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { WatchlistRow } from "../types";
 import mib30Sectors from "../data/mib30_sectors.json";
+import { ORDINE_TIPI, isLiquido, tipoEtf, type TipoEtf } from "../etfTypes";
 
 /**
  * Heatmap: il COLORE indica la decisione, non l'entita' del movimento.
@@ -92,27 +93,60 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
   const [layout, setLayout] = useState<LayoutMode>("sectorGrid");
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const isMib = market.toUpperCase() === "MIB30";
-  const mappedRows = useMemo(() => isMib ? rows.filter((row) => Boolean(SECTORS[tickerOf(row)])) : rows, [isMib, rows]);
+  const isEtf = market.toUpperCase() === "ETF";
+  // Sui 1684 ETF, 1254 non sono negoziabili (718 AVOID, 118 a volume zero):
+  // senza filtro la mappa mostra soprattutto prodotti morti, e ogni statistica
+  // che leggi (mediane, conteggi) e' calcolata in parte su roba che non esiste
+  // piu'. Il filtro parte ATTIVO solo sugli ETF, dove il problema c'e'.
+  const [soloLiquidi, setSoloLiquidi] = useState(true);
+  const soloLiquidiAttivo = isEtf && soloLiquidi;
+
+  const mappedRows = useMemo(
+    () => isMib ? rows.filter((row) => Boolean(SECTORS[tickerOf(row)])) : rows,
+    [isMib, rows],
+  );
+  const liquidi = useMemo(
+    () => mappedRows.filter((row) => isLiquido(row as Record<string, unknown>)),
+    [mappedRows],
+  );
+  const mostrati = soloLiquidiAttivo ? liquidi : mappedRows;
+  const nascosti = mappedRows.length - liquidi.length;
+
   const groups = useMemo(() => {
+    if (isEtf) {
+      // Per gli ETF non esiste una colonna di categoria: il gruppo e' la
+      // tipologia dedotta dal nome (vedi etfTypes.ts). L'ordine e' quello
+      // dichiarato, non alfabetico, cosi' i gruppi grandi restano in alto.
+      const perTipo = new Map<TipoEtf, WatchlistRow[]>();
+      mostrati.forEach((row) => {
+        const t = tipoEtf(row as Record<string, unknown>);
+        perTipo.set(t, [...(perTipo.get(t) ?? []), row]);
+      });
+      return ORDINE_TIPI.filter((t) => (perTipo.get(t)?.length ?? 0) > 0)
+        .map((t) => [t, perTipo.get(t) as WatchlistRow[]] as [string, WatchlistRow[]]);
+    }
     const result = new Map<string, WatchlistRow[]>();
-    mappedRows.forEach((row) => { const sector = isMib ? SECTORS[tickerOf(row)] : "Tutti i titoli"; result.set(sector, [...(result.get(sector) ?? []), row]); });
+    mostrati.forEach((row) => {
+      const settore = isMib ? SECTORS[tickerOf(row)] : "Tutti i titoli";
+      result.set(settore, [...(result.get(settore) ?? []), row]);
+    });
     return [...result.entries()].sort(([a], [b]) => a.localeCompare(b, "it"));
-  }, [isMib, mappedRows]);
+  }, [isEtf, isMib, mostrati]);
   const visibleGroups = selectedSector ? groups.filter(([sector]) => sector === selectedSector) : groups;
 
   // Conteggi complessivi per indicazione: sostituiscono "80% in rialzo / sopra
   // SAR / Alligator Up", che descrivevano il movimento o il modello precedente.
-  const totali = useMemo(() => contaIndicazioni(mappedRows), [mappedRows]);
+  const totali = useMemo(() => contaIndicazioni(mostrati), [mostrati]);
   const stats = useMemo(() => {
-    const values = mappedRows.map((row) => num(row[period])).filter((value): value is number => value !== null);
+    const values = mostrati.map((row) => num(row[period])).filter((value): value is number => value !== null);
     // La scala del colore si calcola UNA volta: dentro il ciclo delle tessere
     // sarebbe O(n^2), e con un mercato da 1684 titoli si sente.
     const sortedAbs = values.map(Math.abs).sort((a, b) => a - b);
     return {
-      alerts: mappedRows.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length,
+      alerts: mostrati.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length,
       scala: Math.max(sortedAbs[Math.max(0, Math.ceil(sortedAbs.length * 0.9) - 1)] ?? 0, 0.25),
     };
-  }, [alertMap, mappedRows, market, period]);
+  }, [alertMap, mostrati, market, period]);
 
   if (loading) return <p>Carico heatmap {market}...</p>;
   if (error) return <p className="err">{error}</p>;
@@ -121,13 +155,30 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
 
   return <section className="heatmap-panel">
     <div className="heatmap-header">
-      <div><h2>Heatmap · {market}{isMib ? " per settore" : ""}</h2><div className="muted">Dati dall'ultimo Excel di analisi. Clicca un titolo per aprire il grafico.</div></div>
+      <div><h2>Heatmap · {market}{isMib ? " per settore" : isEtf ? " per tipologia" : ""}</h2><div className="muted">Dati dall'ultimo Excel di analisi. Clicca un titolo per aprire il grafico.</div></div>
       <div className="heatmap-controls">
         <div className="heatmap-periods" aria-label="Cosa mostra il colore">
           <button className={mode === "indicazioni" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("indicazioni")}>Indicazioni</button>
           <button className={mode === "performance" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("performance")}>Performance</button>
           <button className={mode === "assi" ? "quick-bar active" : "quick-bar"} onClick={() => setMode("assi")}>Trend e forza</button>
         </div>
+        {/* Il filtro esiste solo per gli ETF: li' 1254 titoli su 1684 non sono
+            negoziabili, e senza filtro la mappa mostra soprattutto prodotti
+            morti. Sugli altri mercati non serve. */}
+        {isEtf ? (
+          <div className="heatmap-periods" aria-label="Filtro liquidità">
+            <button
+              className={soloLiquidi ? "quick-bar active" : "quick-bar"}
+              onClick={() => { setSoloLiquidi(!soloLiquidi); setSelectedSector(null); }}
+              title={soloLiquidi
+                ? `Mostrati solo i ${liquidi.length} ETF negoziabili: ${nascosti} illiquidi nascosti. Premi per vederli tutti.`
+                : `Mostrati tutti i ${mappedRows.length} ETF, compresi i ${nascosti} illiquidi.`}
+              aria-pressed={soloLiquidi}
+            >
+              Solo liquidi{soloLiquidi ? ` · ${liquidi.length}` : ""}
+            </button>
+          </div>
+        ) : null}
         {isMib ? <div className="heatmap-periods heatmap-layout-switch" aria-label="Formato heatmap">
           <button className={layout === "sections" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sections")}>☰ Sezioni</button>
           <button className={layout === "sectorGrid" ? "quick-bar active" : "quick-bar"} onClick={() => setLayout("sectorGrid")}>▦ Griglia settoriale</button>
@@ -147,8 +198,10 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
       <div><strong>{stats.alerts}</strong><span> alert attivi</span></div>
     </div>
 
-    {isMib ? <div className="sector-filter-row">
-      <button className={!selectedSector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(null)}>Tutti i settori</button>
+    {(isMib || isEtf) && groups.length > 1 ? <div className="sector-filter-row">
+      <button className={!selectedSector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(null)}>
+        {isEtf ? "Tutte le tipologie" : "Tutti i settori"}
+      </button>
       {groups.map(([sector, items]) => <button key={sector} className={selectedSector === sector ? "sector-filter active" : "sector-filter"} onClick={() => setSelectedSector(selectedSector === sector ? null : sector)}>{sector} <small>{items.length}</small></button>)}
     </div> : null}
 
@@ -159,8 +212,18 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
       const sorted = [...sectorRows].sort((a, b) => (num(b[period]) ?? -Infinity) - (num(a[period]) ?? -Infinity));
       const sectorAlerts = sectorRows.filter((row) => alertMap[alertKey(String(row.WL_Source_Market ?? market), tickerOf(row))]).length;
       return <article className="sector-group" key={sector}>
-        <div className="sector-heading"><button onClick={() => isMib && setSelectedSector(selectedSector === sector ? null : sector)} title="Mostra solo questo settore"><strong>{sector}</strong><span>{sectorRows.length} titoli</span></button>
+        <div className="sector-heading"><button onClick={() => (isMib || isEtf) && setSelectedSector(selectedSector === sector ? null : sector)} title={isEtf ? "Mostra solo questa tipologia" : "Mostra solo questo settore"}><strong>{sector}</strong><span>{sectorRows.length} titoli</span></button>
           <div className={`sector-median ${(sectorMedian ?? 0) >= 0 ? "positive" : "negative"}`}>Mediana {sectorMedian === null ? "n/d" : `${sectorMedian >= 0 ? "+" : ""}${sectorMedian.toFixed(2)}%`}</div></div>
+
+        {/* Le tipologie sono dedotte dal nome, non lette da una colonna: quando
+            non si riconosce il nome lo si dichiara, invece di far sembrare
+            precisa una stima che non lo e'. */}
+        {isEtf && sector === "Non riconosciuto" ? (
+          <p className="heatmap-excluded">
+            Tipologia non deducibile dal nome (nomi troncati dai fornitori, es. «CRP BD», «EQU»).
+            Riconosciute per nome: il 79% degli ETF.
+          </p>
+        ) : null}
 
         {/* Riepilogo: le indicazioni del settore, cioe' come e' messo davvero,
             poi la variazione (che ora non e' piu' il colore) e i dettagli. */}
@@ -199,7 +262,16 @@ export default function MarketHeatmapPanel({ market, rows, alertMap, loading, er
       </article>;
     })}</div>
 
-    {isMib && rows.length > mappedRows.length ? <p className="heatmap-excluded">{rows.length - mappedRows.length} elementi non appartenenti al mapping MIB esclusi dalla vista settoriale.</p> : null}
+    {(isMib && rows.length > mappedRows.length) || (soloLiquidiAttivo && nascosti > 0) ? (
+      <p className="heatmap-excluded">
+        {isMib && rows.length > mappedRows.length
+          ? `${rows.length - mappedRows.length} elementi non appartenenti al mapping MIB esclusi dalla vista settoriale. `
+          : ""}
+        {soloLiquidiAttivo && nascosti > 0
+          ? `${nascosti} ETF non mostrati perché illiquidi (liquidità non OK). Usa "Solo liquidi" per vederli.`
+          : ""}
+      </p>
+    ) : null}
 
     {/* Legenda: in "Performance" e' una scala, nelle altre e' l'elenco dei colori. */}
     {mode === "performance"
