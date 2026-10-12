@@ -13,6 +13,7 @@ import { SortBar } from "./components/SortBar";
 import { MarketChips } from "./components/MarketChips";
 import MarketPickerBar from "./components/MarketPickerBar";
 import { c_eUnaVersioneNuova } from "./version";
+import FooterAnalisi from "./components/FooterAnalisi";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -541,6 +542,22 @@ export default function App() {
    * i laterali sono 21. Le tessere restano cliccabili: applicano il filtro sulla
    * tab All.
    */
+  /**
+   * Metadati dell'analisi per il piè di pagina: file e ora.
+   *
+   * Una sola riga (`pageSize: 1`): il file e l'ora stanno nell'intestazione della
+   * risposta. Serve una query a parte perche' la watchlist e' disattivata su
+   * Monitor, Alerts, AI chat, Laboratorio, Analizza, Liste e Archivio News, e il
+   * piè di pagina deve esserci su tutte. Il file cambia poche volte al giorno,
+   * quindi si ricontrolla ogni 10 minuti invece che ogni minuto.
+   */
+  const footerQuery = useQuery({
+    queryKey: ["analisi-meta", market],
+    queryFn: () => fetchWatchlist({ market, tab: "All", search: "", minVolume: 0, page: 1, pageSize: 1, rankN: 15 }),
+    refetchInterval: 10 * 60_000,
+    staleTime: 5 * 60_000,
+  });
+
   const highlightsFullQuery = useQuery({
     queryKey: ["watchlist", market, "All", minVolume, 1, 2000, rankN, sortKey, sortDir],
     queryFn: () => fetchWatchlist({
@@ -1624,6 +1641,10 @@ export default function App() {
           await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });
         }}
         onClose={() => setMonitorModalRow(null)}
+      />
+      <FooterAnalisi
+        percorso={footerQuery.data?.source_path ?? footerQuery.data?.source_file}
+        ts={fmtSourceTs(footerQuery.data?.source_updated_at)}
       />
     </main>
   );

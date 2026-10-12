@@ -690,6 +690,34 @@ textarea {
   margin: .5rem 0 1rem 0;
 }
 
+/* Piè di pagina con file Excel e ora dell'analisi: in fondo a ogni pagina.
+   Discreto, perche' e' un riferimento e non un contenuto da leggere. */
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 1rem;
+  align-items: center;
+  margin: 1.6rem 0 .4rem 0;
+  padding-top: .7rem;
+  border-top: 1px solid rgba(148, 184, 219, .14);
+  color: #7ea6c8;
+  font-size: .72rem;
+}
+.app-footer-voce {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .3rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.app-footer-voce b {
+  color: #9fb7cf;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  font-size: .66rem;
+}
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna
