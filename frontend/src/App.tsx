@@ -1582,7 +1582,6 @@ export default function App() {
                       onCreate={handleCreateQuickAlert}
                       onRemove={handleRemoveQuickAlert}
                     />
-                    <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>Dettagli</button>
                   </>
                 )}
               />
