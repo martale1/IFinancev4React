@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import TickerNews from "./TickerNews";
 import type { WatchlistRow, QuickAlertField } from "../types";
+import { livelliUscita, piuLontano, piuVicino } from "../livelliUscita";
 
 
 function quickAlertFieldLabel(field: QuickAlertField): string {
@@ -461,6 +462,9 @@ export default function WatchlistCard({
   const [detailMode, setDetailMode] = useState<"BUY" | "SELL">("BUY");
   const [showWatchlistTools, setShowWatchlistTools] = useState(false);
   const [showLevels, setShowLevels] = useState(false);
+  // Pannello degli stop calcolati: distinto da `showLevels`, che mostra
+  // i livelli del backend e resta vuoto quando l'azione e' HOLD.
+  const [showUscita, setShowUscita] = useState(false);
   const [showAlertTools, setShowAlertTools] = useState(false);
   const [alertField, setAlertField] = useState<QuickAlertField>("Close");
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
@@ -827,6 +831,36 @@ export default function WatchlistCard({
         </div>
       ) : null}
 
+      {showUscita ? (() => {
+        const livelli = livelliUscita(row as Record<string, unknown>);
+        if (!livelli.length) {
+          return <div className="level-strip level-stop"><div className="level-title">USCITA</div>
+            <div className="level-sub">Dati insufficienti per calcolare i livelli su questo titolo.</div></div>;
+        }
+        const stretto = piuVicino(livelli);
+        const ampio = piuLontano(livelli);
+        return <div className="level-strip level-stop">
+          <div className="level-title">USCITA · calcolata ora sul prezzo di oggi</div>
+          <div className="level-main uscita-righe">
+            {livelli.map((l) => (
+              <span className="uscita-riga" key={`${l.nome}-${l.tipo}`}>
+                <span className="uscita-nome">{l.nome}</span>
+                <span className="uscita-tipo">{l.tipo}</span>
+                <b>{fmtPrice(l.livello, 3)}</b>
+                <span className="uscita-dist">{l.distanzaPct.toFixed(2)}%</span>
+              </span>
+            ))}
+          </div>
+          <div className="level-sub">
+            Più stretto: <b>{stretto?.nome}</b> a {fmtPrice(stretto?.livello ?? 0, 3)} ({stretto?.distanzaPct.toFixed(2)}%)
+            {" · "}più ampio: <b>{ampio?.nome}</b> a {fmtPrice(ampio?.livello ?? 0, 3)} ({ampio?.distanzaPct.toFixed(2)}%)
+          </div>
+          <div className="level-sub warn">
+            Livelli misurati dal prezzo di oggi: senza il prezzo di carico non dicono se esci in profitto o in perdita.
+          </div>
+        </div>;
+      })() : null}
+
       <div className="row actions">
         {aiAlertInfo ? (
           <button
@@ -864,6 +898,15 @@ export default function WatchlistCard({
             {showLevels ? "Nascondi livelli" : "Livelli"}
           </button>
         ) : null}
+        {/* Stop calcolati: sempre disponibili, anche quando l'azione e' HOLD e il
+            backend non popola i suoi livelli. */}
+        <button
+          className="btn ghost"
+          onClick={() => setShowUscita((v) => !v)}
+          title="Livelli di uscita calcolati dai dati della card: chandelier, SAR, strutturale, volatilità"
+        >
+          {showUscita ? "Nascondi uscita" : "🛡 Uscita"}
+        </button>
         <button
           className={alertSet ? "btn alert-on" : "btn ghost"}
           disabled={alertBusy || !ticker}
@@ -1147,7 +1190,8 @@ export default function WatchlistCard({
               <input value={alertValue} onChange={(e) => setAlertValue(e.target.value)} placeholder="es. 27.10" />
             </label>
           )}
-          <div className="row actions">
+
+       <div className="row actions">
             <button className="btn" disabled={alertBusy || !ticker} onClick={createQuickAlert}>
               {alertBusy ? "Salvo..." : alertSet ? "Aggiorna alert" : "Crea alert"}
             </button>

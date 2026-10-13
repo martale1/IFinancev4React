@@ -731,6 +731,35 @@ textarea {
   white-space: normal;
 }
 
+/* Livelli di uscita calcolati sulla scheda (pulsante "🛡 Uscita").
+   Una riga per livello, con nome, formula, prezzo e distanza percentuale. */
+.uscita-righe {
+  display: flex;
+  flex-direction: column;
+  gap: .18rem;
+}
+.uscita-riga {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: .5rem;
+  font-size: .76rem;
+}
+.uscita-nome { color: #cfe5fa; font-weight: 600; }
+.uscita-tipo {
+  grid-column: 1;
+  color: #7ea6c8;
+  font-size: .68rem;
+  font-weight: 400;
+}
+.uscita-riga b { color: #e5f2ff; }
+.uscita-dist {
+  color: #fbbf24;
+  font-weight: 700;
+  min-width: 3.4rem;
+  text-align: right;
+}
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna
