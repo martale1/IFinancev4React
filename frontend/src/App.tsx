@@ -14,6 +14,7 @@ import { MarketChips } from "./components/MarketChips";
 import MarketPickerBar from "./components/MarketPickerBar";
 import { c_eUnaVersioneNuova } from "./version";
 import FooterAnalisi from "./components/FooterAnalisi";
+import RowAlertButton from "./components/RowAlertButton";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -1570,6 +1571,17 @@ export default function App() {
                     <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>
                       {monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "✓ Monitor" : "+ Monitor"}
                     </button>
+                    {/* Alert: stessi gestori delle Schede, modulo compatto. Il mercato
+                        sorgente e' quello della riga, non la tab (per le liste
+                        personalizzate "WL:..." il backend lo rifiuta). */}
+                    <RowAlertButton
+                      row={row}
+                      sourceMarket={String(row.WL_Source_Market ?? market)}
+                      alertSet={Boolean(quickAlertMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))])}
+                      busy={Boolean(quickAlertBusyMap[alertKey(String(row.WL_Source_Market ?? market), String(row.Ticker ?? ""))])}
+                      onCreate={handleCreateQuickAlert}
+                      onRemove={handleRemoveQuickAlert}
+                    />
                     <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>Dettagli</button>
                   </>
                 )}

@@ -760,6 +760,40 @@ textarea {
   text-align: right;
 }
 
+/* Pulsante Alert con il suo modulo, nelle righe della vista Lista.
+   Il modulo e' in linea: campo, operatore, valore e conferma. */
+.row-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+.row-alert-form {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  flex-wrap: wrap;
+  padding: .25rem .4rem;
+  border: 1px solid rgba(184, 216, 246, .18);
+  border-radius: 8px;
+  background: rgba(10, 25, 47, .45);
+}
+.row-alert-form select,
+.row-alert-form input {
+  background: rgba(6, 18, 34, .8);
+  color: #dce9f7;
+  border: 1px solid rgba(148, 184, 219, .22);
+  border-radius: 6px;
+  padding: .2rem .35rem;
+  font-size: .74rem;
+  font-family: inherit;
+}
+.row-alert-form input { width: 6.5rem; }
+.row-alert-msg {
+  color: #8cb4d9;
+  font-size: .72rem;
+}
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna
