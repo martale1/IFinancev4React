@@ -1564,6 +1564,12 @@ export default function App() {
                   <>
                     <button type="button" className="btn" onClick={() => openChart(row)}>Grafico</button>
                     <button type="button" className="btn ghost" onClick={() => openTickerAi(row)}>AI</button>
+                    {/* Monitor: come nelle Schede, "+ Monitor" oppure "✓ Monitor" se e' gia'
+                        in monitoraggio. Prima dalla Lista bisognava passare alle Schede
+                        per mettere un titolo in monitoraggio. */}
+                    <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>
+                      {monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "✓ Monitor" : "+ Monitor"}
+                    </button>
                     <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>Dettagli</button>
                   </>
                 )}
