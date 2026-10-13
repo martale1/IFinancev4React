@@ -15,6 +15,7 @@ import MarketPickerBar from "./components/MarketPickerBar";
 import { c_eUnaVersioneNuova } from "./version";
 import FooterAnalisi from "./components/FooterAnalisi";
 import RowAlertButton from "./components/RowAlertButton";
+import UscitaButton from "./components/UscitaButton";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -1582,6 +1583,9 @@ export default function App() {
                       onCreate={handleCreateQuickAlert}
                       onRemove={handleRemoveQuickAlert}
                     />
+                    {/* Livelli di uscita: mancavano nella Lista della tab All, mentre
+                        c'erano nella Lista della tab Monitor e nelle Schede. */}
+                    <UscitaButton row={row as unknown as Record<string, unknown>} />
                   </>
                 )}
               />
