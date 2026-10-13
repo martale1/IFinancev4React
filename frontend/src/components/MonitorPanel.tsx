@@ -131,6 +131,9 @@ export default function MonitorPanel({
   const [alertMsg, setAlertMsg] = useState("");
   // Nella vista Schede le azioni secondarie stanno in un menu: qui memorizzo
   // quale card lo ha aperto (chiave mercato-ticker).
+  // Menu "⋯ Altro" delle righe della Lista: separato da `actionsFor`,
+  // che appartiene alle Schede, cosi' i due non si aprono insieme.
+  const [azioniLista, setAzioniLista] = useState<string | null>(null);
   const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [view, setView] = useState<MonitorView>(() => {
     const chiave = "ifinance-monitor-view";
@@ -498,8 +501,6 @@ export default function MonitorPanel({
               <>
                 <button type="button" className="btn" onClick={() => onChart(row)}>Grafico</button>
                 <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
-                <button type="button" className="btn ghost" onClick={() => onNews(tk)}>News</button>
-                <button type="button" className="btn ghost" onClick={() => onOpenNoteModal(row)}>Dettagli</button>
                 <button
                   type="button"
                   className={alertMap[chiaveAlert] ? "btn alert-on" : "btn ghost"}
@@ -507,6 +508,21 @@ export default function MonitorPanel({
                 >
                   {alertMap[chiaveAlert] ? "Alert ON" : "Alert"}
                 </button>
+                {/* Azioni secondarie nel menu, come nelle Schede: News e la nota
+                    operativa. Prima erano due pulsanti in piu' sulla stessa riga. */}
+                <button
+                  type="button"
+                  className={azioniLista === `${src}-${tk}` ? "btn active" : "btn ghost"}
+                  onClick={() => setAzioniLista(azioniLista === `${src}-${tk}` ? null : `${src}-${tk}`)}
+                >
+                  ⋯ Altro
+                </button>
+                {azioniLista === `${src}-${tk}` ? (
+                  <span className="monitor-card-more">
+                    <button type="button" className="btn ghost" onClick={() => { setAzioniLista(null); onNews(tk); }}>News</button>
+                    <button type="button" className="btn ghost" onClick={() => { setAzioniLista(null); onOpenNoteModal(row); }}>Nota</button>
+                  </span>
+                ) : null}
               </>
             );
           }}
@@ -615,7 +631,7 @@ export default function MonitorPanel({
                   <div className="monitor-card-more">
                     <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onAi(row); }}>AI</button>
                     <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onNews(tk); }}>News</button>
-                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onOpenNoteModal(row); }}>Dettagli</button>
+                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onOpenNoteModal(row); }}>Nota</button>
                     <button type="button" className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"} onClick={() => { setActionsFor(null); openAlertBox(row); }}>
                       {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
                     </button>
