@@ -147,7 +147,12 @@ export function aUnPasso(righe: WatchlistRow[]): VoceHighlight[] {
 export function fortiMaFrenati(
   righe: WatchlistRow[],
   escludi: ReadonlySet<string> = new Set(),
-  sogliaScore = 80,
+  /**
+   * Soglia di TECH_SCORE. Misurata sui dati veri: con 80 il blocco restava
+   * VUOTO sul MIB30 (dove i titoli forti o sono gia' a un passo, o stanno sotto
+   * 80) e mostrava solo 2 titoli sugli ETF. Con 75 si popola su entrambi.
+   */
+  sogliaScore = 75,
 ): Array<{ freno: string; voci: VoceHighlight[] }> {
   const perFreno = new Map<string, VoceHighlight[]>();
 
