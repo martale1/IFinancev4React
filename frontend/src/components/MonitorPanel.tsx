@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
+import UscitaButton from "./UscitaButton";
 import { MarketChips } from "./MarketChips";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./PercentualeSort";
 import { ordinaPerRango, testaIndicazione } from "../ranking";
@@ -510,6 +511,7 @@ export default function MonitorPanel({
                 </button>
                 {/* Azioni secondarie nel menu, come nelle Schede: News e la nota
                     operativa. Prima erano due pulsanti in piu' sulla stessa riga. */}
+                <UscitaButton row={row as unknown as Record<string, unknown>} />
                 <button
                   type="button"
                   className={azioniLista === `${src}-${tk}` ? "btn active" : "btn ghost"}
@@ -625,6 +627,10 @@ export default function MonitorPanel({
                   <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); setActionsFor(actionsFor === `${src}-${tk}` ? null : `${src}-${tk}`); }}>
                     ⋯ Altro
                   </button>
+                  {/* Livelli di uscita: prima c'erano solo nella card della tab All. */}
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <UscitaButton row={row as unknown as Record<string, unknown>} />
+                  </span>
                   <button type="button" className="btn ghost danger" onClick={(e) => { e.stopPropagation(); onRemoveMonitor(tk, src); }}>Rimuovi</button>
                 </div>
                 {actionsFor === `${src}-${tk}` ? (
