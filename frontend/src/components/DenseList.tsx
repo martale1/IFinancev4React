@@ -162,9 +162,7 @@ export function DenseList({
                         Rischio <b className={statoClass(row.Rischio_Trend)}>{String(row.Rischio_Trend ?? "-")}</b>
                         {" "}<small className="atr-rischio">{toNum(row.ATR_PCT) === null ? "" : `${num(row.ATR_PCT, 2)}%`}</small>
                       </span>
-                      {/* Perche' la card dice OSSERVA: la condizione che manca per
-                          diventare ENTRA, con il numero che serve per rientrare. */}
-                      {motivo ? <span className="motivo-non-entra">→ {motivo}</span> : null}
+
                       <span>Fase <b>{fase}</b></span>
                       <span>Liquidità <b className={statoClass(row.Liquidity)}>{String(row.Liquidity ?? "-")}</b></span>
                       <span>Azioni <b className={statoClass(row.Action)}>{String(row.Action ?? "-")}</b></span>
@@ -172,6 +170,8 @@ export function DenseList({
                           tutto (gli ETF arrivano a 72 caratteri). */}
                       {nomeBreve ? <span className="dense-nome-intero">Nome <b>{nomeBreve}</b></span> : null}
                     </div>
+                    {/* Fuori da .monitor-metrics, che impone nowrap sui suoi span. */}
+                    {motivo ? <p className="motivo-non-entra">→ {motivo}</p> : null}
                   </div>
                 </div>
 

@@ -718,18 +718,17 @@ textarea {
   font-size: .66rem;
 }
 
-/* Perche' un titolo OSSERVA non e' ancora ENTRA: la condizione che manca,
-   con il numero che serve per rientrare. Va a capo perche' la frase e' lunga
-   e la riga del Contesto e' stretta. */
+/* Perche' un titolo OSSERVA non e' ancora ENTRA: la condizione che manca, con il
+   numero che serve per rientrare (di solito la distanza dalla media).
+   Sta FUORI da .monitor-metrics, che impone "white-space: nowrap" sui suoi span:
+   li' dentro la frase veniva tagliata a meta'. */
 .motivo-non-entra {
-  flex: 1 1 100%;
-  /* Da ripetere: .monitor-metrics span impone nowrap e ha la stessa specificita',
-     quindi senza questa riga il testo viene tagliato invece di andare a capo. */
-  white-space: normal;
+  margin: .3rem 0 0 0;
   color: #fbbf24;
   font-size: .72rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /* Guida: una tabella sola con le quattro indicazioni.
