@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { WatchlistRow } from "../types";
-import { num, pct, pctClass, toNum } from "../format";
+import { num, pct, pctClass, percheNonEntra, toNum } from "../format";
 
 /**
  * Lista compatta riutilizzabile: una riga per titolo, espandibile sul posto.
@@ -72,6 +72,8 @@ export function DenseList({
         // Nome leggibile: si toglie il suffisso di mercato attaccato in coda
         // ("Amundi MSCI Semiconductors UCITS ETF Acc.MI") solo se coincide con
         // quello del ticker, cosi' non si taglia altro.
+        // Perche' non e' ENTRA: si mostra solo sugli OSSERVA.
+        const motivo = percheNonEntra(row as Record<string, unknown>);
         const nomeBreve = (() => {
           const grezzo = String(row.Name ?? "").replace(/\s+/g, " ").trim();
           if (!grezzo) return "";
@@ -160,6 +162,9 @@ export function DenseList({
                         Rischio <b className={statoClass(row.Rischio_Trend)}>{String(row.Rischio_Trend ?? "-")}</b>
                         {" "}<small className="atr-rischio">{toNum(row.ATR_PCT) === null ? "" : `${num(row.ATR_PCT, 2)}%`}</small>
                       </span>
+                      {/* Perche' la card dice OSSERVA: la condizione che manca per
+                          diventare ENTRA, con il numero che serve per rientrare. */}
+                      {motivo ? <span className="motivo-non-entra">→ {motivo}</span> : null}
                       <span>Fase <b>{fase}</b></span>
                       <span>Liquidità <b className={statoClass(row.Liquidity)}>{String(row.Liquidity ?? "-")}</b></span>
                       <span>Azioni <b className={statoClass(row.Action)}>{String(row.Action ?? "-")}</b></span>

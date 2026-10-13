@@ -82,6 +82,50 @@ function toNum(v: unknown): number | null {
   return null;
 }
 
+/**
+ * Perche' la card dice OSSERVA: la condizione che manca per diventare ENTRA.
+ *
+ * Le soglie sono quelle di `four_axes.py`: rischio NORMALE sotto 3% di ATR e 5%
+ * di distanza dalla EMA50, forza FORTE_SU da ADX 22. Nel caso piu' frequente il
+ * blocco e' la distanza dalla media, non la volatilita': senza il numero, il
+ * lettore vede "Rischio TESO" e non sa quanto manca per rientrare.
+ */
+function motivoNonEntra(row: WatchlistRow): string | null {
+  if (String(row.Entry_Signal ?? "").trim().toUpperCase() !== "OSSERVA") return null;
+  const fase = String(row.Market_Phase ?? "").trim().toUpperCase();
+  const forza = String(row.Forza_Trend ?? "").trim().toUpperCase();
+  const rischio = String(row.Rischio_Trend ?? "").trim().toUpperCase();
+  const mom = String(row.Momento_Trend ?? "").trim().toUpperCase();
+  const close = toNum(row.Close);
+  const ema = toNum(row.EMA_50);
+  const atr = toNum(row.ATR_PCT);
+  const adx = toNum(row.ADX);
+
+  if (rischio !== "NORMALE") {
+    const dist = close !== null && ema !== null && ema !== 0 ? Math.abs(close / ema - 1) * 100 : null;
+    const sopraAtr = atr !== null && atr >= 3;
+    const sopraDist = dist !== null && dist >= 5;
+    const prezzoOk = ema !== null ? ema * 1.05 : null;
+    if (sopraDist && !sopraAtr && dist !== null && prezzoOk !== null) {
+      return `manca solo il rischio: ${rischio}, distanza dalla media ${dist.toFixed(2)}% (soglia 5%), serve sotto ${prezzoOk.toFixed(3)}`;
+    }
+    if (sopraAtr && !sopraDist && atr !== null) {
+      return `manca solo il rischio: ${rischio}, volatilità (ATR) ${atr.toFixed(2)}% (soglia 3%)`;
+    }
+    if (sopraAtr && sopraDist && atr !== null && dist !== null && prezzoOk !== null) {
+      return `manca solo il rischio: ${rischio}, ATR ${atr.toFixed(2)}% (soglia 3%) e distanza ${dist.toFixed(2)}% (soglia 5%), serve sotto ${prezzoOk.toFixed(3)}`;
+    }
+    return `manca solo il rischio: ora è ${rischio}, deve tornare NORMALE`;
+  }
+  if (forza !== "FORTE_SU" && (fase === "TENDENZA" || fase === "RIPRESA")) {
+    return adx !== null
+      ? `manca la forza: serve FORTE_SU, ADX ${adx.toFixed(1)} contro la soglia 22`
+      : "manca la forza: serve FORTE_SU";
+  }
+  if (mom === "CALANTE") return "manca il momento: è CALANTE, deve risalire";
+  return null;
+}
+
 function num(v: unknown, digits = 2): string {
   const n = toNum(v);
   if (n === null) return "-";
@@ -674,6 +718,8 @@ export default function WatchlistCard({
             {/* L'ATR e' uno dei due numeri che decidono il rischio (soglie 3% e 5%):
                 mostrarlo rende visibile perche' un titolo e' TESO o ESTREMO. */}
             <span title={`Volatilità: ATR ${num(row.ATR_PCT, 2)}% · soglie 3% teso, 5% estremo`}>Rischio <b className={row.Rischio_Trend === "NORMALE" ? "good" : row.Rischio_Trend === "ESTREMO" ? "bad" : ""}>{String(row.Rischio_Trend ?? "-")}</b>{" "}<small className="atr-rischio">{toNum(row.ATR_PCT) === null ? "" : `${num(row.ATR_PCT, 2)}%`}</small></span>
+            {/* Perche' la card dice OSSERVA: cosa manca per diventare ENTRA. */}
+            {motivoNonEntra(row) ? <span className="motivo-non-entra">→ {motivoNonEntra(row)}</span> : null}
             <span title="Fase derivata dagli assi: TENDENZA, RIPRESA, LATERALE, RIBASSO">{String(row.Market_Phase ?? "-")}</span>
             <span title="Stato dell'Alligator di Bill Williams: usato dai pattern S7, non dagli assi">Alligator <b style={{ color: alligatorColor(row.Signal6) }}>{String(row.Signal6 ?? "-")}{row.Signal6_Trend_Days !== undefined ? ` (${row.Signal6_Trend_Days}g)` : ""}</b></span>
             {toNum(row.Pattern_S2_Days_Ago) !== null && (
