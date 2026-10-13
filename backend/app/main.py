@@ -1324,6 +1324,26 @@ def _mount_frontend() -> None:
     def frontend_root():
         return FileResponse(index_file, headers=senza_cache)
 
+    # La versione servita adesso, in un file a parte. Serve al controllo di
+    # freschezza della pagina: leggere la versione dall'HTML non basta, perche'
+    # l'HTML stesso puo' essere una copia vecchia in cache. `no-store` perche'
+    # questo file deve dire la verita' sempre.
+    version_file = FRONTEND_DIST_DIR / "version.json"
+
+    @app.get("/version.json", include_in_schema=False)
+    def frontend_version():
+        if not version_file.exists():
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(
+            version_file,
+            media_type="application/json",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def frontend_spa(full_path: str):
         requested_file = (FRONTEND_DIST_DIR / full_path).resolve()
