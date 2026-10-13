@@ -39,3 +39,7 @@ analyses/analysis_settings.json
 # deve stare in git (altrimenti l'hash dei bundle cambia a ogni build).
 frontend/dist/
 frontend/*.tsbuildinfo
+
+# Generato da scripts/versione.mjs a ogni build. Se fosse versionato, ogni
+# build lo modificherebbe e bloccherebbe i `git pull` successivi (e' successo).
+frontend/src/versioneCostruita.ts
