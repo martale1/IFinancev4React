@@ -212,9 +212,23 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
         df.loc[ts == "HOLD", "Action"] = "HOLD"
         df.loc[ts.isin(["PREPARE", "ENTER"]), "Action"] = "WATCH"
 
-    # Indicazione unica per chi sta valutando un nuovo ingresso. Le vecchie
-    # Action restano disponibili internamente, ma HOLD/ADD/REDUCE/EXIT non
-    # vengono presentate come istruzioni senza conoscere il portafoglio.
+    # Indicazione operativa: si USA QUELLA DELL'EXCEL, calcolata da `four_axes`.
+    #
+    # PERCHE' NON SI RICALCOLA PIU'. Fino a ieri questo blocco ricostruiva
+    # `Entry_Signal` da `Action`, dalla fase, dal dettaglio e dalla liquidita',
+    # con un modello DIVERSO da quello che produce l'indicazione nel file. Le
+    # conseguenze, misurate sul listino ETF (1684 titoli):
+    #
+    #   ENTRA   assi 315  ->  mostrati  63
+    #   EVITA   assi 367  ->  mostrati 991
+    #   624 titoli su 1684 (37%) con indicazione diversa fra i due modelli
+    #
+    # Effetto visibile: la Guida descrive quattro assi, le card mostravano altro;
+    # `Entry_Missing` dichiarava "Nessuna condizione mancante" su titoli OSSERVA;
+    # il motivo accanto a Rischio non corrispondeva all'indicazione.
+    #
+    # Il ricalcolo resta solo come RIPIEGO per gli Excel senza la colonna: e' il
+    # caso di un'analisi appena rigenerata o di un file vecchio.
     action_u = df["Action"].astype(str).str.strip().str.upper()
     phase_u = df["Market_Phase"].astype(str).str.strip().str.upper()
     detail_u = df["Trend_Phase_Detail"].astype(str).str.strip().str.upper()
@@ -239,10 +253,31 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
         )
     )
 
-    df["Entry_Signal"] = "ATTENDI"
-    df.loc[observe, "Entry_Signal"] = "OSSERVA"
-    df.loc[enter, "Entry_Signal"] = "ENTRA"
-    df.loc[risk, "Entry_Signal"] = "EVITA"
+    ricalcolata = pd.Series("ATTENDI", index=df.index, dtype=object)
+    ricalcolata.loc[observe] = "OSSERVA"
+    ricalcolata.loc[enter] = "ENTRA"
+    ricalcolata.loc[risk] = "EVITA"
+
+    if "Entry_Signal" in df.columns:
+        dal_file = df["Entry_Signal"].astype(str).str.strip().str.upper()
+        # Valori accettati: quelli dello schema. Qualsiasi altra cosa (vuoto,
+        # "NAN") vuol dire che la colonna non c'e' davvero e si usa il ripiego.
+        valida = dal_file.isin(["ENTRA", "OSSERVA", "ATTENDI", "EVITA"])
+        df["Entry_Signal"] = dal_file.where(valida, ricalcolata)
+    else:
+        df["Entry_Signal"] = ricalcolata
+
+    # Il motivo dell'indicazione arriva dall'Excel (`four_axes.reason_from_axes`)
+    # insieme all'indicazione. Se manca, si ripiega su un testo per indicazione:
+    # non si inventa una spiegazione diversa da quella che ha deciso il segnale.
+    if "Entry_Reason" in df.columns:
+        motivo_file = df["Entry_Reason"].astype(str).str.strip()
+        df["Entry_Reason"] = motivo_file.where(motivo_file.ne("") & motivo_file.str.upper().ne("NAN"), "")
+    df["Entry_Reason"] = df["Entry_Reason"] if "Entry_Reason" in df.columns else ""
+    df.loc[df["Entry_Reason"].eq("") & df["Entry_Signal"].eq("ENTRA"), "Entry_Reason"] = "Trigger rialzista completo"
+    df.loc[df["Entry_Reason"].eq("") & df["Entry_Signal"].eq("OSSERVA"), "Entry_Reason"] = "Setup interessante: attendere conferma operativa"
+    df.loc[df["Entry_Reason"].eq("") & df["Entry_Signal"].eq("ATTENDI"), "Entry_Reason"] = "Condizioni di ingresso non ancora complete"
+    df.loc[df["Entry_Reason"].eq("") & df["Entry_Signal"].eq("EVITA"), "Entry_Reason"] = "Struttura fragile o fuori perimetro operativo"
 
     df["Entry_Reason"] = "Condizioni di ingresso non ancora complete"
     df.loc[observe, "Entry_Reason"] = "Setup interessante: attendere conferma operativa"
@@ -252,7 +287,22 @@ def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     # Diagnosi concreta: quali condizioni del trigger di acquisto mancano, con il
     # valore attuale. Senza questo la card mostrava una frase generica identica
     # per situazioni molto diverse (es. TECH 78 con ADX 17 e TECH 44 con DI- > DI+).
-    df["Entry_Missing"] = _build_entry_diagnosis(df, action_u, phase_u, detail_u, liquidity_u)
+    # Cosa manca per diventare ENTRA. La diagnosi arriva dall'Excel, scritta da
+    # `four_axes.missing_from_axes` sulle STESSE condizioni che decidono
+    # l'indicazione: cosi' il testo non puo' contraddire il segnale accanto.
+    #
+    # La vecchia `_build_entry_diagnosis` resta come ripiego per gli Excel che non
+    # hanno la colonna, ma non si usa piu': descriveva l'8-condition trigger del
+    # vecchio trading state (ADX 20, MACD entro 10 sedute, RSI in salita, SAR...)
+    # e su un titolo OSSERVA arrivava a dire "Nessuna condizione mancante".
+    if "Entry_Missing" in df.columns:
+        diagnosi_file = df["Entry_Missing"].astype(str).str.strip()
+        senza = diagnosi_file.eq("") | diagnosi_file.str.upper().eq("NAN")
+        df["Entry_Missing"] = diagnosi_file.where(
+            ~senza, _build_entry_diagnosis(df, action_u, phase_u, detail_u, liquidity_u)
+        )
+    else:
+        df["Entry_Missing"] = _build_entry_diagnosis(df, action_u, phase_u, detail_u, liquidity_u)
 
     return df
 

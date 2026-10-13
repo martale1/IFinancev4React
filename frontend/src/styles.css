@@ -794,6 +794,123 @@ textarea {
   font-size: .72rem;
 }
 
+/* ═══ CRUSCOTTO HIGHLIGHTS ═══════════════════════════════════════════
+   Quattro blocchi che dicono cosa guardare. Su telefono vanno in colonna;
+   da tablet in su stanno affiancati. `min-width: 0` sui figli perche' i
+   motivi sono frasi lunghe e senza quello il grid non li fa andare a capo. */
+.hl-switch {
+  margin: 0 0 .8rem 0;
+}
+
+.hl-cruscotto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: .8rem;
+  align-items: start;
+}
+
+.hl-blocco {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  min-width: 0;
+  padding: .8rem .9rem;
+  border: 1px solid rgba(148, 184, 219, .16);
+  border-radius: 12px;
+  background: rgba(10, 25, 47, .35);
+}
+
+.hl-blocco-testata h3 {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: 0;
+  font-size: .95rem;
+  color: #e5f2ff;
+}
+
+.hl-conteggio {
+  min-width: 1.5rem;
+  padding: .05rem .4rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, .18);
+  color: #93c5fd;
+  font-size: .78rem;
+  text-align: center;
+}
+
+.hl-blocco-testata p {
+  margin: .3rem 0 0 0;
+  color: #8cb4d9;
+  font-size: .74rem;
+  line-height: 1.45;
+}
+
+.hl-vuoto {
+  margin: .2rem 0 0 0;
+  color: #7ea6c8;
+  font-size: .76rem;
+  line-height: 1.5;
+}
+
+.hl-righe,
+.hl-gruppi {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+}
+
+.hl-riga {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .1rem .5rem;
+  min-width: 0;
+  padding: .4rem .5rem;
+  border: 1px solid rgba(148, 184, 219, .12);
+  border-radius: 8px;
+  background: rgba(6, 18, 34, .5);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hl-riga:hover { border-color: rgba(96, 165, 250, .5); }
+
+.hl-ticker { color: #e5f2ff; font-weight: 700; font-size: .8rem; }
+.hl-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9fb7cf;
+  font-size: .74rem;
+}
+.hl-score { color: #86efac; font-size: .7rem; font-weight: 700; }
+/* Il motivo sta su una riga tutta sua, e va a capo: e' una frase con i numeri. */
+.hl-motivo {
+  grid-column: 1 / -1;
+  color: #fbbf24;
+  font-size: .71rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hl-gruppo {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+}
+.hl-gruppo-titolo {
+  color: #b8d8f6;
+  font-size: .74rem;
+  font-weight: 600;
+}
+.hl-gruppo-titolo b { color: #93c5fd; }
+.hl-altri { align-self: flex-start; font-size: .72rem; }
+
 /* Guida: una tabella sola con le quattro indicazioni.
    Prima erano sei sezioni di testo; la tabella si scorre invece di leggere.
    "table-layout: fixed" divide lo spazio in quote prevedibili, cosi' la colonna

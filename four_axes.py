@@ -242,6 +242,95 @@ def warning_from_axes(assi: pd.DataFrame, df: pd.DataFrame) -> pd.Series:
     return pd.Series([testo(i) for i in range(len(assi))], index=assi.index)
 
 
+def missing_from_axes(
+    assi: pd.DataFrame,
+    fase: pd.Series,
+    df: pd.DataFrame | None = None,
+    soglie: dict[str, float] | None = None,
+) -> pd.Series:
+    """Cosa manca per diventare ENTRA, detto con il numero che serve.
+
+    Sostituisce la diagnosi basata sull'8-condition trigger del vecchio trading
+    state (`_build_entry_diagnosis` nel backend), che descriveva condizioni
+    diverse da quelle che decidono davvero l'indicazione. Misurato: dichiarava
+    "Nessuna condizione mancante" su titoli mostrati come OSSERVA, perche'
+    guardava `Action` e la liquidita' invece degli assi.
+
+    Le tre condizioni di ENTRA, da `indication_from_axes`: fase TENDENZA, momento
+    diverso da CALANTE, rischio NORMALE. Vengono prima le condizioni di
+    struttura, poi il rischio, che e' il freno piu' frequente e quello con un
+    livello preciso da raggiungere.
+    """
+    s = {**SOGLIE, **(soglie or {})}
+    forza = assi["Forza_Trend"]
+    momento = assi["Momento_Trend"]
+    rischio = assi["Rischio_Trend"]
+
+    def numero(colonna: str) -> pd.Series:
+        if df is not None and colonna in df.columns:
+            return _num(df, colonna)
+        return pd.Series(float("nan"), index=assi.index, dtype=float)
+
+    close = numero("Close")
+    ema50 = numero("EMA_50")
+    atr_pct = numero("ATR_PCT")
+    adx = numero("ADX")
+
+    def testo(i: int) -> str:
+        # Il momento viene per primo: finche' cala, nessun'altra condizione
+        # produce un ingresso.
+        if momento.iloc[i] == "CALANTE":
+            return "Manca il momento: ora è CALANTE, deve risalire"
+
+        if fase.iloc[i] != "TENDENZA":
+            if forza.iloc[i] != "FORTE_SU":
+                valore = adx.iloc[i]
+                if pd.notna(valore):
+                    return (
+                        f"Manca la tendenza: fase {fase.iloc[i]}, forza {forza.iloc[i]} "
+                        f"(ADX {valore:.1f} contro la soglia {s['adx_forte']:.0f})"
+                    )
+                return f"Manca la tendenza: fase {fase.iloc[i]}, forza {forza.iloc[i]}"
+            return f"Manca la tendenza: fase {fase.iloc[i]}, serve TENDENZA"
+
+        if rischio.iloc[i] != "NORMALE":
+            valore_ema = ema50.iloc[i]
+            valore_close = close.iloc[i]
+            valore_atr = atr_pct.iloc[i]
+            distanza = (
+                abs(valore_close / valore_ema - 1.0) * 100.0
+                if pd.notna(valore_close) and pd.notna(valore_ema) and valore_ema
+                else None
+            )
+            per_atr = pd.notna(valore_atr) and valore_atr >= s["atr_teso_pct"]
+            per_distanza = distanza is not None and distanza >= s["dist_tesa_pct"]
+            prezzo_ok = valore_ema * (1 + s["dist_tesa_pct"] / 100.0) if pd.notna(valore_ema) else None
+
+            if per_distanza and not per_atr and distanza is not None and prezzo_ok is not None:
+                return (
+                    f"Manca solo il rischio: {rischio.iloc[i]}, distanza dalla media "
+                    f"{distanza:.2f}% (soglia {s['dist_tesa_pct']:.0f}%), serve sotto {prezzo_ok:.3f}"
+                )
+            if per_atr and not per_distanza and pd.notna(valore_atr):
+                return (
+                    f"Manca solo il rischio: {rischio.iloc[i]}, volatilità (ATR) "
+                    f"{valore_atr:.2f}% (soglia {s['atr_teso_pct']:.0f}%)"
+                )
+            if per_atr and per_distanza and pd.notna(valore_atr) and distanza is not None and prezzo_ok is not None:
+                return (
+                    f"Manca solo il rischio: {rischio.iloc[i]}, ATR {valore_atr:.2f}% "
+                    f"(soglia {s['atr_teso_pct']:.0f}%) e distanza {distanza:.2f}% "
+                    f"(soglia {s['dist_tesa_pct']:.0f}%), serve sotto {prezzo_ok:.3f}"
+                )
+            return f"Manca solo il rischio: ora è {rischio.iloc[i]}, deve tornare NORMALE"
+
+        # Tutte le condizioni ci sono: chi non e' ENTRA lo e' per un motivo che
+        # non dipende dagli assi (prima questo caso passava in silenzio).
+        return "Condizioni soddisfatte: l'indicazione non dipende dagli assi"
+
+    return pd.Series([testo(i) for i in range(len(assi))], index=assi.index)
+
+
 def _levels_from_axes(out: pd.DataFrame, assi: pd.DataFrame, fase: pd.Series, azione: pd.Series) -> None:
     """Livelli operativi coerenti con le nuove fasi (prima usavano UPTREND)."""
     def num(column: str) -> pd.Series:
@@ -288,4 +377,8 @@ def apply_to(df: pd.DataFrame, soglie: dict[str, float] | None = None) -> pd.Dat
     out["Action_Reason"] = reason_from_axes(assi, fase, azione).values
     out["Layer3_Warning"] = warning_from_axes(assi, out).values
     _levels_from_axes(out, assi, fase, azione)
+    # Cosa manca per ENTRA, con il numero che serve. Scritto qui e non nel
+    # backend perche' backend e interfaccia devono dire la stessa cosa: la
+    # diagnosi precedente nel backend descriveva un modello diverso da questo.
+    out["Entry_Missing"] = missing_from_axes(assi, fase, out, soglie).values
     return out

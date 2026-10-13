@@ -16,6 +16,7 @@ import { c_eUnaVersioneNuova } from "./version";
 import FooterAnalisi from "./components/FooterAnalisi";
 import RowAlertButton from "./components/RowAlertButton";
 import UscitaButton from "./components/UscitaButton";
+import HighlightsDashboard from "./components/HighlightsDashboard";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -582,6 +583,9 @@ export default function App() {
   // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
   // Volutamente separata dai filtri della tab All, che restano indipendenti.
   const [highlightTile, setHighlightTile] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
+  // Quale delle due pagine Highlights mostrare. "cruscotto" e' la nuova,
+  // "classica" la precedente: restano entrambe, per confronto.
+  const [vistaHighlights, setVistaHighlights] = useState<"cruscotto" | "classica">("cruscotto");
   const highlightsVisibili = highlightTile
     ? highlightsItems.filter((row) =>
         highlightTile.kind === "fase"
@@ -1324,7 +1328,32 @@ export default function App() {
         />
       ) : null}
 
-      {tab === "📊 Highlights" && highlightsItems.length ? <section className="highlights-panel">
+      {/* Due modi di leggere gli highlights: il cruscotto nuovo e la pagina
+          precedente. Il confronto serve a scegliere sui titoli veri. */}
+      {tab === "📊 Highlights" && highlightsItems.length ? (
+        <div className="view-switch hl-switch">
+          <button
+            type="button"
+            className={vistaHighlights === "cruscotto" ? "active" : ""}
+            onClick={() => setVistaHighlights("cruscotto")}
+          >
+            Cruscotto
+          </button>
+          <button
+            type="button"
+            className={vistaHighlights === "classica" ? "active" : ""}
+            onClick={() => setVistaHighlights("classica")}
+          >
+            Classica
+          </button>
+        </div>
+      ) : null}
+
+      {tab === "📊 Highlights" && highlightsItems.length && vistaHighlights === "cruscotto" ? (
+        <HighlightsDashboard righe={highlightsItems} onChart={openChart} />
+      ) : null}
+
+      {tab === "📊 Highlights" && highlightsItems.length && vistaHighlights === "classica" ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
         <div className="highlights-split">
           <section className="highlights-block">
