@@ -99,6 +99,41 @@ def _download_with_absolute_dates(ticker: str, period: str, interval: str) -> pd
     )
 
 
+def _esatta_variazione_dal_segnale(ticker: str, days_ago: int) -> float | None:
+    """Variazione % fra la chiusura di oggi e quella del giorno del segnale.
+
+    Restituisce None quando non si puo' calcolare: nessun dato, storia troppo
+    corta, o `days_ago` non valido. Meglio nessun valore che un numero inventato.
+
+    Si usa solo sui titoli gia' trovati dalla scansione: scaricare i prezzi di
+    tutto il listino sarebbe troppo lento, farlo per pochi titoli costa qualche
+    secondo.
+    """
+    if days_ago in (None, 999) or days_ago < 0:
+        return None
+    try:
+        # Un anno copre qualunque `days_ago` sensato per i pattern del Laboratorio.
+        dati = _download_with_absolute_dates(ticker, "1y", "1d")
+    except Exception:
+        return None
+    if dati is None or dati.empty or "Close" not in dati.columns:
+        return None
+
+    chiusure = dati["Close"]
+    # yfinance puo' restituire colonne a piu' livelli: si prende la serie giusta.
+    if hasattr(chiusure, "columns"):
+        chiusure = chiusure.iloc[:, 0]
+    chiusure = chiusure.dropna()
+    if len(chiusure) <= days_ago:
+        return None
+
+    oggi = float(chiusure.iloc[-1])
+    al_segnale = float(chiusure.iloc[-1 - days_ago])
+    if al_segnale == 0:
+        return None
+    return (oggi / al_segnale - 1.0) * 100.0
+
+
 def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> pd.DataFrame:
     """
     Scarica sempre i dati storici aggiornati per un ticker da Yahoo Finance.
@@ -941,12 +976,14 @@ def scan_market(
         # giorno (identica a "Var. Giorn."), mentre uno di 4 giorni mostrava sempre
         # quella di 1 giorno come se fosse di 4: un numero sbagliato presentato come
         # esatto. Meglio nessun valore: l'interfaccia mostra un trattino.
-        signal_var_pct = None
-        if days_ago == 0:
-            # Il pattern e' di oggi: la variazione dal segnale e' quella di oggi.
+        # La variazione dal segnale si calcola ESATTA, scaricando i prezzi del solo
+        # titolo trovato. Prima si approssimava con la colonna PCTV piu' vicina, e
+        # il risultato era identico a "Var. Giorn." per i segnali di 2-4 giorni.
+        signal_var_pct = _esatta_variazione_dal_segnale(ticker, days_ago)
+        if signal_var_pct is None and days_ago == 0:
+            # Pattern di oggi: senza il giorno del segnale la variazione e' quella
+            # di oggi, che l'Excel ha gia'.
             signal_var_pct = float(row.get("PCTV_1D") or 0.0)
-        elif days_ago in (1, 5, 10, 30):
-            signal_var_pct = float(row.get(f"PCTV_{days_ago}D") or 0.0)
 
         return {
             "Ticker": ticker,
