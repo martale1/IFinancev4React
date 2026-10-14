@@ -887,7 +887,8 @@ textarea {
 
 .hl-riga {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* ticker · nome · variazioni · TECH, e il motivo su una riga tutta sua. */
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: baseline;
   gap: .1rem .5rem;
   min-width: 0;
@@ -912,6 +913,44 @@ textarea {
   font-size: .74rem;
 }
 .hl-score { color: #86efac; font-size: .7rem; font-weight: 700; }
+/* Le quattro variazioni: etichetta piccola sopra, valore sotto.
+   `white-space: nowrap` perche' "10D +12,34%" spezzato si legge male. */
+.hl-variazioni {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .1rem .55rem;
+}
+.hl-var {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .18rem;
+  white-space: nowrap;
+}
+.hl-var small {
+  color: #7ea6c8;
+  font-size: .63rem;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.hl-var b {
+  font-size: .72rem;
+  font-weight: 700;
+}
+.hl-var b.positive { color: #4ade80; }
+.hl-var b.negative { color: #f87171; }
+.hl-var b.neutral { color: #94a3b8; }
+
+/* Su schermo stretto le variazioni scendono su una riga propria, a tutta
+   larghezza: quattro valori accanto a ticker e nome non ci stanno. */
+@media (max-width: 700px) {
+  .hl-riga { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .hl-variazioni {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    margin-top: .15rem;
+  }
+}
 /* Il motivo sta su una riga tutta sua, e va a capo: e' una frase con i numeri. */
 .hl-motivo {
   grid-column: 1 / -1;

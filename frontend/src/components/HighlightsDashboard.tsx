@@ -17,14 +17,53 @@ import { aUnPasso, fortiMaFrenati, prontiAdesso, type VoceHighlight } from "../h
 import { toNum } from "../format";
 import type { WatchlistRow } from "../types";
 
+/**
+ * Le variazioni percentuali mostrate su ogni riga: 1, 5, 10 e 30 sedute.
+ *
+ * Sono le stesse colonne che il backend calcola da sempre (`PCTV_1D` e simili) e
+ * che la card della tab All mostra gia': qui servono perche' il motivo da solo
+ * dice cosa manca, non come si sta muovendo il titolo.
+ */
+const VARIAZIONI: Array<{ key: string; label: string }> = [
+  { key: "PCTV_1D", label: "1D" },
+  { key: "PCTV_5D", label: "5D" },
+  { key: "PCTV_10D", label: "10D" },
+  { key: "PCTV_30D", label: "30D" },
+];
+
 /** Una riga di titolo dentro un blocco: cliccabile per aprire il grafico. */
 function RigaVoce({ voce, onChart }: { voce: VoceHighlight; onChart: (row: WatchlistRow) => void }) {
   const score = toNum(voce.row.TECH_SCORE);
+  const variazioni = VARIAZIONI.map((v) => ({ ...v, valore: toNum(voce.row[v.key]) }));
+  const qualcuna = variazioni.some((v) => v.valore !== null);
+
   return (
     <button type="button" className="hl-riga" onClick={() => onChart(voce.row)} title="Apri il grafico">
       <span className="hl-ticker">{voce.ticker}</span>
       <span className="hl-nome">{voce.nome || "—"}</span>
       {score !== null ? <span className="hl-score">TECH {Math.round(score)}</span> : null}
+
+      {qualcuna ? (
+        <span className="hl-variazioni">
+          {variazioni.map((v) => (
+            <span
+              className="hl-var"
+              key={v.key}
+              title={
+                v.valore === null
+                  ? `Variazione ${v.label}: non disponibile`
+                  : `Variazione a ${v.label}: ${v.valore >= 0 ? "+" : ""}${v.valore.toFixed(2)}%`
+              }
+            >
+              <small>{v.label}</small>
+              <b className={v.valore === null ? "neutral" : v.valore > 0 ? "positive" : v.valore < 0 ? "negative" : "neutral"}>
+                {v.valore === null ? "—" : `${v.valore >= 0 ? "+" : ""}${v.valore.toFixed(2)}%`}
+              </b>
+            </span>
+          ))}
+        </span>
+      ) : null}
+
       <span className="hl-motivo">{voce.motivo}</span>
     </button>
   );
