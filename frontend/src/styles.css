@@ -798,8 +798,17 @@ textarea {
    Quattro blocchi che dicono cosa guardare. Su telefono vanno in colonna;
    da tablet in su stanno affiancati. `min-width: 0` sui figli perche' i
    motivi sono frasi lunghe e senza quello il grid non li fa andare a capo. */
-.hl-switch {
+/* Due gruppi di pulsanti in cima alla pagina: cruscotto/classica e la scelta
+   dei listini. Su telefono vanno a capo invece di stringersi. */
+.hl-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .9rem;
   margin: 0 0 .8rem 0;
+}
+.hl-switch {
+  margin: 0;
 }
 
 .hl-cruscotto {

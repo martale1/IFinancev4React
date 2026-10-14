@@ -579,13 +579,44 @@ export default function App() {
     }),
     enabled: tab === "📊 Highlights" || tab === "All",
   });
-  const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
-  // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
-  // Volutamente separata dai filtri della tab All, che restano indipendenti.
+
   const [highlightTile, setHighlightTile] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
   // Quale delle due pagine Highlights mostrare. "cruscotto" e' la nuova,
   // "classica" la precedente: restano entrambe, per confronto.
   const [vistaHighlights, setVistaHighlights] = useState<"cruscotto" | "classica">("cruscotto");
+  // Quali listini mostrare nel cruscotto. "mib+dax" li unisce in un
+  // solo elenco: le righe portano il suffisso del ticker, quindi si distinguono.
+  const [insiemeHighlights, setInsiemeHighlights] = useState<"mib" | "dax" | "mib+dax">("mib+dax");
+  const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
+  /**
+   * I titoli del DAX, per il cruscotto "MIB30 + DAX".
+   *
+   * Query separata da quella di Highlights perche' quella segue la barra dei
+   * mercati, che resta per gli altri listini. Si attiva solo quando serve, e
+   * React Query tiene il risultato in cache, quindi il passaggio fra i tre modi
+   * non ricarica.
+   */
+  const daxHighlightsQuery = useQuery({
+    queryKey: ["watchlist", "DAX", "All", 0, 1, 2000, rankN, null, null],
+    queryFn: () => fetchWatchlist({ market: "DAX", tab: "All", search: "", minVolume: 0, page: 1, pageSize: 2000, rankN, sortKey: null, sortDir: null }),
+    enabled: tab === "📊 Highlights" && insiemeHighlights === "mib+dax",
+    staleTime: 60_000,
+  });
+  const daxItems: WatchlistRow[] = daxHighlightsQuery.data?.items ?? [];
+
+  /**
+   * Le righe del cruscotto secondo la scelta rapida. In "mib+dax" si uniscono i
+   * due elenchi: i blocchi li riordinano poi per punteggio, quindi MIB30 e DAX
+   * si mescolano dove ha senso.
+   */
+  const righeCruscotto: WatchlistRow[] = insiemeHighlights === "dax"
+    ? daxItems
+    : insiemeHighlights === "mib"
+      ? highlightsItems
+      : [...highlightsItems, ...daxItems];
+
+  // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
+  // Volutamente separata dai filtri della tab All, che restano indipendenti.
   const highlightsVisibili = highlightTile
     ? highlightsItems.filter((row) =>
         highlightTile.kind === "fase"
@@ -1331,26 +1362,54 @@ export default function App() {
       {/* Due modi di leggere gli highlights: il cruscotto nuovo e la pagina
           precedente. Il confronto serve a scegliere sui titoli veri. */}
       {tab === "📊 Highlights" && highlightsItems.length ? (
-        <div className="view-switch hl-switch">
-          <button
-            type="button"
-            className={vistaHighlights === "cruscotto" ? "active" : ""}
-            onClick={() => setVistaHighlights("cruscotto")}
-          >
-            Cruscotto
-          </button>
-          <button
-            type="button"
-            className={vistaHighlights === "classica" ? "active" : ""}
-            onClick={() => setVistaHighlights("classica")}
-          >
-            Classica
-          </button>
+        <div className="hl-barra">
+          <div className="view-switch hl-switch">
+            <button
+              type="button"
+              className={vistaHighlights === "cruscotto" ? "active" : ""}
+              onClick={() => setVistaHighlights("cruscotto")}
+            >
+              Cruscotto
+            </button>
+            <button
+              type="button"
+              className={vistaHighlights === "classica" ? "active" : ""}
+              onClick={() => setVistaHighlights("classica")}
+            >
+              Classica
+            </button>
+          </div>
+          {/* Quali listini guardare. "MIB30 + DAX" li unisce nello stesso elenco. */}
+          {vistaHighlights === "cruscotto" ? (
+            <div className="view-switch hl-switch">
+              <button
+                type="button"
+                className={insiemeHighlights === "mib+dax" ? "active" : ""}
+                onClick={() => setInsiemeHighlights("mib+dax")}
+              >
+                MIB30 + DAX
+              </button>
+              <button
+                type="button"
+                className={insiemeHighlights === "mib" ? "active" : ""}
+                onClick={() => setInsiemeHighlights("mib")}
+              >
+                MIB30
+              </button>
+              <button
+                type="button"
+                className={insiemeHighlights === "dax" ? "active" : ""}
+                onClick={() => setInsiemeHighlights("dax")}
+              >
+                DAX
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {tab === "📊 Highlights" && highlightsItems.length && vistaHighlights === "cruscotto" ? (
-        <HighlightsDashboard righe={highlightsItems} onChart={openChart} />
+        <HighlightsDashboard righe={righeCruscotto} onChart={openChart} />
       ) : null}
 
       {tab === "📊 Highlights" && highlightsItems.length && vistaHighlights === "classica" ? <section className="highlights-panel">
