@@ -798,14 +798,37 @@ textarea {
    Quattro blocchi che dicono cosa guardare. Su telefono vanno in colonna;
    da tablet in su stanno affiancati. `min-width: 0` sui figli perche' i
    motivi sono frasi lunghe e senza quello il grid non li fa andare a capo. */
-/* Due gruppi di pulsanti in cima alla pagina: cruscotto/classica e la scelta
-   dei listini. Su telefono vanno a capo invece di stringersi. */
+/* Una barra sola in cima alla pagina Highlights: i mercati, un separatore, i
+   comandi di lettura. Dentro c'e' anche `MarketPickerBar`, che ha lo stile di
+   cornice: qui il suo riquadro va annullato, altrimenti si vedrebbe un bordo
+   dentro un altro bordo. */
+.market-picker-bar.hl-barra-unica {
+  gap: .5rem .8rem;
+}
+.market-picker-bar.hl-barra-unica .market-picker-bar {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  gap: 0;
+}
+/* Separatore verticale fra "quale mercato" e "come leggerlo". Su schermo stretto
+   non serve: i gruppi vanno a capo e la riga sarebbe fuori posto. */
+.hl-sep {
+  align-self: stretch;
+  width: 1px;
+  min-height: 1.6rem;
+  background: rgba(184, 216, 246, .18);
+}
+@media (max-width: 760px) {
+  .hl-sep { display: none; }
+}
 .hl-barra {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .5rem .9rem;
-  margin: 0 0 .8rem 0;
+  gap: .4rem .6rem;
+  margin: 0;
 }
 .hl-switch {
   margin: 0;

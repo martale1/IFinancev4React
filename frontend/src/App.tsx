@@ -1357,68 +1357,70 @@ export default function App() {
           mercato scelto altrove, senza modo di cambiarlo. Qui basta il mercato:
           la sezione ha gia' i suoi filtri per fase e indicazione, e non usa ne'
           il volume minimo ne' la barra di ordinamento. */}
+      {/* Una barra sola: i mercati e i comandi di lettura, senza due riquadri
+          impilati. Il separatore distingue "quale mercato" da "come leggerlo". */}
       {tab === "📊 Highlights" ? (
-        <MarketPickerBar
-          markets={marketsQuery.data}
-          market={market}
-          onSelect={(m) => {
-            setMarket(m);
-            setPage(1);
-            setHighlightTile(null);
-            // Toccare la barra significa "voglio QUESTO mercato": l'aggiunta del
-            // DAX si toglie, altrimenti i due comandi si contraddicono.
-            setModoCruscotto("solo");
-          }}
-        />
-      ) : null}
-
-      {/* Due modi di leggere gli highlights: il cruscotto nuovo e la pagina
-          precedente. Il confronto serve a scegliere sui titoli veri. */}
-      {tab === "📊 Highlights" && highlightsItems.length ? (
-        <div className="hl-barra">
-          <div className="view-switch hl-switch">
-            <button
-              type="button"
-              className={modoCruscotto !== "classica" ? "active" : ""}
-              onClick={() => setModoCruscotto("insieme")}
-            >
-              Cruscotto
-            </button>
-            <button
-              type="button"
-              className={modoCruscotto === "classica" ? "active" : ""}
-              onClick={() => setModoCruscotto("classica")}
-            >
-              Classica
-            </button>
-          </div>
-          {/* Cosa mostrare, rispetto al mercato scelto nella barra sopra. */}
-          {modoCruscotto !== "classica" ? (
-            <div className="view-switch hl-switch">
-              <button
-                type="button"
-                className={modoCruscotto === "insieme" ? "active" : ""}
-                onClick={() => setModoCruscotto("insieme")}
-                title={`Il mercato scelto nella barra, più il DAX`}
-              >
-                {market.replace(/_/g, " ")} + DAX
-              </button>
-              <button
-                type="button"
-                className={modoCruscotto === "solo" ? "active" : ""}
-                onClick={() => setModoCruscotto("solo")}
-                title="Solo il mercato scelto nella barra"
-              >
-                Solo {market.replace(/_/g, " ")}
-              </button>
-              <button
-                type="button"
-                className={market === "DAX" && modoCruscotto === "solo" ? "active" : ""}
-                onClick={() => { setMarket("DAX"); setPage(1); setModoCruscotto("solo"); }}
-                title="Passa al solo DAX"
-              >
-                DAX
-              </button>
+        <div className="market-picker-bar hl-barra-unica">
+          <MarketPickerBar
+            markets={marketsQuery.data}
+            market={market}
+            onSelect={(m) => {
+              setMarket(m);
+              setPage(1);
+              setHighlightTile(null);
+              // Toccare la barra significa "voglio QUESTO mercato": l'aggiunta del
+              // DAX si toglie, altrimenti i due comandi si contraddicono.
+              setModoCruscotto("solo");
+            }}
+          />
+          {highlightsItems.length ? <span className="hl-sep" aria-hidden="true" /> : null}
+          {highlightsItems.length ? (
+            <div className="hl-barra">
+              <div className="view-switch hl-switch">
+                <button
+                  type="button"
+                  className={modoCruscotto !== "classica" ? "active" : ""}
+                  onClick={() => setModoCruscotto("insieme")}
+                >
+                  Cruscotto
+                </button>
+                <button
+                  type="button"
+                  className={modoCruscotto === "classica" ? "active" : ""}
+                  onClick={() => setModoCruscotto("classica")}
+                >
+                  Classica
+                </button>
+              </div>
+              {/* Cosa mostrare, rispetto al mercato scelto qui accanto. */}
+              {modoCruscotto !== "classica" ? (
+                <div className="view-switch hl-switch">
+                  <button
+                    type="button"
+                    className={modoCruscotto === "insieme" ? "active" : ""}
+                    onClick={() => setModoCruscotto("insieme")}
+                    title="Il mercato scelto qui accanto, più il DAX"
+                  >
+                    + DAX
+                  </button>
+                  <button
+                    type="button"
+                    className={modoCruscotto === "solo" ? "active" : ""}
+                    onClick={() => setModoCruscotto("solo")}
+                    title="Solo il mercato scelto qui accanto"
+                  >
+                    Solo {market.replace(/_/g, " ")}
+                  </button>
+                  <button
+                    type="button"
+                    className={market === "DAX" && modoCruscotto === "solo" ? "active" : ""}
+                    onClick={() => { setMarket("DAX"); setPage(1); setModoCruscotto("solo"); }}
+                    title="Passa al solo DAX"
+                  >
+                    DAX
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
