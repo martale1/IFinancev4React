@@ -933,23 +933,20 @@ def scan_market(
         # chiamata a Yahoo Finance necessaria.
         daily_var_pct = float(row.get("PCTV_1D") or 0.0)
 
-        # Signal_Var_Pct: variazione dal giorno del segnale ad oggi.
-        # Se days_ago combacia con una delle colonne PCTV già disponibili, la usiamo
-        # direttamente; altrimenti approssimiamo con la più vicina.
-        signal_var_pct = 0.0
-        if days_ago not in (999, 0):
-            pctv_map = {
-                1:  float(row.get("PCTV_1D")  or 0.0),
-                5:  float(row.get("PCTV_5D")  or 0.0),
-                10: float(row.get("PCTV_10D") or 0.0),
-                30: float(row.get("PCTV_30D") or 0.0),
-            }
-            if days_ago in pctv_map:
-                signal_var_pct = pctv_map[days_ago]
-            else:
-                # Approssima con la colonna PCTV più vicina per giorni_ago
-                nearest_key = min(pctv_map.keys(), key=lambda k: abs(k - days_ago))
-                signal_var_pct = pctv_map[nearest_key]
+        # Signal_Var_Pct: variazione dal giorno del segnale a oggi.
+        #
+        # L'Excel ha solo le variazioni a 1, 5, 10 e 30 giorni. Se i giorni dal
+        # segnale non sono fra questi, NON si approssima: prima si usava la colonna
+        # piu' vicina, e cosi' un pattern di 2 giorni mostrava la variazione di 1
+        # giorno (identica a "Var. Giorn."), mentre uno di 4 giorni mostrava sempre
+        # quella di 1 giorno come se fosse di 4: un numero sbagliato presentato come
+        # esatto. Meglio nessun valore: l'interfaccia mostra un trattino.
+        signal_var_pct = None
+        if days_ago == 0:
+            # Il pattern e' di oggi: la variazione dal segnale e' quella di oggi.
+            signal_var_pct = float(row.get("PCTV_1D") or 0.0)
+        elif days_ago in (1, 5, 10, 30):
+            signal_var_pct = float(row.get(f"PCTV_{days_ago}D") or 0.0)
 
         return {
             "Ticker": ticker,
@@ -965,7 +962,7 @@ def scan_market(
             "SMA200": _clean(row.get("SMA200")),
             "Pattern_Days_Ago": days_ago,
             "Pattern_Match_Today": days_ago == 0,
-            "Signal_Var_Pct": float(signal_var_pct),
+            "Signal_Var_Pct": (float(signal_var_pct) if signal_var_pct is not None else None),
             "Daily_Var_Pct": float(daily_var_pct),
             "Is_Daily_Var": (days_ago == 0),
             "Pattern_Type": pat_type,

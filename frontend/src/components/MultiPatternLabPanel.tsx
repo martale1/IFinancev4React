@@ -55,7 +55,9 @@ type ScanResult = WatchlistRow & {
   SMA200?: number;
   Pattern_Days_Ago: number;
   Pattern_Match_Today?: boolean;
-  Signal_Var_Pct: number;
+  /** Variazione dal giorno del segnale: assente quando i giorni dal segnale
+   *  non hanno una colonna esatta nell'Excel (1, 5, 10, 30). */
+  Signal_Var_Pct: number | null;
   Daily_Var_Pct: number;
   Is_Daily_Var: boolean;
   Pattern_Type: string;
@@ -970,8 +972,19 @@ export default function MultiPatternLabPanel({
                       <td style={{ fontWeight: "bold", color: !row.Daily_Var_Pct ? "#94a3b8" : row.Daily_Var_Pct > 0 ? "#4ade80" : "#f87171" }}>
                         {row.Daily_Var_Pct !== undefined ? `${row.Daily_Var_Pct >= 0 ? "+" : ""}${row.Daily_Var_Pct.toFixed(2)}%` : "-"}
                       </td>
-                      <td style={{ fontWeight: "bold", color: !row.Signal_Var_Pct ? "#94a3b8" : row.Signal_Var_Pct > 0 ? "#4ade80" : "#f87171" }}>
-                        {row.Signal_Var_Pct !== undefined ? `${row.Signal_Var_Pct >= 0 ? "+" : ""}${row.Signal_Var_Pct.toFixed(2)}%` : "-"}
+                      {/* Il dato esatto esiste solo se i giorni dal segnale sono
+                          1, 5, 10 o 30: l'Excel non contiene il prezzo del giorno del
+                          segnale. Negli altri casi si mostra un trattino, invece di
+                          una variazione approssimata che sembrerebbe esatta. */}
+                      <td
+                        style={{ fontWeight: "bold", color: row.Signal_Var_Pct == null ? "#94a3b8" : row.Signal_Var_Pct > 0 ? "#4ade80" : "#f87171" }}
+                        title={
+                          row.Signal_Var_Pct == null
+                            ? `Variazione dal segnale non disponibile: sono passati ${row.Pattern_Days_Ago} giorni, e il dato esatto c'è solo per 1, 5, 10 o 30 giorni`
+                            : `Dal giorno del segnale (${row.Pattern_Days_Ago} giorni fa)`
+                        }
+                      >
+                        {row.Signal_Var_Pct == null ? "—" : `${row.Signal_Var_Pct >= 0 ? "+" : ""}${row.Signal_Var_Pct.toFixed(2)}%`}
                       </td>
                       <td style={{ color: row.Stoch_K && row.Stoch_K < 20 ? "#f87171" : "#4ade80" }}>{row.Stoch_K ? row.Stoch_K.toFixed(2) : "-"}</td>
                       <td style={{ color: row.Stoch_D && row.Stoch_D < 20 ? "#f87171" : "#4ade80" }}>{row.Stoch_D ? row.Stoch_D.toFixed(2) : "-"}</td>
