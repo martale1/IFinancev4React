@@ -31,9 +31,17 @@ const VARIAZIONI: Array<{ key: string; label: string }> = [
   { key: "PCTV_30D", label: "30D" },
 ];
 
+/** Prezzo con i decimali che servono: le cifre piccole (ETF a 0,64) sparirebbero
+ *  con due soli decimali, i titoli grandi non ne vogliono tre. */
+function prezzo(valore: number): string {
+  const dec = Math.abs(valore) < 5 ? 3 : 2;
+  return valore.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
 /** Una riga di titolo dentro un blocco: cliccabile per aprire il grafico. */
 function RigaVoce({ voce, onChart }: { voce: VoceHighlight; onChart: (row: WatchlistRow) => void }) {
   const score = toNum(voce.row.TECH_SCORE);
+  const chiusura = toNum(voce.row.Close);
   const variazioni = VARIAZIONI.map((v) => ({ ...v, valore: toNum(voce.row[v.key]) }));
   const qualcuna = variazioni.some((v) => v.valore !== null);
 
@@ -41,6 +49,7 @@ function RigaVoce({ voce, onChart }: { voce: VoceHighlight; onChart: (row: Watch
     <button type="button" className="hl-riga" onClick={() => onChart(voce.row)} title="Apri il grafico">
       <span className="hl-ticker">{voce.ticker}</span>
       <span className="hl-nome">{voce.nome || "—"}</span>
+      {chiusura !== null ? <span className="hl-prezzo">{prezzo(chiusura)}</span> : null}
       {score !== null ? <span className="hl-score">TECH {Math.round(score)}</span> : null}
 
       {qualcuna ? (

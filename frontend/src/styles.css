@@ -887,8 +887,8 @@ textarea {
 
 .hl-riga {
   display: grid;
-  /* ticker · nome · variazioni · TECH, e il motivo su una riga tutta sua. */
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  /* ticker · nome · prezzo · variazioni · TECH, e il motivo su una riga sua. */
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: baseline;
   gap: .1rem .5rem;
   min-width: 0;
@@ -913,6 +913,14 @@ textarea {
   font-size: .74rem;
 }
 .hl-score { color: #86efac; font-size: .7rem; font-weight: 700; }
+/* Il prezzo: cifre a larghezza fissa cosi' i numeri restano incolonnati. */
+.hl-prezzo {
+  color: #e5f2ff;
+  font-size: .8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 /* Le quattro variazioni: etichetta piccola sopra, valore sotto.
    `white-space: nowrap` perche' "10D +12,34%" spezzato si legge male. */
 .hl-variazioni {
