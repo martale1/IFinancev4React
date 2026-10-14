@@ -99,41 +99,6 @@ def _download_with_absolute_dates(ticker: str, period: str, interval: str) -> pd
     )
 
 
-def _esatta_variazione_dal_segnale(ticker: str, days_ago: int) -> float | None:
-    """Variazione % fra la chiusura di oggi e quella del giorno del segnale.
-
-    Restituisce None quando non si puo' calcolare: nessun dato, storia troppo
-    corta, o `days_ago` non valido. Meglio nessun valore che un numero inventato.
-
-    Si usa solo sui titoli gia' trovati dalla scansione: scaricare i prezzi di
-    tutto il listino sarebbe troppo lento, farlo per pochi titoli costa qualche
-    secondo.
-    """
-    if days_ago in (None, 999) or days_ago < 0:
-        return None
-    try:
-        # Un anno copre qualunque `days_ago` sensato per i pattern del Laboratorio.
-        dati = _download_with_absolute_dates(ticker, "1y", "1d")
-    except Exception:
-        return None
-    if dati is None or dati.empty or "Close" not in dati.columns:
-        return None
-
-    chiusure = dati["Close"]
-    # yfinance puo' restituire colonne a piu' livelli: si prende la serie giusta.
-    if hasattr(chiusure, "columns"):
-        chiusure = chiusure.iloc[:, 0]
-    chiusure = chiusure.dropna()
-    if len(chiusure) <= days_ago:
-        return None
-
-    oggi = float(chiusure.iloc[-1])
-    al_segnale = float(chiusure.iloc[-1 - days_ago])
-    if al_segnale == 0:
-        return None
-    return (oggi / al_segnale - 1.0) * 100.0
-
-
 def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", force_refresh: bool = False) -> pd.DataFrame:
     """
     Scarica sempre i dati storici aggiornati per un ticker da Yahoo Finance.
@@ -165,6 +130,45 @@ def get_historical_data(ticker: str, period: str = "2y", interval: str = "1d", f
         print(f"Errore nello scaricamento dei dati per {ticker}: {e}")
         return pd.DataFrame()
 
+
+
+def _esatta_variazione_dal_segnale(ticker: str, days_ago: int) -> float | None:
+    """Variazione % fra la chiusura di oggi e quella del giorno del segnale.
+
+    Restituisce None quando non si puo' calcolare: nessun dato, storia troppo
+    corta, o `days_ago` non valido. Meglio nessun valore che un numero inventato.
+
+    USA `get_historical_data`, che ha la cache del servizio, e NON il download
+    diretto. Motivo misurato sul Raspberry: con il download diretto, la stessa
+    identica scansione restituiva valori diversi a ogni esecuzione per lo stesso
+    titolo (`+4,59%`, poi `+0,48%`, poi `-1,05%` con dati reali a `-1,05%`).
+    Il download diretto non e' deterministico sotto richieste ripetute e
+    concorrenti — e la scansione multi-mercato ne fa quattro in parallelo — per
+    via dei limiti di Yahoo. Con la cache il valore e' stabile.
+    """
+    if days_ago in (None, 999) or days_ago < 0:
+        return None
+    try:
+        # Un anno copre qualunque `days_ago` sensato per i pattern del Laboratorio.
+        dati = get_historical_data(ticker, period="1y", interval="1d")
+    except Exception:
+        return None
+    if dati is None or dati.empty or "Close" not in dati.columns:
+        return None
+
+    chiusure = dati["Close"]
+    # yfinance puo' restituire colonne a piu' livelli: si prende la serie giusta.
+    if hasattr(chiusure, "columns"):
+        chiusure = chiusure.iloc[:, 0]
+    chiusure = chiusure.dropna()
+    if len(chiusure) <= days_ago:
+        return None
+
+    oggi = float(chiusure.iloc[-1])
+    al_segnale = float(chiusure.iloc[-1 - days_ago])
+    if al_segnale == 0:
+        return None
+    return (oggi / al_segnale - 1.0) * 100.0
 
 
 def calculate_all_indicators(df: pd.DataFrame, use_adjusted: bool = True) -> pd.DataFrame:
