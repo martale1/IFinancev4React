@@ -582,16 +582,17 @@ export default function App() {
 
   const [highlightTile, setHighlightTile] = useState<{ kind: "fase" | "indicazione"; value: string } | null>(null);
   /**
-   * Come leggere il cruscotto:
-   *   "insieme" -> il mercato della barra, PIU' il DAX
-   *   "solo"    -> il solo mercato della barra
-   *   "classica"-> la pagina precedente
+   * Cosa mostrare nel cruscotto: una delle quattro scelte, in quest'ordine.
    *
-   * Prima il cruscotto ignorava la barra dei mercati (leggeva sempre MIB30 +
-   * DAX): con `ETC` selezionato in barra mostrava titoli MIB30 e DAX, e il
-   * pulsante ETC sembrava inutile. Ora la barra comanda sempre.
+   *   "MIB30"      -> il solo MIB30
+   *   "DAX"        -> il solo DAX
+   *   "MIB30+DAX"  -> i due insieme, ordinati per punteggio
+   *   "ETC"        -> il solo ETC
+   *
+   * Sono esattamente le quattro che servono. La pagina `Classica` e la barra dei
+   * mercati complete non compaiono piu' in questa tab.
    */
-  const [modoCruscotto, setModoCruscotto] = useState<"insieme" | "solo" | "classica">("insieme");
+  const [sceltaHighlights, setSceltaHighlights] = useState<"MIB30" | "DAX" | "MIB30+DAX" | "ETC">("MIB30+DAX");
   const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
   /**
    * I titoli del DAX, per il cruscotto "MIB30 + DAX".
@@ -605,7 +606,7 @@ export default function App() {
     queryKey: ["watchlist", "DAX", "All", 0, 1, 2000, rankN, null, null],
     queryFn: () => fetchWatchlist({ market: "DAX", tab: "All", search: "", minVolume: 0, page: 1, pageSize: 2000, rankN, sortKey: null, sortDir: null }),
     // Si scarica solo quando serve davvero: in "solo" e in "classica" non parte.
-    enabled: tab === "📊 Highlights" && modoCruscotto === "insieme" && market !== "DAX",
+    enabled: tab === "📊 Highlights" && (sceltaHighlights === "DAX" || sceltaHighlights === "MIB30+DAX"),
     staleTime: 60_000,
   });
   const daxItems: WatchlistRow[] = daxHighlightsQuery.data?.items ?? [];
@@ -615,11 +616,12 @@ export default function App() {
    * due elenchi: i blocchi li riordinano poi per punteggio, quindi MIB30 e DAX
    * si mescolano dove ha senso.
    */
-  const righeCruscotto: WatchlistRow[] = modoCruscotto === "insieme" && market !== "DAX"
-    // Il DAX si aggiunge al mercato scelto in barra. Se il mercato E' il DAX non
-    // si aggiunge nulla, altrimenti i titoli comparirebbero due volte.
-    ? [...highlightsItems, ...daxItems]
-    : highlightsItems;
+  const righeCruscotto: WatchlistRow[] = sceltaHighlights === "DAX"
+    ? daxItems
+    : sceltaHighlights === "MIB30+DAX"
+      // `highlightsItems` segue `market`, che per questa scelta vale MIB30.
+      ? [...highlightsItems, ...daxItems]
+      : highlightsItems;
 
   // Selezione fatta cliccando una tessera di Highlights: filtra QUESTA pagina.
   // Volutamente separata dai filtri della tab All, che restano indipendenti.
@@ -1357,80 +1359,41 @@ export default function App() {
           mercato scelto altrove, senza modo di cambiarlo. Qui basta il mercato:
           la sezione ha gia' i suoi filtri per fase e indicazione, e non usa ne'
           il volume minimo ne' la barra di ordinamento. */}
-      {/* Una barra sola: i mercati e i comandi di lettura, senza due riquadri
-          impilati. Il separatore distingue "quale mercato" da "come leggerlo". */}
+      {/* Le quattro scelte del cruscotto, in una fila sola. Prima qui c'erano due
+          gruppi di pulsanti piu' la barra dei mercati completa: troppi comandi. */}
       {tab === "📊 Highlights" ? (
-        <div className="market-picker-bar hl-barra-unica">
-          <MarketPickerBar
-            markets={marketsQuery.data}
-            market={market}
-            onSelect={(m) => {
-              setMarket(m);
-              setPage(1);
-              setHighlightTile(null);
-              // Toccare la barra significa "voglio QUESTO mercato": l'aggiunta del
-              // DAX si toglie, altrimenti i due comandi si contraddicono.
-              setModoCruscotto("solo");
-            }}
-          />
-          {highlightsItems.length ? <span className="hl-sep" aria-hidden="true" /> : null}
-          {highlightsItems.length ? (
-            <div className="hl-barra">
-              <div className="view-switch hl-switch">
-                <button
-                  type="button"
-                  className={modoCruscotto !== "classica" ? "active" : ""}
-                  onClick={() => setModoCruscotto("insieme")}
-                >
-                  Cruscotto
-                </button>
-                <button
-                  type="button"
-                  className={modoCruscotto === "classica" ? "active" : ""}
-                  onClick={() => setModoCruscotto("classica")}
-                >
-                  Classica
-                </button>
-              </div>
-              {/* Cosa mostrare, rispetto al mercato scelto qui accanto. */}
-              {modoCruscotto !== "classica" ? (
-                <div className="view-switch hl-switch">
-                  <button
-                    type="button"
-                    className={modoCruscotto === "insieme" ? "active" : ""}
-                    onClick={() => setModoCruscotto("insieme")}
-                    title="Il mercato scelto qui accanto, più il DAX"
-                  >
-                    + DAX
-                  </button>
-                  <button
-                    type="button"
-                    className={modoCruscotto === "solo" ? "active" : ""}
-                    onClick={() => setModoCruscotto("solo")}
-                    title="Solo il mercato scelto qui accanto"
-                  >
-                    Solo {market.replace(/_/g, " ")}
-                  </button>
-                  <button
-                    type="button"
-                    className={market === "DAX" && modoCruscotto === "solo" ? "active" : ""}
-                    onClick={() => { setMarket("DAX"); setPage(1); setModoCruscotto("solo"); }}
-                    title="Passa al solo DAX"
-                  >
-                    DAX
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+        <div className="hl-scelta">
+          {(["MIB30", "DAX", "MIB30+DAX", "ETC"] as const).map((scelta) => (
+            <button
+              key={scelta}
+              type="button"
+              className={`market-chip${sceltaHighlights === scelta ? " selected" : ""}`}
+              aria-pressed={sceltaHighlights === scelta}
+              onClick={() => {
+                setSceltaHighlights(scelta);
+                // Il mercato condiviso segue la scelta: senza questo, passando a
+                // un'altra tab con "ETC" si vedrebbe ancora il MIB30.
+                setMarket(scelta === "MIB30+DAX" ? "MIB30" : scelta);
+                setPage(1);
+                setHighlightTile(null);
+              }}
+            >
+              {scelta}
+            </button>
+          ))}
         </div>
       ) : null}
 
-      {tab === "📊 Highlights" && highlightsItems.length && modoCruscotto !== "classica" ? (
+      {tab === "📊 Highlights" && (highlightsItems.length || daxItems.length) ? (
         <HighlightsDashboard righe={righeCruscotto} onChart={openChart} />
       ) : null}
 
-      {tab === "📊 Highlights" && highlightsItems.length && modoCruscotto === "classica" ? <section className="highlights-panel">
+      {/* Pagina precedente. Non e' piu' fra le quattro scelte, quindi non compare;
+          il codice resta per poterla riattivare. `sceltaHighlights` non puo' valere
+          "Classica" per come e' tipizzato, quindi il confronto e' sempre falso —
+          ma e' una condizione vera per il compilatore, che cosi' continua a
+          restringere i tipi nel ramo (con `false &&` non lo faceva piu'). */}
+      {tab === "📊 Highlights" && highlightsItems.length && String(sceltaHighlights) === "Classica" ? <section className="highlights-panel">
         <h2>Highlights {market}</h2>
         <div className="highlights-split">
           <section className="highlights-block">

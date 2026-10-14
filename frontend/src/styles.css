@@ -798,30 +798,22 @@ textarea {
    Quattro blocchi che dicono cosa guardare. Su telefono vanno in colonna;
    da tablet in su stanno affiancati. `min-width: 0` sui figli perche' i
    motivi sono frasi lunghe e senza quello il grid non li fa andare a capo. */
-/* Una barra sola in cima alla pagina Highlights: i mercati, un separatore, i
-   comandi di lettura. Dentro c'e' anche `MarketPickerBar`, che ha lo stile di
-   cornice: qui il suo riquadro va annullato, altrimenti si vedrebbe un bordo
-   dentro un altro bordo. */
-.market-picker-bar.hl-barra-unica {
-  gap: .5rem .8rem;
+/* Le quattro scelte del cruscotto, in una fila sola: MIB30 | DAX | MIB30+DAX |
+   ETC. Su telefono vanno a capo invece di stringersi. */
+.hl-scelta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin: 0 0 .9rem 0;
+  padding: .5rem .7rem;
+  background: rgba(10, 25, 47, .35);
+  border: 1px solid rgba(184, 216, 246, .12);
+  border-radius: 10px;
 }
-.market-picker-bar.hl-barra-unica .market-picker-bar {
-  background: none;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  gap: 0;
-}
-/* Separatore verticale fra "quale mercato" e "come leggerlo". Su schermo stretto
-   non serve: i gruppi vanno a capo e la riga sarebbe fuori posto. */
-.hl-sep {
-  align-self: stretch;
-  width: 1px;
-  min-height: 1.6rem;
-  background: rgba(184, 216, 246, .18);
-}
-@media (max-width: 760px) {
-  .hl-sep { display: none; }
+.hl-scelta .market-chip {
+  font-size: .82rem;
+  padding: .4rem .8rem;
 }
 .hl-barra {
   display: flex;
