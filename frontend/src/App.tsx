@@ -25,6 +25,7 @@ import ListManagerPanel from "./components/ListManagerPanel";
 import PatternManagerPanel from "./components/PatternManagerPanel";
 import MarketHeatmapPanel from "./components/MarketHeatmapPanel";
 import NewsArchive from "./components/NewsArchive";
+import Portafogli from "./components/Portafogli";
 import IndicatorsTablePanel from "./components/IndicatorsTablePanel";
 import MonitorPanel from "./components/MonitorPanel";
 import type { AlertRule, WatchlistRow, QuickAlertField } from "./types";
@@ -52,6 +53,7 @@ import {
 const tabs = [
   "🎯 Monitor",
   "📊 Highlights",
+  "💼 Portafogli",
   "🔥 Heatmap",
   "All",
   "🧪 Multi-Pattern Lab",
@@ -572,7 +574,7 @@ export default function App() {
     // (misurato: da 8723px a 844px). Cosi' la posizione di scorrimento si conserva.
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
-    enabled: tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
+    enabled: tab !== "🎯 Monitor" && tab !== "💼 Portafogli" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📈 Indicatori" && tab !== "🔥 Heatmap"
   });
 
   // Ripristino la posizione quando i dati del nuovo mercato sono a schermo.
@@ -1356,6 +1358,7 @@ export default function App() {
         />
       ) : null}
       {tab === "📰 Archivio News" ? <NewsArchive /> : null}
+      {tab === "💼 Portafogli" ? <Portafogli /> : null}
       {/* Legenda delle sigle: le card usano quattro assi e molte abbreviazioni.
           Richiudibile e sempre presente, così chi guarda capisce senza chiedere. */}
 
@@ -1602,11 +1605,11 @@ export default function App() {
         <div className="highlights-dual-list"><div className="highlights-list"><h3>Migliori del giorno</h3>{[...highlightsDelGiorno].sort((a,b) => Number(b.PCTV_1D ?? 0) - Number(a.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-up" key={`best-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0) >= 0 ? "+" : ""}{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div><div className="highlights-list"><h3>Peggiori del giorno</h3>{[...highlightsDelGiorno].sort((a,b) => Number(a.PCTV_1D ?? 0) - Number(b.PCTV_1D ?? 0)).slice(0, 5).map((row) => <button className="highlight-row trend-down" key={`worst-${String(row.Ticker)}`} onClick={() => openChart(row)}><strong>{String(row.Ticker)}</strong><b>{Number(row.PCTV_1D ?? 0).toFixed(2)}%</b><em>Grafico</em></button>)}</div></div>
       </section> : null}
 
-      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
-      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && !watchlistQuery.isLoading && watchlistQuery.isFetching ? <p className="muted" style={{ margin: ".2rem 0 .4rem 0", fontSize: ".78rem" }}>Aggiorno {market.replace(/_/g, " ")}… i titoli a schermo sono ancora quelli di prima</p> : null}
-      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "💼 Portafogli" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isLoading ? <p>Carico watchlist...</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "💼 Portafogli" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && !watchlistQuery.isLoading && watchlistQuery.isFetching ? <p className="muted" style={{ margin: ".2rem 0 .4rem 0", fontSize: ".78rem" }}>Aggiorno {market.replace(/_/g, " ")}… i titoli a schermo sono ancora quelli di prima</p> : null}
+      {tab !== "🎯 Monitor" && tab !== "💼 Portafogli" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.isError ? <p className="err">{String(watchlistQuery.error)}</p> : null}
 
-      {tab !== "🎯 Monitor" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
+      {tab !== "🎯 Monitor" && tab !== "💼 Portafogli" && tab !== "Alerts" && tab !== "AI chat" && tab !== "🧪 Multi-Pattern Lab" && tab !== "Analizza" && tab !== "Liste" && tab !== "📰 Archivio News" && tab !== "📊 Highlights" && tab !== "📈 Indicatori" && tab !== "🔧 Gestione Pattern" && tab !== "🔥 Heatmap" && watchlistQuery.data ? (
         <>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",

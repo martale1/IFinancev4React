@@ -46,3 +46,6 @@ frontend/src/versioneCostruita.ts
 
 # Stato del confronto "Nuovi oggi": lo scrive il backend a ogni analisi.
 analyses/highlights_state.json
+
+# Dati di runtime del portafoglio virtuale (posizioni, operazioni, storico).
+analyses/portafogli/

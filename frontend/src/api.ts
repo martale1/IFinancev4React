@@ -16,7 +16,7 @@ import type {
   MonitorResponse
 } from "./types";
 
-const API_BASE = "/api";
+export const API_BASE = "/api";
 
 export type ChartSnapshot = {
   ticker: string;
@@ -45,7 +45,7 @@ export type NewsReport = {
   sources: NewsSource[];
 };
 
-async function parseJson<T>(resp: Response): Promise<T> {
+export async function parseJson<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
     let detail = `${resp.status} ${resp.statusText}`;
     try {

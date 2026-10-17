@@ -74,6 +74,7 @@ from app.services.custom_watchlists_service import (
 from app.services.export_service import generate_buy_pdf_for_market
 from app.services.quote_service import latest_quote, chart_snapshot
 from app.services import highlights_service
+from app.services import portfolio_service
 from app.services.monitor_service import (
     list_monitor_items,
     monitor_records,
@@ -1119,6 +1120,34 @@ import base64
 from pydantic import BaseModel
 import analysis_settings  # scelta dei mercati condivisa con main.py
 
+class PortfolioCreateRequest(BaseModel):
+    nome: str
+    capitale: float
+    preset: str = "bilanciato"
+    parametri: dict[str, Any] | None = None
+    note: str = ""
+
+
+class PortfolioUpdateRequest(BaseModel):
+    nome: str | None = None
+    stato: str | None = None
+    parametri: dict[str, Any] | None = None
+    note: str | None = None
+
+
+class PortfolioBuyRequest(BaseModel):
+    ticker: str
+    importo_eur: float | None = None
+    quantita: int | None = None
+    motivo: str = ""
+
+
+class PortfolioSellRequest(BaseModel):
+    ticker: str
+    motivo: str = "manuale"
+    quantita: int | None = None
+
+
 class AnalyzeChartRequest(BaseModel):
     ticker: str
     market: str
@@ -1377,6 +1406,125 @@ def _mount_frontend() -> None:
         # deve essere sempre fresca per lo stesso motivo.
         return FileResponse(index_file, headers=senza_cache)
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# Portafoglio virtuale (fase 1: creazione, compravendita manuale, valutazione)
+# ═══════════════════════════════════════════════════════════════════════
+
+@app.get("/api/portafogli")
+def portafogli_elenco() -> dict[str, Any]:
+    """Elenco dei portafogli con i numeri essenziali."""
+    try:
+        return {"portafogli": portfolio_service.elenco()}
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.post("/api/portafogli")
+def portafogli_crea(req: PortfolioCreateRequest) -> dict[str, Any]:
+    try:
+        pf = portfolio_service.crea(
+            nome=req.nome,
+            capitale=req.capitale,
+            preset=req.preset,
+            parametri=req.parametri,
+            note=req.note,
+        )
+        return {"portafoglio": portfolio_service.valuta(pf)}
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.get("/api/portafogli/{pid}")
+def portafogli_dettaglio(pid: str) -> dict[str, Any]:
+    try:
+        return {"portafoglio": portfolio_service.valuta(portfolio_service.leggi(pid))}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.patch("/api/portafogli/{pid}")
+def portafogli_aggiorna(pid: str, req: PortfolioUpdateRequest) -> dict[str, Any]:
+    try:
+        pf = portfolio_service.aggiorna(
+            pid, nome=req.nome, stato=req.stato, parametri=req.parametri, note=req.note
+        )
+        return {"portafoglio": portfolio_service.valuta(pf)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+
+
+@app.delete("/api/portafogli/{pid}")
+def portafogli_archivia(pid: str) -> dict[str, Any]:
+    """Archivia: lo storico delle operazioni non si cancella."""
+    try:
+        portfolio_service.elimina(pid)
+        return {"stato": "archiviato", "id": pid}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+
+
+@app.get("/api/portafogli/{pid}/anteprima")
+def portafogli_anteprima(pid: str, ticker: str, importo_eur: float | None = None) -> dict[str, Any]:
+    """Cosa succederebbe comprando adesso: quantita', costi, perdita massima."""
+    try:
+        return portfolio_service.anteprima_acquisto(pid, ticker, importo_eur)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.post("/api/portafogli/{pid}/compra")
+def portafogli_compra(pid: str, req: PortfolioBuyRequest) -> dict[str, Any]:
+    try:
+        esito = portfolio_service.compra(
+            pid, req.ticker, importo_eur=req.importo_eur, quantita=req.quantita, motivo=req.motivo
+        )
+        return {
+            "esito": esito,
+            "portafoglio": portfolio_service.valuta(esito["portafoglio"]),
+        }
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.post("/api/portafogli/{pid}/vendi")
+def portafogli_vendi(pid: str, req: PortfolioSellRequest) -> dict[str, Any]:
+    try:
+        esito = portfolio_service.vendi(pid, req.ticker, motivo=req.motivo, quantita=req.quantita)
+        return {
+            "esito": esito,
+            "portafoglio": portfolio_service.valuta(esito["portafoglio"]),
+        }
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
+@app.get("/api/portafogli/{pid}/operazioni")
+def portafogli_operazioni(pid: str) -> dict[str, Any]:
+    """Storico delle operazioni chiuse, dalla piu' recente."""
+    try:
+        righe = portfolio_service.leggi_righe(pid, "_operazioni")
+        return {"operazioni": list(reversed(righe))}
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
 
 _mount_frontend()
 

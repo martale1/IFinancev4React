@@ -1,0 +1,486 @@
+/**
+ * Portafoglio virtuale — fase 1.
+ *
+ * Cosa si puo' fare qui: creare piu' portafogli indipendenti, comprare e vendere
+ * a mano, vedere valore, P/L, costi e distanza dallo stop.
+ *
+ * Cosa NON c'e' ancora (fasi successive): uscite automatiche, ingressi da
+ * segnale, motore ogni 15 minuti. La schermata lo dice, perche' un numero senza
+ * la sua avvertenza e' una bugia.
+ *
+ * Tutti gli importi mostrati sono in EURO, tranne il prezzo dello strumento che
+ * resta nella sua valuta (indicata accanto).
+ */
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import {
+  anteprimaAcquisto,
+  archiviaPortafoglio,
+  compraTitolo,
+  creaPortafoglio,
+  fetchOperazioniPortafoglio,
+  fetchPortafogli,
+  fetchPortafoglio,
+  vendiTitolo,
+} from "../portafoglioApi";
+import type { AnteprimaAcquisto, OperazioneChiusa } from "../portafoglioTipi";
+import { toNum } from "../format";
+
+/** Importo con la virgola italiana; i centesimi servono sempre. */
+function euro(valore: unknown): string {
+  const n = toNum(valore);
+  if (n === null) return "—";
+  return `${n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
+/** Percentuale con segno. */
+function perc(valore: unknown): string {
+  const n = toNum(valore);
+  if (n === null) return "—";
+  return `${n > 0 ? "+" : ""}${n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+/** Prezzo dello strumento: tre decimali sotto i 5, due sopra. */
+function prezzo(valore: unknown): string {
+  const n = toNum(valore);
+  if (n === null) return "—";
+  const dec = Math.abs(n) < 5 ? 3 : 2;
+  return n.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function classeDaSegno(valore: unknown): string {
+  const n = toNum(valore);
+  if (n === null || n === 0) return "neutral";
+  return n > 0 ? "positive" : "negative";
+}
+
+const PRESET = [
+  { chiave: "conservativo", etichetta: "Conservativo", nota: "rischio 0,5% · max 5% per titolo · stop 1,5 ATR" },
+  { chiave: "bilanciato", etichetta: "Bilanciato", nota: "rischio 1% · max 10% per titolo · stop 2 ATR" },
+  { chiave: "aggressivo", etichetta: "Aggressivo", nota: "rischio 2% · max 20% per titolo · stop 2,5 ATR" },
+];
+
+export default function Portafogli() {
+  const qc = useQueryClient();
+  const [scelto, setScelto] = useState<string | null>(null);
+  const [creando, setCreando] = useState(false);
+  const [errore, setErrore] = useState("");
+
+  // ── creazione ───────────────────────────────────────────────────────
+  const [nome, setNome] = useState("");
+  const [capitale, setCapitale] = useState("10000");
+  const [preset, setPreset] = useState("bilanciato");
+
+  // ── acquisto ────────────────────────────────────────────────────────
+  const [ticker, setTicker] = useState("");
+  const [importo, setImporto] = useState("");
+  const [anteprima, setAnteprima] = useState<AnteprimaAcquisto | null>(null);
+
+  // ── vendita: due passaggi, perche' e' denaro (anche se finto) ───────
+  const [uscita, setUscita] = useState<string | null>(null);
+
+  const elencoQuery = useQuery({ queryKey: ["portafogli"], queryFn: fetchPortafogli });
+  const dettaglioQuery = useQuery({
+    queryKey: ["portafoglio", scelto],
+    queryFn: () => fetchPortafoglio(String(scelto)),
+    enabled: Boolean(scelto),
+  });
+  const operazioniQuery = useQuery({
+    queryKey: ["portafoglio-operazioni", scelto],
+    queryFn: () => fetchOperazioniPortafoglio(String(scelto)),
+    enabled: Boolean(scelto),
+  });
+
+  const ricarica = async (id?: string | null) => {
+    await qc.invalidateQueries({ queryKey: ["portafogli"] });
+    if (id) {
+      await qc.invalidateQueries({ queryKey: ["portafoglio", id] });
+      await qc.invalidateQueries({ queryKey: ["portafoglio-operazioni", id] });
+    }
+  };
+
+  const creaMut = useMutation({
+    mutationFn: () => creaPortafoglio({ nome, capitale: Number(capitale.replace(",", ".")), preset }),
+    onSuccess: async (pf) => {
+      setCreando(false);
+      setNome("");
+      setScelto(pf.id);
+      setErrore("");
+      await ricarica(pf.id);
+    },
+    onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Creazione non riuscita"),
+  });
+
+  const compraMut = useMutation({
+    mutationFn: () =>
+      compraTitolo(String(scelto), {
+        ticker,
+        importo_eur: importo.trim() ? Number(importo.replace(",", ".")) : undefined,
+        motivo: "acquisto manuale",
+      }),
+    onSuccess: async () => {
+      setAnteprima(null);
+      setTicker("");
+      setImporto("");
+      setErrore("");
+      await ricarica(scelto);
+    },
+    onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Acquisto non riuscito"),
+  });
+
+  const vendiMut = useMutation({
+    mutationFn: (tk: string) => vendiTitolo(String(scelto), { ticker: tk, motivo: "manuale" }),
+    onSuccess: async () => {
+      setUscita(null);
+      setErrore("");
+      await ricarica(scelto);
+    },
+    onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Vendita non riuscita"),
+  });
+
+  const archiviaMut = useMutation({
+    mutationFn: (id: string) => archiviaPortafoglio(id),
+    onSuccess: async () => {
+      setScelto(null);
+      await ricarica();
+    },
+    onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Archiviazione non riuscita"),
+  });
+
+  const caricaAnteprima = async () => {
+    if (!scelto || !ticker.trim()) return;
+    setErrore("");
+    try {
+      const risultato = await anteprimaAcquisto(
+        scelto,
+        ticker.trim().toUpperCase(),
+        importo.trim() ? Number(importo.replace(",", ".")) : undefined,
+      );
+      setAnteprima(risultato);
+    } catch (e) {
+      setAnteprima(null);
+      setErrore(e instanceof Error ? e.message : "Anteprima non disponibile");
+    }
+  };
+
+  const dettaglio = dettaglioQuery.data;
+  const operazioni = operazioniQuery.data ?? [];
+
+  const totaleGenerale = useMemo(() => {
+    const portafogli = elencoQuery.data ?? [];
+    return portafogli.reduce((somma, p) => somma + (toNum(p.capitale_iniziale) ?? 0), 0);
+  }, [elencoQuery.data]);
+
+  return (
+    <div className="pf">
+      <header className="pf-testata">
+        <div>
+          <h2>Portafogli virtuali</h2>
+          <p className="pf-sottotitolo">
+            Capitale simulato, prezzi reali. Prima fase: compravendita manuale con costi veri
+            (0,19% minimo 2,95 €, Tobin 0,10%, cambio 0,25%).
+          </p>
+        </div>
+        <button type="button" className="btn primary" onClick={() => setCreando((v) => !v)}>
+          {creando ? "Chiudi" : "+ Nuovo portafoglio"}
+        </button>
+      </header>
+
+      {errore ? <div className="error-banner">{errore}</div> : null}
+
+      {creando ? (
+        <section className="pf-crea">
+          <label>
+            Nome
+            <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Bilanciato 2026" />
+          </label>
+          <label>
+            Capitale iniziale (€)
+            <input value={capitale} onChange={(e) => setCapitale(e.target.value)} inputMode="decimal" />
+          </label>
+          <label>
+            Profilo di partenza
+            <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+              {PRESET.map((p) => (
+                <option key={p.chiave} value={p.chiave}>{p.etichetta} — {p.nota}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={!nome.trim() || creaMut.isPending}
+            onClick={() => creaMut.mutate()}
+          >
+            {creaMut.isPending ? "Creo..." : "Crea portafoglio"}
+          </button>
+        </section>
+      ) : null}
+
+      {/* ── elenco ─────────────────────────────────────────────────── */}
+      <section className="pf-elenco">
+        {elencoQuery.isLoading ? <p className="muted">Carico i portafogli...</p> : null}
+        {elencoQuery.data?.length === 0 ? (
+          <p className="pf-vuoto">
+            Nessun portafoglio. Creane uno: il capitale e' finto, i prezzi e i costi sono quelli veri.
+          </p>
+        ) : null}
+        {(elencoQuery.data ?? []).map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`pf-riga ${scelto === p.id ? "scelto" : ""} ${p.stato !== "attivo" ? "archiviato" : ""}`}
+            onClick={() => setScelto(p.id === scelto ? null : p.id)}
+          >
+            <span className="pf-riga-nome">
+              <b>{p.nome}</b>
+              <small>{p.stato}</small>
+            </span>
+            <span className="pf-riga-numeri">
+              <b>{euro(p.liquidita)}</b>
+              <small>liquidi · {p.num_posizioni} posizioni · {p.num_operazioni} operazioni</small>
+            </span>
+            <span className="pf-riga-azione">{scelto === p.id ? "▴" : "▾"}</span>
+          </button>
+        ))}
+        {totaleGenerale > 0 ? (
+          <p className="pf-nota">Capitale iniziale complessivo: {euro(totaleGenerale)}</p>
+        ) : null}
+      </section>
+
+      {/* ── dettaglio ──────────────────────────────────────────────── */}
+      {scelto && dettaglio ? (
+        <section className="pf-dettaglio">
+          <header className="pf-dettaglio-testata">
+            <h3>{dettaglio.nome}</h3>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => archiviaMut.mutate(dettaglio.id)}
+              title="Archivia il portafoglio: lo storico delle operazioni resta"
+            >
+              Archivia
+            </button>
+          </header>
+
+          <div className="pf-numeri">
+            <div className="pf-numero">
+              <small>Valore totale</small>
+              <b>{euro(dettaglio.valore_totale)}</b>
+            </div>
+            <div className="pf-numero">
+              <small>Risultato</small>
+              <b className={classeDaSegno(dettaglio.pnl_totale_eur)}>
+                {euro(dettaglio.pnl_totale_eur)} <span>({perc(dettaglio.pnl_totale_pct)})</span>
+              </b>
+            </div>
+            <div className="pf-numero">
+              <small>Liquidi</small>
+              <b>{euro(dettaglio.liquidita)}</b>
+            </div>
+            <div className="pf-numero">
+              <small>Esposizione</small>
+              {/* Non e' una variazione: niente segno + davanti. */}
+              <b>
+                {(toNum(dettaglio.esposizione_pct) ?? 0).toLocaleString("it-IT", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                %
+              </b>
+            </div>
+          </div>
+
+          {/* ── acquisto ───────────────────────────────────────────── */}
+          <div className="pf-acquisto">
+            <div className="pf-acquisto-riga">
+              <input
+                value={ticker}
+                onChange={(e) => {
+                  setTicker(e.target.value);
+                  setAnteprima(null);
+                }}
+                placeholder="Ticker (es. ENI.MI)"
+                aria-label="Ticker da comprare"
+              />
+              <input
+                value={importo}
+                onChange={(e) => {
+                  setImporto(e.target.value);
+                  setAnteprima(null);
+                }}
+                placeholder="Importo € (vuoto = automatico)"
+                inputMode="decimal"
+                aria-label="Importo in euro"
+              />
+              <button type="button" className="btn" onClick={() => void caricaAnteprima()} disabled={!ticker.trim()}>
+                Anteprima
+              </button>
+            </div>
+
+            {anteprima ? (
+              <div className="pf-anteprima">
+                <p className="pf-anteprima-titolo">
+                  {anteprima.nome} · {anteprima.ticker} · {prezzo(anteprima.prezzo)} {anteprima.valuta}
+                  {anteprima.indicazione ? ` · ${anteprima.indicazione}` : ""}
+                  {anteprima.tech_score !== null && anteprima.tech_score !== undefined
+                    ? ` · TECH ${Math.round(Number(anteprima.tech_score))}`
+                    : ""}
+                </p>
+                <div className="pf-anteprima-numeri">
+                  <span>Quantità <b>{anteprima.quantita}</b></span>
+                  <span>Importo <b>{euro(anteprima.importo_eur)}</b></span>
+                  <span>
+                    Costi{" "}
+                    <b>
+                      {euro(
+                        (toNum(anteprima.commissione_eur) ?? 0) +
+                          (toNum(anteprima.imposta_tobin_eur) ?? 0) +
+                          (toNum(anteprima.costo_cambio_eur) ?? 0),
+                      )}
+                    </b>
+                  </span>
+                  <span>Totale <b>{euro(anteprima.totale_eur)}</b></span>
+                  <span>Stop <b>{prezzo(anteprima.stop)}</b></span>
+                  <span>Obiettivo <b>{prezzo(anteprima.obiettivo)}</b></span>
+                  <span>
+                    Perdita massima <b className="negative">{euro(anteprima.perdita_massima_eur)}</b>
+                  </span>
+                </div>
+                <p className="pf-anteprima-limite">
+                  {anteprima.limite === "tetto_titolo"
+                    ? "La quantità è limitata dal tetto per titolo del profilo."
+                    : anteprima.limite === "rischio"
+                      ? "La quantità deriva dal rischio per operazione: è lo stop a determinarla."
+                      : anteprima.limite === "cassa"
+                        ? "La quantità è limitata dalla liquidità disponibile."
+                        : "Quantità basata sull'importo che hai indicato, entro i limiti del profilo."}
+                  {anteprima.ordine_troppo_piccolo ? " Attenzione: ordine sotto il minimo consigliato, le commissioni pesano." : ""}
+                </p>
+                <div className="pf-anteprima-azioni">
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={compraMut.isPending || anteprima.quantita <= 0}
+                    onClick={() => compraMut.mutate()}
+                  >
+                    {compraMut.isPending ? "Compro..." : `Compra ${anteprima.quantita} × ${prezzo(anteprima.prezzo)}`}
+                  </button>
+                  <button type="button" className="btn ghost" onClick={() => setAnteprima(null)}>
+                    Annulla
+                  </button>
+                </div>
+                <p className="pf-avvertenza">
+                  Prezzo di esecuzione: quello visto dall&apos;app adesso. Può avere un ritardo fino a 15 minuti.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          {/* ── posizioni ──────────────────────────────────────────── */}
+          <h4 className="pf-sezione">
+            Posizioni <span className="pf-conteggio">{dettaglio.posizioni.length}</span>
+          </h4>
+          {dettaglio.posizioni.length === 0 ? (
+            <p className="pf-vuoto">Nessuna posizione aperta.</p>
+          ) : (
+            <div className="pf-posizioni">
+              {dettaglio.posizioni.map((pos) => (
+                <div className="pf-posizione" key={pos.id}>
+                  <div className="pf-posizione-testa">
+                    <span className="pf-posizione-ticker">
+                      <b>{pos.ticker}</b>
+                      <small>{pos.nome}</small>
+                    </span>
+                    <span className="pf-posizione-prezzo">
+                      <b>{prezzo(pos.prezzo_corrente)}</b>
+                      <small className={classeDaSegno(pos.pnl_pct)}>{perc(pos.pnl_pct)}</small>
+                    </span>
+                  </div>
+                  <div className="pf-posizione-numeri">
+                    <span>Quantità <b>{pos.quantita}</b></span>
+                    <span>Ingresso <b>{prezzo(pos.prezzo_ingresso)}</b></span>
+                    <span>Valore <b>{euro(pos.valore_eur)}</b></span>
+                    <span>
+                      P/L{" "}
+                      <b className={classeDaSegno(pos.pnl_eur)}>{euro(pos.pnl_eur)}</b>
+                    </span>
+                    <span>Stop <b>{prezzo(pos.stop_attuale)}</b></span>
+                    <span>
+                      Distanza stop{" "}
+                      <b className={classeDaSegno(-(pos.distanza_stop_pct ?? 0))}>
+                        {pos.distanza_stop_pct === null ? "—" : `${pos.distanza_stop_pct.toFixed(2)}%`}
+                      </b>
+                    </span>
+                  </div>
+                  {!pos.prezzo_valido ? (
+                    <p className="pf-avvertenza">Prezzo non disponibile: il valore usa il prezzo d&apos;ingresso.</p>
+                  ) : null}
+                  <div className="pf-posizione-azioni">
+                    {uscita === pos.ticker ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn danger"
+                          disabled={vendiMut.isPending}
+                          onClick={() => vendiMut.mutate(pos.ticker)}
+                        >
+                          {vendiMut.isPending ? "Vendo..." : "Confermo la vendita"}
+                        </button>
+                        <button type="button" className="btn ghost" onClick={() => setUscita(null)}>
+                          No
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="btn ghost" onClick={() => setUscita(pos.ticker)}>
+                        Vendi
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── operazioni chiuse ─────────────────────────────────── */}
+          <h4 className="pf-sezione">
+            Operazioni chiuse <span className="pf-conteggio">{operazioni.length}</span>
+          </h4>
+          {operazioni.length === 0 ? (
+            <p className="pf-vuoto">Ancora nessuna operazione chiusa.</p>
+          ) : (
+            <div className="pf-operazioni">
+              {operazioni.map((op: OperazioneChiusa, indice) => (
+                <div className="pf-operazione" key={`${op.ticker}-${op.data_uscita}-${indice}`}>
+                  <span className="pf-operazione-ticker">
+                    <b>{op.ticker}</b>
+                    <small>{op.motivo_uscita}</small>
+                  </span>
+                  <span className="pf-operazione-date">
+                    <small>{op.data_ingresso} → {op.data_uscita}</small>
+                    <small>{op.quantita} × {prezzo(op.prezzo_ingresso)} → {prezzo(op.prezzo_uscita)}</small>
+                  </span>
+                  <span className={`pf-operazione-esito ${classeDaSegno(op.pnl_netto_eur)}`}>
+                    <b>{euro(op.pnl_netto_eur)}</b>
+                    <small>
+                      {perc(op.pnl_pct)}
+                      {op.r_multiplo !== null && op.r_multiplo !== undefined
+                        ? ` · ${Number(op.r_multiplo) > 0 ? "+" : ""}${Number(op.r_multiplo).toFixed(2)} R`
+                        : ""}
+                    </small>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="pf-nota">
+            Fase 1: le uscite automatiche (stop, obiettivo, trailing) e gli ingressi da segnale
+            arriveranno nelle fasi successive. Gli stop sono calcolati e mostrati, ma non agiscono da soli.
+          </p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
