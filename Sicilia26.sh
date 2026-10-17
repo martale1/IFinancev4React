@@ -34,7 +34,7 @@ if [[ -f "/etc/systemd/system/${UNIT}" ]] && command -v systemctl >/dev/null 2>&
     status)
       if systemctl is-active --quiet "$UNIT"; then
         echo "Sicilia26 attivo (PID $(systemctl show -p MainPID --value "$UNIT"))."
-        echo "  servizio: $UNIT (avviato da ${UNIT} al boot)"
+        echo "  servizio: $UNIT (gestito da systemd)"
         exit 0
       fi
       echo "Sicilia26 non attivo."
