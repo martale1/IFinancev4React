@@ -603,9 +603,15 @@ export default function Portafogli() {
                     <span>Quantità <b>{pos.quantita}</b></span>
                     <span>Ingresso <b>{prezzo(pos.prezzo_ingresso)}</b></span>
                     <span>Valore <b>{euro(pos.valore_eur)}</b></span>
-                    <span>
-                      P/L{" "}
+                    <span title="Solo movimento di prezzo: non comprende le commissioni">
+                      Prezzo{" "}
                       <b className={classeDaSegno(pos.pnl_eur)}>{euro(pos.pnl_eur)}</b>
+                      <small className="pf-piccolo">{perc(pos.pnl_pct)}</small>
+                    </span>
+                    <span title="Se vendessi adesso: dopo commissioni di acquisto e vendita, Tobin e slippage">
+                      Netto{" "}
+                      <b className={classeDaSegno(pos.pnl_netto_eur)}>{euro(pos.pnl_netto_eur)}</b>
+                      <small className="pf-piccolo">{perc(pos.pnl_netto_pct)}</small>
                     </span>
                     <span>Stop <b>{prezzo(pos.stop_attuale)}</b></span>
                     <span>
@@ -615,6 +621,18 @@ export default function Portafogli() {
                       </b>
                     </span>
                   </div>
+                  <p className="pf-costi-posizione">
+                    Costi d&apos;ingresso {euro(pos.costi_ingresso_eur)} · costo di vendita{" "}
+                    {euro(pos.costo_vendita_eur)} · per andare in pari serve{" "}
+                    <b>
+                      {(
+                        ((toNum(pos.costi_ingresso_eur) ?? 0) + (toNum(pos.costo_vendita_eur) ?? 0)) /
+                        Math.max(Number(pos.importo_investito_eur ?? pos.valore_eur ?? 1), 1) *
+                        100
+                      ).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      %
+                    </b>
+                  </p>
                   {!pos.prezzo_valido ? (
                     <p className="pf-avvertenza">Prezzo non disponibile: il valore usa il prezzo d&apos;ingresso.</p>
                   ) : null}

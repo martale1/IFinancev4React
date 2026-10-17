@@ -4257,3 +4257,7 @@ td {
 .pf-manuale { border: 1px solid rgba(174,216,249,.12); border-radius: 9px; padding: .35rem .55rem; }
 .pf-manuale summary { cursor: pointer; font-size: .74rem; color: #9fb7cf; }
 .pf-manuale[open] summary { margin-bottom: .45rem; }
+/* Costi della posizione: la riga che spiega perche' si parte in perdita. */
+.pf-costi-posizione { margin: 0; font-size: .68rem; color: #7899b8; line-height: 1.45; }
+.pf-costi-posizione b { color: #fbbf24; }
+.pf-piccolo { font-size: .64rem; color: #7899b8; margin-left: .15rem; }

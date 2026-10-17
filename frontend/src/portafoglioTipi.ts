@@ -21,8 +21,15 @@ export type PosizionePortafoglio = {
   prezzo_ingresso: number;
   prezzo_corrente: number;
   valore_eur: number;
+  /** Solo movimento di prezzo, senza commissioni. */
   pnl_eur: number;
   pnl_pct: number;
+  /** Se vendessi adesso: dopo commissioni di acquisto e vendita, Tobin e slippage. */
+  pnl_netto_eur: number;
+  pnl_netto_pct: number;
+  costi_ingresso_eur: number;
+  costo_vendita_eur: number;
+  importo_investito_eur?: number;
   stop_iniziale: number;
   stop_attuale: number;
   obiettivo: number;
@@ -33,6 +40,7 @@ export type PosizionePortafoglio = {
   prezzo_valido: boolean;
   prezzo_fonte?: string;
 };
+
 
 export type StatistichePortafoglio = {
   vinte: number;

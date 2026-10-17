@@ -823,12 +823,34 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
         stop = float(pos.get("stop_attuale") or 0.0)
         distanza_stop = (prezzo - stop) / prezzo * 100.0 if prezzo and stop else None
 
+        # Il P/L del solo prezzo non basta: comprare costa. Qui si calcola anche
+        # quanto resterebbe VENDENDO ADESSO, dopo commissione d'ingresso, Tobin,
+        # slippage e commissione di vendita. Senza questo, una posizione appena
+        # aperta sembra in perdita di pochi centesimi quando in realta' ha gia'
+        # lasciato sul tavolo lo 0,3-0,4%.
+        costi_ingresso = (
+            float(pos.get("commissione_ingresso_eur", 0.0))
+            + float(pos.get("imposta_tobin_eur", 0.0))
+            + float(pos.get("costo_cambio_eur", 0.0))
+        )
+        ricavo_lordo = q * prezzo * cambio
+        comm_vendita = commissione(ricavo_lordo)
+        cambio_vendita = ricavo_lordo * CAMBIO_PCT if valuta_pos != "EUR" else 0.0
+        incasso_netto = ricavo_lordo - comm_vendita - cambio_vendita
+        costo_ingresso_totale = float(pos.get("importo_investito_eur", 0.0)) + costi_ingresso
+        pnl_netto = incasso_netto - costo_ingresso_totale
+
         voce.update({
             "prezzo_corrente": _arrotonda_prezzo(prezzo),
             "cambio_corrente": round(cambio, 6),
             "valore_eur": round(valore_eur, 2),
             "pnl_eur": round(pnl_eur, 2),
             "pnl_pct": round(pnl_pct, 2),
+            # "Se vendessi adesso": tutti i costi, andata e ritorno.
+            "costi_ingresso_eur": round(costi_ingresso, 2),
+            "costo_vendita_eur": round(comm_vendita + cambio_vendita, 2),
+            "pnl_netto_eur": round(pnl_netto, 2),
+            "pnl_netto_pct": round(pnl_netto / costo_ingresso_totale * 100.0, 2) if costo_ingresso_totale else 0.0,
             "distanza_stop_pct": round(distanza_stop, 2) if distanza_stop is not None else None,
             "prezzo_valido": valida,
             "prezzo_fonte": fonte,
