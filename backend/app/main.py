@@ -1483,6 +1483,22 @@ def portafogli_anteprima(pid: str, ticker: str, importo_eur: float | None = None
         raise HTTPException(status_code=500, detail=str(errore))
 
 
+@app.post("/api/portafogli/{pid}/esegui")
+def portafogli_esegui(pid: str) -> dict[str, Any]:
+    """Un giro di ingressi decisi dal sistema, secondo il profilo del portafoglio.
+
+    Non vende: le uscite automatiche sono la fase 2.
+    """
+    try:
+        return portfolio_service.esegui_giro(pid)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except (ValueError, LookupError) as errore:
+        raise HTTPException(status_code=400, detail=str(errore))
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
 @app.get("/api/portafogli/{pid}/candidati")
 def portafogli_candidati(pid: str, q: str = Query(default="")) -> dict[str, Any]:
     """Titoli dei mercati abilitati che corrispondono al testo cercato."""

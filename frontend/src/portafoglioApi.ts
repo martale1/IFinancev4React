@@ -114,3 +114,30 @@ export async function fetchCandidati(
   const dati = await parseJson<{ candidati: Array<{ ticker: string; nome: string; mercato: string }> }>(resp);
   return dati.candidati ?? [];
 }
+
+export type EsitoGiro = {
+  portafoglio: Portafoglio;
+  eseguiti: Array<{
+    ticker: string;
+    nome: string;
+    mercato: string;
+    quantita: number;
+    prezzo: number;
+    importo_eur: number;
+    tech_score: number;
+    indicazione: string;
+    stop: number;
+  }>;
+  scarti: Array<{ ticker: string; motivo: string; dettaglio?: string }>;
+  candidati_valutati: number;
+  analisi_usate: Record<string, string>;
+  liquidita_dopo: number;
+};
+
+/** Un giro di ingressi decisi dal sistema, secondo il profilo del portafoglio. */
+export async function eseguiGiro(id: string): Promise<EsitoGiro> {
+  const resp = await fetch(`${API_BASE}/portafogli/${encodeURIComponent(id)}/esegui`, {
+    method: "POST",
+  });
+  return parseJson<EsitoGiro>(resp);
+}

@@ -294,7 +294,13 @@ def riga_titolo(ticker: str) -> dict[str, Any] | None:
         chiave = f"{mercato}:{simbolo}"
         in_cache = _CACHE_RIGHE.get(chiave)
         if in_cache and in_cache[0] == istante:
-            return in_cache[1] or None
+            # Se in questo mercato il titolo NON c'era, si deve passare al
+            # successivo. Restituire None qui era un difetto vero: al secondo
+            # accesso un titolo DAX risultava "non presente nelle analisi",
+            # quindi non verificabile, quindi non comprabile.
+            if in_cache[1]:
+                return in_cache[1]
+            continue
         try:
             df = load_market_dataframe(mercato)
         except Exception:
@@ -873,6 +879,207 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
             "cambio_pct": CAMBIO_PCT,
             "slippage_pct": SLIPPAGE_PCT,
         },
+    }
+
+
+def _numero(valore: Any) -> float | None:
+    """Numero da una cella dell'Excel, senza sorprese su NaN e stringhe."""
+    try:
+        import math
+
+        f = float(valore)
+        return None if math.isnan(f) or math.isinf(f) else f
+    except (TypeError, ValueError):
+        return None
+
+
+def candidati_da_segnale(pf: dict[str, Any]) -> list[dict[str, Any]]:
+    """I titoli che il profilo accetterebbe, ordinati per forza del segnale.
+
+    Filtri della specifica (tutti obbligatori): indicazione ammessa, TECH_SCORE
+    minimo, rischio ammesso, liquidita' OK, non gia' in portafoglio.
+    """
+    from app.services.watchlist_service import load_market_dataframe
+
+    par = pf.get("parametri", {})
+    ammessi_mercati = [str(m) for m in (par.get("mercati") or [])]
+    ingressi = {str(x).strip().upper() for x in (par.get("ingressi_da") or ["ENTRA"])}
+    rischi = {str(x).strip().upper() for x in (par.get("rischio_ammesso") or [])}
+    tech_min = float(par.get("tech_score_min", 0.0))
+    in_portafoglio = {str(pos.get("ticker", "")).upper() for pos in pf.get("posizioni") or []}
+
+    candidati: list[dict[str, Any]] = []
+    for mercato in ammessi_mercati:
+        try:
+            df = load_market_dataframe(mercato)
+        except Exception:
+            continue
+        if df is None or df.empty or "Ticker" not in df.columns:
+            continue
+
+        for _, riga in df.iterrows():
+            ticker = str(riga.get("Ticker") or "").strip().upper()
+            if not ticker or ticker in in_portafoglio:
+                continue
+
+            indicazione = str(riga.get("Entry_Signal") or "").strip().upper()
+            if indicazione not in ingressi:
+                continue
+            tech = _numero(riga.get("TECH_SCORE"))
+            if tech is None or tech < tech_min:
+                continue
+            rischio = str(riga.get("Rischio_Trend") or "").strip().upper()
+            if rischi and rischio not in rischi:
+                continue
+            liquidita = str(riga.get("Liquidity") or "").strip().upper()
+            if liquidita and liquidita != "OK":
+                continue
+
+            candidati.append({
+                "ticker": ticker,
+                "nome": str(riga.get("Name") or ticker),
+                "mercato": mercato,
+                "indicazione": indicazione,
+                "tech_score": tech,
+                "adx": _numero(riga.get("ADX")),
+                "rischio_trend": rischio,
+            })
+
+    # Ordine: prima il punteggio, poi la solidita' del trend. A parita' di tutto,
+    # il ticker, cosi' due giri con gli stessi dati producono lo stesso risultato.
+    candidati.sort(key=lambda c: (-c["tech_score"], -(c["adx"] or 0.0), c["ticker"]))
+    return candidati
+
+
+def _posizioni_aperte_oggi(pf: dict[str, Any]) -> int:
+    oggi = date.today().isoformat()
+    return sum(1 for pos in pf.get("posizioni") or [] if str(pos.get("data_ingresso")) == oggi)
+
+
+def esegui_giro(pid: str) -> dict[str, Any]:
+    """Un giro completo di soli ingressi, decisi dal sistema.
+
+    Non vende: le uscite automatiche sono la fase 2. Ma prima di comprare
+    controlla tutti i limiti, e ogni rinuncia viene registrata.
+    """
+    pf = leggi(pid)
+    if pf.get("stato") != "attivo":
+        raise ValueError(f"Il portafoglio e' '{pf.get('stato')}': mettilo attivo per eseguire un giro")
+
+    par = pf.get("parametri", {})
+    max_posizioni = int(par.get("max_posizioni", 12))
+    esposizione_max = float(par.get("esposizione_max_pct", 90.0))
+    max_oggi = int(par.get("max_nuove_posizioni_giorno", 3))
+    minimo_ordine = float(par.get("liquidita_minima_ordine_eur", 300.0))
+    gia_oggi = _posizioni_aperte_oggi(pf)
+
+    candidati = candidati_da_segnale(pf)
+    eseguiti: list[dict[str, Any]] = []
+    scarti: list[dict[str, Any]] = []
+    analisi_usate: dict[str, str] = {}
+
+    for candidato in candidati:
+        ticker = candidato["ticker"]
+
+        # Ogni limite viene controllato PRIMA di comprare, e il motivo viene
+        # scritto: senza registro, fra un mese non si sapra' perche' un titolo
+        # promettente non e' entrato.
+        if len(pf.get("posizioni") or []) >= max_posizioni:
+            scarti.append({"ticker": ticker, "motivo": "limite_posizioni",
+                           "dettaglio": f"{len(pf.get('posizioni') or [])} posizioni su {max_posizioni}"})
+            continue
+        if gia_oggi + len(eseguiti) >= max_oggi:
+            scarti.append({"ticker": ticker, "motivo": "limite_giornaliero",
+                           "dettaglio": f"massimo {max_oggi} nuove posizioni al giorno"})
+            continue
+        try:
+            totale = capitale_totale(pf)
+            esposizione = 0.0
+            if totale > 0:
+                valore = sum(
+                    float(p.get("importo_investito_eur", 0.0)) for p in pf.get("posizioni") or []
+                )
+                esposizione = valore / totale * 100.0
+            if esposizione >= esposizione_max:
+                scarti.append({"ticker": ticker, "motivo": "esposizione_massima",
+                               "dettaglio": f"{esposizione:.1f}% su {esposizione_max:.1f}%"})
+                continue
+        except Exception:
+            pass
+
+        # Quanto comprare, con i tre limiti che concorrono.
+        try:
+            riga = riga_titolo(ticker) or {}
+            # "codice_valuta" e non "valuta": dentro questa funzione "valuta" e'
+            # anche il nome della funzione che calcola il dettaglio, e una variabile
+            # locale la nasconderebbe (errore reale: "'str' object is not callable").
+            codice_valuta = valuta_da_ticker(ticker)
+            cambio = cambio_a_eur(codice_valuta)
+            prezzo, _fonte = prezzo_corrente(ticker)
+            atr = _numero(riga.get("ATR"))
+            if not atr:
+                atr_pct = _numero(riga.get("ATR_PCT"))
+                atr = prezzo * atr_pct / 100.0 if atr_pct else None
+            piano = dimensiona(pf, prezzo, cambio, atr)
+            quantita = int(piano["quantita"])
+            importo = float(piano["importo_teorico_eur"])
+        except Exception as errore:
+            scarti.append({"ticker": ticker, "motivo": "prezzo_non_disponibile", "dettaglio": str(errore)})
+            continue
+
+        if quantita <= 0:
+            scarti.append({"ticker": ticker, "motivo": "quantita_zero",
+                           "dettaglio": f"limite raggiunto: {piano.get('limite')}"})
+            continue
+        if importo < minimo_ordine:
+            scarti.append({"ticker": ticker, "motivo": "ordine_troppo_piccolo",
+                           "dettaglio": f"{importo:.0f} € sotto il minimo di {minimo_ordine:.0f} €"})
+            continue
+
+        try:
+            esito = compra(pid, ticker, quantita=quantita,
+                           motivo=f"segnale {candidato['indicazione']} · TECH {round(candidato['tech_score'])}")
+        except Exception as errore:
+            scarti.append({"ticker": ticker, "motivo": "acquisto_non_riuscito", "dettaglio": str(errore)})
+            continue
+
+        pf = esito["portafoglio"]
+        posizione = esito["posizione"]
+        eseguiti.append({
+            "ticker": ticker,
+            "nome": candidato["nome"],
+            "mercato": candidato["mercato"],
+            "quantita": posizione["quantita"],
+            "prezzo": posizione["prezzo_ingresso"],
+            "importo_eur": posizione["importo_investito_eur"],
+            "tech_score": round(candidato["tech_score"], 1),
+            "indicazione": candidato["indicazione"],
+            "stop": posizione["stop_iniziale"],
+        })
+        analisi_usate[candidato["mercato"]] = str(riga.get("Date") or "")[:10]
+
+    for voce in scarti:
+        _aggiungi_riga(pid, "_scarti", {
+            "quando": datetime.now().isoformat(timespec="seconds"),
+            "ticker": voce["ticker"],
+            "motivo": voce["motivo"],
+            "dettaglio": voce.get("dettaglio", ""),
+            "portafoglio": pid,
+        })
+
+    pf = leggi(pid)
+    pf["ultimo_giro"] = datetime.now().isoformat(timespec="seconds")
+    if analisi_usate:
+        pf["analisi_finale_usata"] = ", ".join(f"{m} {d}" for m, d in sorted(analisi_usate.items()))
+    scrivi(pf)
+
+    return {
+        "portafoglio": valuta(pf),
+        "eseguiti": eseguiti,
+        "scarti": scarti,
+        "candidati_valutati": len(candidati),
+        "analisi_usate": analisi_usate,
+        "liquidita_dopo": pf.get("liquidita"),
     }
 
 

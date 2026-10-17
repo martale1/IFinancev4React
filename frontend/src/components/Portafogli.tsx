@@ -20,12 +20,14 @@ import {
   archiviaPortafoglio,
   compraTitolo,
   creaPortafoglio,
+  eseguiGiro,
   fetchCandidati,
   fetchOperazioniPortafoglio,
   fetchPortafogli,
   fetchPortafoglio,
   vendiTitolo,
 } from "../portafoglioApi";
+import type { EsitoGiro } from "../portafoglioApi";
 import type { AnteprimaAcquisto, OperazioneChiusa } from "../portafoglioTipi";
 import { toNum } from "../format";
 
@@ -98,6 +100,8 @@ export default function Portafogli() {
 
   // ── vendita: due passaggi, perche' e' denaro (anche se finto) ───────
   const [uscita, setUscita] = useState<string | null>(null);
+  /** Risultato dell'ultimo giro automatico: chi ha comprato e chi no. */
+  const [esitoGiro, setEsitoGiro] = useState<EsitoGiro | null>(null);
 
   const elencoQuery = useQuery({ queryKey: ["portafogli"], queryFn: fetchPortafogli });
   const dettaglioQuery = useQuery({
@@ -135,6 +139,19 @@ export default function Portafogli() {
       await ricarica(pf.id);
     },
     onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Creazione non riuscita"),
+  });
+
+  const giroMut = useMutation({
+    mutationFn: () => eseguiGiro(String(scelto)),
+    onSuccess: async (esito) => {
+      setEsitoGiro(esito);
+      setErrore("");
+      await ricarica(scelto);
+    },
+    onError: (e: unknown) => {
+      setEsitoGiro(null);
+      setErrore(e instanceof Error ? e.message : "Giro non riuscito");
+    },
   });
 
   const compraMut = useMutation({
@@ -404,123 +421,163 @@ export default function Portafogli() {
             ) : null}
           </div>
 
-          {/* ── acquisto ───────────────────────────────────────────── */}
-          <div className="pf-acquisto">
-            <div className="pf-acquisto-riga">
-              <input
-                value={ticker}
-                onChange={(e) => {
-                  setTicker(e.target.value);
-                  setAnteprima(null);
-                }}
-                placeholder="Cerca un titolo (es. Eni, o ENI.MI)"
-                aria-label="Ticker da comprare"
-              />
-              <input
-                value={importo}
-                onChange={(e) => {
-                  setImporto(e.target.value);
-                  setAnteprima(null);
-                }}
-                placeholder="Importo € (vuoto = automatico)"
-                inputMode="decimal"
-                aria-label="Importo in euro"
-              />
-              <button type="button" className="btn" onClick={() => void caricaAnteprima()} disabled={!ticker.trim()}>
-                Anteprima
-              </button>
-            </div>
-
-            {suggerimenti.length > 0 && !anteprima ? (
-              <div className="pf-suggerimenti">
-                {suggerimenti.map((c2) => (
-                  <button
-                    key={`${c2.mercato}-${c2.ticker}`}
-                    type="button"
-                    onClick={() => {
-                      setTicker(c2.ticker);
-                      setSuggerimenti([]);
-                      void (async () => {
-                        try {
-                          const risultato = await anteprimaAcquisto(String(scelto), c2.ticker);
-                          setAnteprima(risultato);
-                          setErrore("");
-                        } catch (e) {
-                          setAnteprima(null);
-                          setErrore(e instanceof Error ? e.message : "Anteprima non disponibile");
-                        }
-                      })();
-                    }}
-                  >
-                    <b>{c2.ticker}</b>
-                    <span>{c2.nome}</span>
-                    <small>
-                      {c2.mercato}
-                      {c2.indicazione ? ` · ${c2.indicazione}` : ""}
-                    </small>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {anteprima ? (
-              <div className="pf-anteprima">
-                <p className="pf-anteprima-titolo">
-                  {anteprima.nome} · {anteprima.ticker} · {prezzo(anteprima.prezzo)} {anteprima.valuta}
-                  {anteprima.indicazione ? ` · ${anteprima.indicazione}` : ""}
-                  {anteprima.tech_score !== null && anteprima.tech_score !== undefined
-                    ? ` · TECH ${Math.round(Number(anteprima.tech_score))}`
-                    : ""}
-                </p>
-                <div className="pf-anteprima-numeri">
-                  <span>Quantità <b>{anteprima.quantita}</b></span>
-                  <span>Importo <b>{euro(anteprima.importo_eur)}</b></span>
-                  <span>
-                    Costi{" "}
-                    <b>
-                      {euro(
-                        (toNum(anteprima.commissione_eur) ?? 0) +
-                          (toNum(anteprima.imposta_tobin_eur) ?? 0) +
-                          (toNum(anteprima.costo_cambio_eur) ?? 0),
-                      )}
-                    </b>
-                  </span>
-                  <span>Totale <b>{euro(anteprima.totale_eur)}</b></span>
-                  <span>Stop <b>{prezzo(anteprima.stop)}</b></span>
-                  <span>Obiettivo <b>{prezzo(anteprima.obiettivo)}</b></span>
-                  <span>
-                    Perdita massima <b className="negative">{euro(anteprima.perdita_massima_eur)}</b>
-                  </span>
-                </div>
-                <p className="pf-anteprima-limite">
-                  {anteprima.limite === "tetto_titolo"
-                    ? "La quantità è limitata dal tetto per titolo del profilo."
-                    : anteprima.limite === "rischio"
-                      ? "La quantità deriva dal rischio per operazione: è lo stop a determinarla."
-                      : anteprima.limite === "cassa"
-                        ? "La quantità è limitata dalla liquidità disponibile."
-                        : "Quantità basata sull'importo che hai indicato, entro i limiti del profilo."}
-                  {anteprima.ordine_troppo_piccolo ? " Attenzione: ordine sotto il minimo consigliato, le commissioni pesano." : ""}
-                </p>
-                <div className="pf-anteprima-azioni">
-                  <button
-                    type="button"
-                    className="btn primary"
-                    disabled={compraMut.isPending || anteprima.quantita <= 0}
-                    onClick={() => compraMut.mutate()}
-                  >
-                    {compraMut.isPending ? "Compro..." : `Compra ${anteprima.quantita} × ${prezzo(anteprima.prezzo)}`}
-                  </button>
-                  <button type="button" className="btn ghost" onClick={() => setAnteprima(null)}>
-                    Annulla
-                  </button>
-                </div>
-                <p className="pf-avvertenza">
-                  Prezzo di esecuzione: quello visto dall&apos;app adesso. Può avere un ritardo fino a 15 minuti.
-                </p>
-              </div>
-            ) : null}
+          {/* ── il giro automatico: i titoli li sceglie il sistema ─── */}
+          <div className="pf-giro">
+            <button
+              type="button"
+              className="btn primary pf-giro-bottone"
+              disabled={giroMut.isPending || dettaglio.stato !== "attivo"}
+              onClick={() => giroMut.mutate()}
+              title="Il sistema sceglie i titoli migliori dei mercati abilitati e compra entro i limiti del profilo"
+            >
+              {giroMut.isPending ? "Giro in corso..." : "🤖 Esegui il giro"}
+            </button>
+            <p className="pf-giro-spiega">
+              Il sistema legge l&apos;analisi più recente dei mercati abilitati
+              ({(dettaglio.parametri.mercati ?? []).join(", ") || "nessuno"}), sceglie i titoli che
+              rispettano il profilo — indicazione {dettaglio.parametri.ingressi_da.join(" o ")},
+              TECH ≥ {dettaglio.parametri.tech_score_min}, rischio{" "}
+              {dettaglio.parametri.rischio_ammesso.join(" o ")} — e compra fino al limite di cassa,
+              posizioni e tetto per titolo. Non vende: gli stop sono calcolati ma non agiscono ancora.
+            </p>
           </div>
+
+          {esitoGiro ? (
+            <div className="pf-esito">
+              <p className="pf-esito-titolo">
+                {esitoGiro.eseguiti.length > 0
+                  ? `Comprati ${esitoGiro.eseguiti.length} titoli su ${esitoGiro.candidati_valutati} candidati`
+                  : `Nessun acquisto su ${esitoGiro.candidati_valutati} candidati`}
+              </p>
+              {esitoGiro.eseguiti.map((e) => (
+                <div className="pf-esito-riga buono" key={e.ticker}>
+                  <b>{e.ticker}</b>
+                  <span>{e.nome}</span>
+                  <small>
+                    {e.quantita} × {prezzo(e.prezzo)} = {euro(e.importo_eur)} · TECH {e.tech_score} · stop {prezzo(e.stop)}
+                  </small>
+                </div>
+              ))}
+              {esitoGiro.scarti.map((sc) => (
+                <div className="pf-esito-riga scarto" key={`${sc.ticker}-${sc.motivo}`}>
+                  <b>{sc.ticker}</b>
+                  <span>{sc.motivo.replace(/_/g, " ")}</span>
+                  <small>{sc.dettaglio}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {/* ── acquisto manuale, per chi vuole intervenire ────────── */}
+          <details className="pf-manuale">
+            <summary>Aggiungi un titolo a mano</summary>
+            <div className="pf-acquisto">
+              <div className="pf-acquisto-riga">
+                <input
+                  value={ticker}
+                  onChange={(e) => {
+                    setTicker(e.target.value);
+                    setAnteprima(null);
+                  }}
+                  placeholder="Cerca un titolo (es. Eni, o ENI.MI)"
+                  aria-label="Ticker da comprare"
+                />
+                <input
+                  value={importo}
+                  onChange={(e) => {
+                    setImporto(e.target.value);
+                    setAnteprima(null);
+                  }}
+                  placeholder="Importo € (vuoto = automatico)"
+                  inputMode="decimal"
+                  aria-label="Importo in euro"
+                />
+                <button type="button" className="btn" onClick={() => void caricaAnteprima()} disabled={!ticker.trim()}>
+                  Anteprima
+                </button>
+              </div>
+
+              {suggerimenti.length > 0 && !anteprima ? (
+                <div className="pf-suggerimenti">
+                  {suggerimenti.map((c2) => (
+                    <button
+                      key={`${c2.mercato}-${c2.ticker}`}
+                      type="button"
+                      onClick={() => {
+                        setTicker(c2.ticker);
+                        setSuggerimenti([]);
+                        void (async () => {
+                          try {
+                            const risultato = await anteprimaAcquisto(String(scelto), c2.ticker);
+                            setAnteprima(risultato);
+                            setErrore("");
+                          } catch (e) {
+                            setAnteprima(null);
+                            setErrore(e instanceof Error ? e.message : "Anteprima non disponibile");
+                          }
+                        })();
+                      }}
+                    >
+                      <b>{c2.ticker}</b>
+                      <span>{c2.nome}</span>
+                      <small>
+                        {c2.mercato}
+                        {c2.indicazione ? ` · ${c2.indicazione}` : ""}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {anteprima ? (
+                <div className="pf-anteprima">
+                  <p className="pf-anteprima-titolo">
+                    {anteprima.nome} · {anteprima.ticker} · {prezzo(anteprima.prezzo)} {anteprima.valuta}
+                    {anteprima.indicazione ? ` · ${anteprima.indicazione}` : ""}
+                    {anteprima.tech_score !== null && anteprima.tech_score !== undefined
+                      ? ` · TECH ${Math.round(Number(anteprima.tech_score))}`
+                      : ""}
+                  </p>
+                  <div className="pf-anteprima-numeri">
+                    <span>Quantità <b>{anteprima.quantita}</b></span>
+                    <span>Importo <b>{euro(anteprima.importo_eur)}</b></span>
+                    <span>
+                      Costi{" "}
+                      <b>
+                        {euro(
+                          (toNum(anteprima.commissione_eur) ?? 0) +
+                            (toNum(anteprima.imposta_tobin_eur) ?? 0) +
+                            (toNum(anteprima.costo_cambio_eur) ?? 0),
+                        )}
+                      </b>
+                    </span>
+                    <span>Totale <b>{euro(anteprima.totale_eur)}</b></span>
+                    <span>Stop <b>{prezzo(anteprima.stop)}</b></span>
+                    <span>Obiettivo <b>{prezzo(anteprima.obiettivo)}</b></span>
+                    <span>
+                      Perdita massima <b className="negative">{euro(anteprima.perdita_massima_eur)}</b>
+                    </span>
+                  </div>
+                  <div className="pf-anteprima-azioni">
+                    <button
+                      type="button"
+                      className="btn primary"
+                      disabled={compraMut.isPending || anteprima.quantita <= 0}
+                      onClick={() => compraMut.mutate()}
+                    >
+                      {compraMut.isPending ? "Compro..." : `Compra ${anteprima.quantita} × ${prezzo(anteprima.prezzo)}`}
+                    </button>
+                    <button type="button" className="btn ghost" onClick={() => setAnteprima(null)}>
+                      Annulla
+                    </button>
+                  </div>
+                  <p className="pf-avvertenza">
+                    Prezzo di esecuzione: quello visto dall&apos;app adesso. Può avere un ritardo fino a 15 minuti.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </details>
 
           {/* ── posizioni ──────────────────────────────────────────── */}
           <h4 className="pf-sezione">
