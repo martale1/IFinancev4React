@@ -134,7 +134,7 @@ function RigaVoce({
         </span>
       ) : null}
 
-      <span className="hl-motivo">{voce.motivo}</span>
+      <span className="hl-motivo" title={voce.motivo}>{voce.motivo}</span>
     </div>
   );
 }

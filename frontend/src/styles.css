@@ -1003,13 +1003,30 @@ textarea {
     margin-top: .15rem;
   }
 }
-/* Il motivo sta su una riga tutta sua, e va a capo: e' una frase con i numeri. */
+/* La condizione ("direzione SU, forza FORTE_SU...", "rischio TESO: ...) sta su
+   una riga sola e viene troncata con i puntini: una frase di due o tre righe
+   allunga la card e rende il confronto fra titoli faticoso. Il testo intero e'
+   nel suggerimento (title) e si legge passando il mouse. */
 .hl-motivo {
   grid-column: 1 / -1;
   color: #fbbf24;
   font-size: .71rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+/* Su schermo stretto il motivo puo' andare a capo: li' lo spazio e' tutto in
+   verticale, e troncare troppo perderebbe informazione. */
+@media (max-width: 700px) {
+  .hl-motivo {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+  }
 }
 
 /* Una riga del blocco "Nuovi oggi": tipo di cambiamento e descrizione. */
