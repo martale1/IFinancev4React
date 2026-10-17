@@ -1304,6 +1304,16 @@ textarea {
   padding: .2rem .7rem .7rem .7rem;
   border-top: 1px solid rgba(174,216,249,.12);
 }
+/* Chiudere la scheda aperta: allineato a destra, discreto. */
+.dense-chiudi {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: .35rem;
+}
+.dense-chiudi .btn {
+  font-size: .72rem;
+  padding: .2rem .55rem;
+}
 .monitor-dense-detail .monitor-groups { margin-top: .3rem; }
 .dense-note { margin: .5rem 0 0 0; font-size: .78rem; color: #fbbf24; }
 .dense-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }

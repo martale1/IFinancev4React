@@ -179,6 +179,14 @@ export function DenseList({
                 {renderActions ? (
                   <div className="dense-actions">{renderActions(row)}</div>
                 ) : null}
+
+                {/* Chiudere la scheda: prima bisognava ricliccare la riga, cosa
+                    che non si vede. Sta fuori dalla fila delle azioni sul titolo. */}
+                <div className="dense-chiudi">
+                  <button type="button" className="btn ghost" onClick={() => setAperta(null)}>
+                    ✕ Chiudi
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
