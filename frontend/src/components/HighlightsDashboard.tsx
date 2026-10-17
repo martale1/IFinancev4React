@@ -66,6 +66,9 @@ function RigaVoce({
   /** Gia' in monitoraggio: il pulsante si evidenzia e un clic lo toglie. */
   inMonitor: boolean;
 }) {
+  // Le condizioni stanno chiuse: la riga resta bassa. Chi le vuole le apre
+  // con il triangolino, una riga alla volta.
+  const [mostraCondizioni, setMostraCondizioni] = useState(false);
   const score = toNum(voce.row.TECH_SCORE);
   const chiusura = toNum(voce.row.Close);
   const variazioni = VARIAZIONI.map((v) => ({ ...v, valore: toNum(voce.row[v.key]) }));
@@ -105,6 +108,21 @@ function RigaVoce({
         >
           {inMonitor ? "✓ Monitor" : "+ Monitor"}
         </button>
+        {voce.motivo ? (
+          <button
+            type="button"
+            className={mostraCondizioni ? "hl-condizioni aperta" : "hl-condizioni"}
+            aria-expanded={mostraCondizioni}
+            aria-label={mostraCondizioni ? "Nascondi le condizioni" : "Mostra le condizioni"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMostraCondizioni((v) => !v);
+            }}
+            title={mostraCondizioni ? "Nascondi le condizioni" : "Mostra le condizioni verificate"}
+          >
+            {mostraCondizioni ? "▾" : "▸"}
+          </button>
+        ) : null}
       </span>
 
       {qualcuna ? (
@@ -128,8 +146,11 @@ function RigaVoce({
         </span>
       ) : null}
 
-      {/* La condizione ("direzione SU, forza FORTE_SU...") non si mostra: allunga
-          la riga e si legge tutta aprendo la scheda con un clic. */}
+      {/* Le condizioni, quando le apri: qui si legge la frase intera, che e' il
+          motivo per cui il titolo e' (o non e') pronto. */}
+      {mostraCondizioni && voce.motivo ? (
+        <span className="hl-motivo">{voce.motivo}</span>
+      ) : null}
     </div>
   );
 }
