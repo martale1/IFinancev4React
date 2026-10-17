@@ -72,7 +72,8 @@ Versione: 1.0 · 17 ottobre 2026
 | `stop_max_pct` | numero | `15.0` | stop mai più largo di così |
 | `trailing_atr_mult` | numero | `2.0` | stop dinamico; `0` = disattivato |
 | `obiettivo_pct` | numero | `15.0` | take profit |
-| `rischio_ammesso` | lista | `["NORMALE","TESO"]` | quali livelli di rischio accettare |
+| `rischio_ammesso` | lista | `["NORMALE"]` | quali livelli di rischio accettare. **Solo `NORMALE`**: `ENTRA` lo richiede gia' per costruzione (misurato: 336 su 336), quindi `TESO`/`ESTREMO` sarebbero condizioni morte |
+| `distanza_max_media_pct` | numero | `3.5` | quanto sopra la EMA50 un titolo puo' essere per essere comprato. Sostituisce il filtro inutile sul rischio: e' la stessa misura, ma diventa una scelta del profilo |
 | `tech_score_min` | numero | `75` | punteggio minimo |
 | `ingressi_da` | lista | `["ENTRA"]` | quali indicazioni generano acquisti |
 | `scadenza_segnale_sedute` | intero | `3` | dopo quante sedute il segnale scade |
@@ -174,7 +175,8 @@ Esempio di `bilanciato_2026.json`:
     "stop_max_pct": 15.0,
     "trailing_atr_mult": 2.0,
     "obiettivo_pct": 15.0,
-    "rischio_ammesso": ["NORMALE", "TESO"],
+    "rischio_ammesso": ["NORMALE"],
+    "distanza_max_media_pct": 3.5,
     "tech_score_min": 75,
     "ingressi_da": ["ENTRA"],
     "scadenza_segnale_sedute": 3,
@@ -295,7 +297,8 @@ comprare, nello stesso giro.
 
 1. indicazione = `ENTRA` da **analisi finale** (le intraday sono escluse)
 2. `TECH_SCORE` ≥ `tech_score_min`
-3. `Rischio_Trend` ∈ `rischio_ammesso`
+3. `Rischio_Trend` ∈ `rischio_ammesso` (in pratica sempre `NORMALE`, perche' `ENTRA` lo richiede)
+3-bis. distanza dalla EMA50 ≤ `distanza_max_media_pct`
 4. `Liquidity` = `OK`
 5. quotazione più vecchia di 30 minuti → **no**
 6. portafoglio `attivo`, posizioni < `max_posizioni`, esposizione < `esposizione_max_pct`

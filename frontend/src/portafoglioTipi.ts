@@ -82,6 +82,8 @@ export type ParametriPortafoglio = {
   trailing_atr_mult: number;
   obiettivo_pct: number;
   rischio_ammesso: string[];
+  /** Quanto sopra la EMA50 un titolo puo' essere per essere comprato. */
+  distanza_max_media_pct: number;
   /** Mercati su cui il portafoglio puo' operare. */
   mercati: string[];
   tech_score_min: number;

@@ -54,7 +54,11 @@ PARAMETRI_DEFAULT: dict[str, Any] = {
     "stop_max_pct": 15.0,
     "trailing_atr_mult": 2.0,
     "obiettivo_pct": 15.0,
-    "rischio_ammesso": ["NORMALE", "TESO"],
+    # "ENTRA" richiede gia' rischio NORMALE per costruzione: elencare qui TESO
+    # o ESTREMO sarebbe una condizione che non puo' mai attivarsi.
+    "rischio_ammesso": ["NORMALE"],
+    # Quanto sopra la media (EMA50) un titolo puo' essere per essere comprato.
+    "distanza_max_media_pct": 3.5,
     "mercati": list(MERCATI_VALIDI),
     "tech_score_min": 75,
     "ingressi_da": ["ENTRA"],
@@ -77,6 +81,7 @@ PRESET: dict[str, dict[str, Any]] = {
         "trailing_atr_mult": 0.0,
         "obiettivo_pct": 8.0,
         "rischio_ammesso": ["NORMALE"],
+        "distanza_max_media_pct": 2.5,
         "tech_score_min": 80,
         "ingressi_da": ["ENTRA"],
     },
@@ -89,7 +94,8 @@ PRESET: dict[str, dict[str, Any]] = {
         "riserva_liquidita_pct": 0.0,
         "stop_atr_mult": 2.5,
         "obiettivo_pct": 25.0,
-        "rischio_ammesso": ["NORMALE", "TESO", "ESTREMO"],
+        "rischio_ammesso": ["NORMALE"],
+        "distanza_max_media_pct": 5.0,
         "tech_score_min": 70,
         "ingressi_da": ["ENTRA", "OSSERVA"],
     },
@@ -1028,11 +1034,11 @@ def _numero(valore: Any) -> float | None:
         return None
 
 
-def candidati_da_segnale(pf: dict[str, Any]) -> list[dict[str, Any]]:
-    """I titoli che il profilo accetterebbe, ordinati per forza del segnale.
+def candidati_da_segnale(pf: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Titoli che il profilo accetterebbe, piu' quelli esclusi con il motivo.
 
-    Filtri della specifica (tutti obbligatori): indicazione ammessa, TECH_SCORE
-    minimo, rischio ammesso, liquidita' OK, non gia' in portafoglio.
+    Restituisce (ammessi, esclusi). Gli esclusi servono a rispondere alla domanda
+    "perche' non hai comprato X?": senza registrazione, i filtri sono invisibili.
     """
     from app.services.watchlist_service import load_market_dataframe
 
@@ -1041,9 +1047,15 @@ def candidati_da_segnale(pf: dict[str, Any]) -> list[dict[str, Any]]:
     ingressi = {str(x).strip().upper() for x in (par.get("ingressi_da") or ["ENTRA"])}
     rischi = {str(x).strip().upper() for x in (par.get("rischio_ammesso") or [])}
     tech_min = float(par.get("tech_score_min", 0.0))
+    distanza_max = float(par.get("distanza_max_media_pct", 0.0) or 0.0)
     in_portafoglio = {str(pos.get("ticker", "")).upper() for pos in pf.get("posizioni") or []}
 
-    candidati: list[dict[str, Any]] = []
+    ammessi: list[dict[str, Any]] = []
+    esclusi: list[dict[str, Any]] = []
+
+    def scarta(ticker: str, motivo: str, dettaglio: str) -> None:
+        esclusi.append({"ticker": ticker, "motivo": motivo, "dettaglio": dettaglio})
+
     for mercato in ammessi_mercati:
         try:
             df = load_market_dataframe(mercato)
@@ -1054,23 +1066,44 @@ def candidati_da_segnale(pf: dict[str, Any]) -> list[dict[str, Any]]:
 
         for _, riga in df.iterrows():
             ticker = str(riga.get("Ticker") or "").strip().upper()
-            if not ticker or ticker in in_portafoglio:
+            if not ticker:
+                continue
+            if ticker in in_portafoglio:
                 continue
 
             indicazione = str(riga.get("Entry_Signal") or "").strip().upper()
             if indicazione not in ingressi:
-                continue
+                continue  # non e' un candidato: non serve registrarlo
+
             tech = _numero(riga.get("TECH_SCORE"))
             if tech is None or tech < tech_min:
-                continue
-            rischio = str(riga.get("Rischio_Trend") or "").strip().upper()
-            if rischi and rischio not in rischi:
-                continue
-            liquidita = str(riga.get("Liquidity") or "").strip().upper()
-            if liquidita and liquidita != "OK":
+                scarta(ticker, "tech_score_basso", f"TECH {tech} sotto il minimo {tech_min:.0f}")
                 continue
 
-            candidati.append({
+            rischio = str(riga.get("Rischio_Trend") or "").strip().upper()
+            if rischi and rischio not in rischi:
+                scarta(ticker, "rischio_non_ammesso", f"rischio {rischio}, ammessi {', '.join(sorted(rischi))}")
+                continue
+
+            liquidita = str(riga.get("Liquidity") or "").strip().upper()
+            if liquidita and liquidita != "OK":
+                scarta(ticker, "liquidita_bassa", f"liquidita {liquidita}")
+                continue
+
+            # Distanza dalla media: il filtro che sostituisce il rischio TESO.
+            chiusura = _numero(riga.get("Close"))
+            ema = _numero(riga.get("EMA_50"))
+            distanza = None
+            if chiusura and ema and ema > 0:
+                distanza = (chiusura - ema) / ema * 100.0
+            if distanza is not None and distanza_max > 0 and distanza > distanza_max:
+                scarta(
+                    ticker, "troppo_lontano_dalla_media",
+                    f"{distanza:.2f}% sopra la EMA50, il profilo ammette {distanza_max:.2f}%",
+                )
+                continue
+
+            ammessi.append({
                 "ticker": ticker,
                 "nome": str(riga.get("Name") or ticker),
                 "mercato": mercato,
@@ -1078,12 +1111,13 @@ def candidati_da_segnale(pf: dict[str, Any]) -> list[dict[str, Any]]:
                 "tech_score": tech,
                 "adx": _numero(riga.get("ADX")),
                 "rischio_trend": rischio,
+                "distanza_media_pct": round(distanza, 2) if distanza is not None else None,
             })
 
     # Ordine: prima il punteggio, poi la solidita' del trend. A parita' di tutto,
     # il ticker, cosi' due giri con gli stessi dati producono lo stesso risultato.
-    candidati.sort(key=lambda c: (-c["tech_score"], -(c["adx"] or 0.0), c["ticker"]))
-    return candidati
+    ammessi.sort(key=lambda c: (-c["tech_score"], -(c["adx"] or 0.0), c["ticker"]))
+    return ammessi, esclusi
 
 
 def _posizioni_aperte_oggi(pf: dict[str, Any]) -> int:
@@ -1108,7 +1142,7 @@ def esegui_giro(pid: str) -> dict[str, Any]:
     minimo_ordine = float(par.get("liquidita_minima_ordine_eur", 300.0))
     gia_oggi = _posizioni_aperte_oggi(pf)
 
-    candidati = candidati_da_segnale(pf)
+    candidati, esclusi = candidati_da_segnale(pf)
     eseguiti: list[dict[str, Any]] = []
     scarti: list[dict[str, Any]] = []
     analisi_usate: dict[str, str] = {}
@@ -1193,6 +1227,16 @@ def esegui_giro(pid: str) -> dict[str, Any]:
         })
         analisi_usate[candidato["mercato"]] = str(riga.get("Date") or "")[:10]
 
+    # Gli esclusi dai filtri valgono come scarti: il motivo c'e' gia'.
+    for voce in esclusi:
+        _aggiungi_riga(pid, "_scarti", {
+            "quando": datetime.now().isoformat(timespec="seconds"),
+            "ticker": voce["ticker"],
+            "motivo": voce["motivo"],
+            "dettaglio": voce.get("dettaglio", ""),
+            "portafoglio": pid,
+        })
+
     for voce in scarti:
         _aggiungi_riga(pid, "_scarti", {
             "quando": datetime.now().isoformat(timespec="seconds"),
@@ -1211,7 +1255,8 @@ def esegui_giro(pid: str) -> dict[str, Any]:
     return {
         "portafoglio": valuta(pf),
         "eseguiti": eseguiti,
-        "scarti": scarti,
+        # Gli scarti riportati all'utente includono anche gli esclusi dai filtri.
+        "scarti": scarti + esclusi,
         "candidati_valutati": len(candidati),
         "analisi_usate": analisi_usate,
         "liquidita_dopo": pf.get("liquidita"),
