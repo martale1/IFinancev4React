@@ -52,8 +52,8 @@ import {
 
 const tabs = [
   "📊 Highlights",
-  "💼 Portafogli",
   "🎯 Monitor",
+  "💼 Portafogli",
   "All",
   "🔥 Heatmap",
   "🧪 Multi-Pattern Lab",
