@@ -56,12 +56,12 @@ function percentuale(valore: number): string {
  *  pulsante per il monitoraggio. */
 function RigaVoce({
   voce,
-  onChart,
+  onScheda,
   onMonitor,
   inMonitor,
 }: {
   voce: VoceHighlight;
-  onChart: (row: WatchlistRow) => void;
+  onScheda: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
   /** Gia' in monitoraggio: il pulsante si evidenzia e un clic lo toglie. */
   inMonitor: boolean;
@@ -79,14 +79,14 @@ function RigaVoce({
       className="hl-riga"
       role="button"
       tabIndex={0}
-      onClick={() => onChart(voce.row)}
+      onClick={() => onScheda(voce.row)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onChart(voce.row);
+          onScheda(voce.row);
         }
       }}
-      title="Apri il grafico"
+      title="Apri la scheda del titolo"
     >
       <span className="hl-ticker">{voce.ticker}</span>
       <span className="hl-nome">{voce.nome || "—"}</span>
@@ -129,7 +129,7 @@ function RigaVoce({
       ) : null}
 
       {/* La condizione ("direzione SU, forza FORTE_SU...") non si mostra: allunga
-          la riga e si legge tutta aprendo il grafico con un clic. */}
+          la riga e si legge tutta aprendo la scheda con un clic. */}
     </div>
   );
 }
@@ -140,7 +140,7 @@ function Blocco({
   sottotitolo,
   voci,
   vuoto,
-  onChart,
+  onScheda,
   onMonitor,
   onIsMonitored,
 }: {
@@ -148,7 +148,7 @@ function Blocco({
   sottotitolo: string;
   voci: VoceHighlight[] | null;
   vuoto: string;
-  onChart: (row: WatchlistRow) => void;
+  onScheda: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
   onIsMonitored: (row: WatchlistRow) => boolean;
 }) {
@@ -172,7 +172,7 @@ function Blocco({
         <>
           <div className="hl-righe">
             {visibili.map((v) => (
-              <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
+              <RigaVoce key={v.ticker} voce={v} onScheda={onScheda} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
             ))}
           </div>
           {resto > 0 ? (
@@ -188,14 +188,14 @@ function Blocco({
 
 export default function HighlightsDashboard({
   righe,
-  onChart,
+  onScheda,
   onMonitor,
   onIsMonitored,
   cambi,
   cambiData,
 }: {
   righe: WatchlistRow[];
-  onChart: (row: WatchlistRow) => void;
+  onScheda: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
   onIsMonitored: (row: WatchlistRow) => boolean;
   /** Cosa e' cambiato rispetto alla seduta precedente. */
@@ -235,7 +235,7 @@ export default function HighlightsDashboard({
         sottotitolo="Tutti e tre i requisiti soddisfatti: direzione su, forza confermata, rischio normale."
         voci={pronti}
         vuoto="Nessun titolo pronto in questo momento."
-        onChart={onChart}
+        onScheda={onScheda}
         onMonitor={onMonitor}
         onIsMonitored={onIsMonitored}
       />
@@ -245,7 +245,7 @@ export default function HighlightsDashboard({
         sottotitolo="Manca una sola condizione: il numero accanto dice il livello che serve per rientrare."
         voci={passo}
         vuoto="Nessun titolo vicino all'ingresso."
-        onChart={onChart}
+        onScheda={onScheda}
         onMonitor={onMonitor}
         onIsMonitored={onIsMonitored}
       />
@@ -270,7 +270,7 @@ export default function HighlightsDashboard({
                     {g.freno} <b>{g.voci.length}</b>
                   </div>
                   {dentro.map((v) => (
-                    <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
+                    <RigaVoce key={v.ticker} voce={v} onScheda={onScheda} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
                   ))}
                 </div>
               );
@@ -314,18 +314,18 @@ export default function HighlightsDashboard({
                   key={`${c.market ?? ""}-${c.ticker}-${c.tipo}`}
                   role={apribile ? "button" : undefined}
                   tabIndex={apribile ? 0 : undefined}
-                  onClick={apribile && riga ? () => onChart(riga) : undefined}
+                  onClick={apribile && riga ? () => onScheda(riga) : undefined}
                   onKeyDown={
                     apribile && riga
                       ? (e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            onChart(riga);
+                            onScheda(riga);
                           }
                         }
                       : undefined
                   }
-                  title={apribile ? "Apri il grafico" : undefined}
+                  title={apribile ? "Apri la scheda del titolo" : undefined}
                 >
                   <span className="hl-ticker">{c.ticker}</span>
                   {/* Solo l'indicazione, con il badge della pagina Monitor:

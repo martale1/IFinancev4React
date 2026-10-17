@@ -372,6 +372,9 @@ export default function App() {
   const [quickAlertBusyMap, setQuickAlertBusyMap] = useState<Record<string, boolean>>({});
   const [quickChartInput, setQuickChartInput] = useState("");
   const [globalSearchRow, setGlobalSearchRow] = useState<WatchlistRow | null>(null);
+  // Scheda aperta da un titolo degli Highlights: e' la stessa card del Monitor,
+  // mostrata sopra la pagina per non perdere il cruscotto che si stava guardando.
+  const [schedaRow, setSchedaRow] = useState<WatchlistRow | null>(null);
   const [globalSearchMessage, setGlobalSearchMessage] = useState("");
   const [globalSearchBusy, setGlobalSearchBusy] = useState(false);
 
@@ -1317,6 +1320,48 @@ export default function App() {
         ))}
       </nav>
 
+      {/* Scheda del titolo aperta da Highlights: lo stesso componente che disegna
+          le card della pagina Monitor. Comportamento e pulsanti identici per
+          costruzione, non per imitazione. */}
+      {schedaRow ? (
+        <div className="modal-backdrop" onClick={() => setSchedaRow(null)}>
+          <div className="modal-content scheda-modale" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <strong>
+                {String(schedaRow.Ticker ?? "")} · {String(schedaRow.Name ?? "")}
+              </strong>
+              <button type="button" className="btn-close" onClick={() => setSchedaRow(null)} title="Chiudi">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body scheda-modale-corpo">
+              <WatchlistCard
+                row={schedaRow}
+                onChart={openChart}
+                onAi={openTickerAi}
+                aiActive={Boolean(aiActiveChatMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))])}
+                aiAlertInfo={aiAlertCardMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))] ?? null}
+                aiLevelAlerts={aiLevelCardMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))] ?? []}
+                onToggleAiAlert={handleToggleAiAlert}
+                onDeleteAiAlert={handleDeleteAiAlert}
+                sourceMarket={String(schedaRow.WL_Source_Market ?? market)}
+                alertSet={Boolean(quickAlertMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))])}
+                alertConfig={quickAlertConfigMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))] ?? null}
+                alertBusy={Boolean(quickAlertBusyMap[alertKey(String(schedaRow.WL_Source_Market ?? market), String(schedaRow.Ticker ?? ""))])}
+                onCreateAlert={handleCreateQuickAlert}
+                onRemoveAlert={handleRemoveQuickAlert}
+                customWatchlists={customWatchlistNames}
+                onAddToWatchlist={handleAddToWatchlist}
+                currentWatchlistName={parseCurrentWatchlistName(String(schedaRow.WL_Source_Market ?? market))}
+                onRemoveFromWatchlist={handleRemoveFromWatchlist}
+                isMonitored={monitoredSet.has(String(schedaRow.Ticker ?? "").toUpperCase())}
+                onToggleMonitor={(r) => void toggleMonitor(r)}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Spiegazioni in un punto solo: prima erano due dropdown in posti diversi
           ("Guida regole" sopra le tab e "Cosa significano le sigle" nella tab
           All) e si sovrapponevano. Ora e' uno, chiuso, subito sotto le tab. */}
@@ -1484,7 +1529,7 @@ export default function App() {
       {tab === "📊 Highlights" && (highlightsItems.length || daxItems.length) ? (
         <HighlightsDashboard
           righe={righeCruscotto}
-          onChart={openChart}
+          onScheda={(row) => setSchedaRow(row)}
           onMonitor={(row) => void toggleMonitor(row)}
           onIsMonitored={(row) => monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
           cambi={cambiQuery.data?.changes ?? []}
