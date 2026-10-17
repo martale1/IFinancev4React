@@ -53,6 +53,19 @@ function prezzo(valore: unknown): string {
   return n.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+/** Data e ora della quotazione, in forma breve: "16/10 17:15". */
+function quandoQuotazione(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return "";
+  return data.toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function classeDaSegno(valore: unknown): string {
   const n = toNum(valore);
   if (n === null || n === 0) return "neutral";
@@ -481,6 +494,11 @@ export default function Portafogli() {
             </div>
           </div>
           <p className="pf-quadro-nota">
+            {dettaglio.quotazioni_aggiornate
+              ? `Prezzi Yahoo del ${quandoQuotazione(dettaglio.quotazioni_aggiornate)} · `
+              : dettaglio.posizioni.length
+                ? "Prezzi non disponibili da Yahoo: uso l'analisi · "
+                : ""}
             Liquidi {euro(dettaglio.liquidita)} · esposizione{" "}
             {(toNum(dettaglio.esposizione_pct) ?? 0).toLocaleString("it-IT", {
               minimumFractionDigits: 2,
@@ -801,6 +819,11 @@ export default function Portafogli() {
                       )}
                     </span>
                     <span className="pf-cella nota" data-label="">
+                      {pos.prezzo_quando ? (
+                        <>
+                          quotazione {quandoQuotazione(pos.prezzo_quando)} ·{" "}
+                        </>
+                      ) : null}
                       Stop {prezzo(pos.stop_attuale)} · distanza{" "}
                       {pos.distanza_stop_pct === null ? "—" : `${pos.distanza_stop_pct.toFixed(2)}%`} · costi{" "}
                       {soldi(euro(costi))} · per andare in pari serve <b>{pari.toFixed(2)}%</b>

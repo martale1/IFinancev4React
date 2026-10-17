@@ -48,6 +48,9 @@ export type PosizionePortafoglio = {
   data_ingresso?: string;
   prezzo_valido: boolean;
   prezzo_fonte?: string;
+  /** Istante della quotazione usata (ISO). */
+  prezzo_quando?: string | null;
+  prezzo_fresco?: boolean;
 };
 
 
@@ -108,6 +111,9 @@ export type Portafoglio = {
   statistiche: StatistichePortafoglio;
   parametri: ParametriPortafoglio;
   posizioni: PosizionePortafoglio[];
+  /** La piu' recente delle quotazioni usate. */
+  quotazioni_aggiornate?: string | null;
+  prezzi_freschi?: boolean;
   costi: CostiPortafoglio;
   creato?: string | null;
   note?: string;

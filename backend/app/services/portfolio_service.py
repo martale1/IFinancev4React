@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -228,7 +229,7 @@ def elenco() -> list[dict[str, Any]]:
         valore_posizioni = 0.0
         for pos in pf.get("posizioni") or []:
             try:
-                prezzo, _fonte = prezzo_corrente(str(pos.get("ticker")))
+                prezzo, _fonte, _quando, _fresco = prezzo_di_mercato(str(pos.get("ticker")))
                 cambio = cambio_a_eur(str(pos.get("valuta", "EUR")))
                 valore_posizioni += float(pos.get("quantita", 0.0)) * prezzo * cambio
             except Exception:
@@ -519,6 +520,66 @@ def cambio_a_eur(valuta: str) -> float:
     risultato = 1.0 / valore
     _CACHE_CAMBI[codice] = (adesso, risultato)
     return risultato
+
+
+# Quotazioni di mercato: cache breve, per non chiedere a Yahoo a ogni riga.
+_CACHE_QUOTAZIONI: dict[str, tuple[float, dict[str, Any]]] = {}
+QUOTAZIONE_TTL_SECONDI = 60
+
+
+def quotazione(ticker: str) -> dict[str, Any]:
+    """Ultima quotazione di mercato per un titolo.
+
+    Restituisce `prezzo`, `quando` (istante della barra), `fonte` e `fresco`.
+    Prova prima le barre a 15 minuti, che sono le piu' vicine adesso e portano
+    l'ora; se non ci sono, ripiega sulle barre giornaliere e infine sull'Excel
+    dell'analisi, dichiarando ogni volta da dove viene il numero.
+    """
+    simbolo = str(ticker or "").strip().upper()
+    adesso = time.time()
+    in_cache = _CACHE_QUOTAZIONI.get(simbolo)
+    if in_cache and adesso - in_cache[0] < QUOTAZIONE_TTL_SECONDI:
+        return in_cache[1]
+
+    risultato: dict[str, Any] | None = None
+    try:
+        from yfinance_runtime import yf
+
+        strumento = yf.Ticker(simbolo)
+        for periodo, intervallo in (("2d", "15m"), ("5d", "1d")):
+            try:
+                dati = strumento.history(period=periodo, interval=intervallo, auto_adjust=False)
+            except Exception:
+                dati = None
+            if dati is None or dati.empty:
+                continue
+            chiusure = dati["Close"].dropna()
+            if not len(chiusure):
+                continue
+            quando = chiusure.index[-1]
+            risultato = {
+                "prezzo": float(chiusure.iloc[-1]),
+                "quando": quando.isoformat() if hasattr(quando, "isoformat") else str(quando),
+                "fonte": f"yahoo {intervallo}",
+                "fresco": True,
+            }
+            break
+    except Exception:
+        risultato = None
+
+    if risultato is None:
+        # Yahoo non risponde: meglio il prezzo dell'analisi, dichiarato, che zero.
+        prezzo, fonte = prezzo_corrente(simbolo)
+        risultato = {"prezzo": prezzo, "quando": None, "fonte": f"{fonte} (ripiego)", "fresco": False}
+
+    _CACHE_QUOTAZIONI[simbolo] = (adesso, risultato)
+    return risultato
+
+
+def prezzo_di_mercato(ticker: str) -> tuple[float, str, str | None, bool]:
+    """(prezzo, fonte, quando, fresco) — forma comoda per la valutazione."""
+    voce = quotazione(ticker)
+    return voce["prezzo"], voce["fonte"], voce.get("quando"), bool(voce.get("fresco"))
 
 
 def prezzo_corrente(ticker: str) -> tuple[float, str]:
@@ -845,8 +906,10 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
             cambio = cambio_a_eur(valuta_pos)
         except Exception:
             cambio = float(pos.get("cambio_ingresso") or 1.0)
+        quando: str | None = None
+        fresco = False
         try:
-            prezzo, fonte = prezzo_corrente(str(pos["ticker"]))
+            prezzo, fonte, quando, fresco = prezzo_di_mercato(str(pos["ticker"]))
             valida = True
         except Exception:
             prezzo, fonte, valida = float(pos.get("prezzo_ingresso", 0.0)), "prezzo non disponibile", False
@@ -895,6 +958,8 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
             "mercato": str(pos.get("mercato") or ""),
             "prezzo_valido": valida,
             "prezzo_fonte": fonte,
+            "prezzo_quando": quando,
+            "prezzo_fresco": fresco,
         })
         posizioni.append(voce)
 
@@ -909,9 +974,16 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
     somma_vinte = sum(float(o["pnl_netto_eur"]) for o in vinte)
     somma_perse = abs(sum(float(o["pnl_netto_eur"]) for o in perse))
 
+    # Il piu' vecchio dei prezzi usati: se e' di ieri, il totale e' di ieri.
+    istanti = [v.get("prezzo_quando") for v in posizioni if v.get("prezzo_quando")]
+    quotazioni_aggiornate = max(istanti) if istanti else None
+    prezzi_freschi = bool(posizioni) and all(v.get("prezzo_fresco") for v in posizioni)
+
     return {
         "id": pf["id"],
         "nome": pf.get("nome", pf["id"]),
+        "quotazioni_aggiornate": quotazioni_aggiornate,
+        "prezzi_freschi": prezzi_freschi,
         "stato": pf.get("stato", "attivo"),
         "valuta_base": pf.get("valuta_base", "EUR"),
         "capitale_iniziale": capitale_iniziale,
