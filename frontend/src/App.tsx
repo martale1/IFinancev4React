@@ -18,6 +18,7 @@ import RowAlertButton from "./components/RowAlertButton";
 import UscitaButton from "./components/UscitaButton";
 import TickerNews from "./components/TickerNews";
 import HighlightsDashboard from "./components/HighlightsDashboard";
+import GuidaRegoleFormule from "./components/GuidaRegoleFormule";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
 import WatchlistsPanel from "./components/WatchlistsPanel";
@@ -1527,14 +1528,21 @@ export default function App() {
       ) : null}
 
       {tab === "📊 Highlights" && (highlightsItems.length || daxItems.length) ? (
-        <HighlightsDashboard
-          righe={righeCruscotto}
-          onScheda={(row) => setSchedaRow(row)}
-          onMonitor={(row) => void toggleMonitor(row)}
-          onIsMonitored={(row) => monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
-          cambi={cambiQuery.data?.changes ?? []}
-          cambiData={cambiQuery.data?.date ?? ""}
-        />
+        <>
+          <HighlightsDashboard
+            righe={righeCruscotto}
+            onScheda={(row) => setSchedaRow(row)}
+            onMonitor={(row) => void toggleMonitor(row)}
+            onIsMonitored={(row) => monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
+            cambi={cambiQuery.data?.changes ?? []}
+            cambiData={cambiQuery.data?.date ?? ""}
+          />
+          {/* La stessa guida delle regole che sta nel Laboratorio, qui in fondo:
+              chi guarda gli Highlights non deve cambiare pagina per capire i pattern. */}
+          <div className="highlights-guida-fondo">
+            <GuidaRegoleFormule />
+          </div>
+        </>
       ) : null}
 
       {/* Pagina precedente. Non e' piu' fra le quattro scelte, quindi non compare;
