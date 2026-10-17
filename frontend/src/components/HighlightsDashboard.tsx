@@ -42,6 +42,16 @@ function prezzo(valore: number): string {
   return valore.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+/** Variazione percentuale con la virgola italiana.
+ *
+ * PERCHE': nel resto dell'app i numeri usano la virgola (qui il prezzo e'
+ * "50,42"), ma in questo blocco le percentuali uscivano con il punto
+ * ("+4.73%"). Due formati nella stessa riga si leggono male. */
+function percentuale(valore: number): string {
+  const segno = valore > 0 ? "+" : "";
+  return `${segno}${valore.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
 /** Una riga di titolo dentro un blocco: cliccabile per il grafico, con il
  *  pulsante per il monitoraggio. */
 function RigaVoce({
@@ -106,12 +116,12 @@ function RigaVoce({
               title={
                 v.valore === null
                   ? `Variazione ${v.label}: non disponibile`
-                  : `Variazione a ${v.label}: ${v.valore >= 0 ? "+" : ""}${v.valore.toFixed(2)}%`
+                  : `Variazione a ${v.label}: ${percentuale(v.valore)}`
               }
             >
               <small>{v.label}</small>
               <b className={v.valore === null ? "neutral" : v.valore > 0 ? "positive" : v.valore < 0 ? "negative" : "neutral"}>
-                {v.valore === null ? "—" : `${v.valore >= 0 ? "+" : ""}${v.valore.toFixed(2)}%`}
+                {v.valore === null ? "—" : percentuale(v.valore)}
               </b>
             </span>
           ))}

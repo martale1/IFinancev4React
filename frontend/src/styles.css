@@ -956,13 +956,22 @@ textarea {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* Le quattro variazioni: etichetta piccola sopra, valore sotto.
-   `white-space: nowrap` perche' "10D +12,34%" spezzato si legge male. */
+/* Le quattro variazioni stanno SEMPRE su una riga sola, a tutta larghezza della
+   riga: 1D, 5D, 10D, 30D una accanto all'altra.
+   Prima avevano `flex-wrap: wrap` e stavano nella stessa colonna di ticker e
+   prezzo: quando la card si stringeva (su PC ce ne sono quattro affiancate, circa
+   390px l'una) andavano a capo una sotto l'altra, allungando la riga di quattro
+   volte. Il nome del titolo ha gia' l'ellissi, ma non basta: quattro percentuali
+   accanto a ticker, prezzo, TECH e pulsante Monitor non ci stanno a nessuna
+   larghezza utile. Su una riga propria ci stanno sempre, e la card resta bassa. */
 .hl-variazioni {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: nowrap;
   align-items: baseline;
+  justify-content: space-between;
   gap: .1rem .55rem;
+  margin-top: .1rem;
 }
 .hl-var {
   display: inline-flex;
