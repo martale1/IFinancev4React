@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { WatchlistRow } from "../types";
-import { dettaglioMomento, num, pct, pctClass, percheNonEntra, toNum } from "../format";
+import { dettaglioMomento, num, pct, pctClass, percheNonEntra, signalClass, toNum } from "../format";
 
 /**
  * Lista compatta riutilizzabile: una riga per titolo, espandibile sul posto.
@@ -225,11 +225,3 @@ export function DenseList({
 }
 
 /** Stesse classi della tabella, cosi' il segnale ha lo stesso aspetto ovunque. */
-function signalClass(value: unknown): string {
-  const signal = String(value ?? "ATTENDI").toUpperCase();
-  if (signal === "ENTRA") return "enter";
-  if (signal === "OSSERVA") return "watch";
-  if (signal === "EVITA") return "avoid";
-  return "wait";
-}
-

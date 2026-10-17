@@ -1029,21 +1029,13 @@ textarea {
   }
 }
 
-/* Una riga del blocco "Nuovi oggi": tipo di cambiamento e descrizione. */
+/* Una riga del blocco "Nuovi oggi": indicazione del titolo e descrizione.
+   L'indicazione usa i badge della pagina Monitor (.table-signal), cosi' ENTRA e'
+   verde e EVITA rosso allo stesso modo in tutte le schermate. */
 .hl-cambio {
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: baseline;
   cursor: default;
-}
-.hl-cambi-tipo {
-  font-size: .64rem;
-  text-transform: uppercase;
-  letter-spacing: .03em;
-  padding: .05rem .35rem;
-  border-radius: 999px;
-  background: rgba(96, 165, 250, .15);
-  color: #93c5fd;
-  white-space: nowrap;
 }
 .hl-cambi-testo {
   color: #fbbf24;

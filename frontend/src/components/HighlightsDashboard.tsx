@@ -12,7 +12,7 @@
 import { useMemo, useState } from "react";
 
 import { aUnPasso, fortiMaFrenati, prontiAdesso, type VoceHighlight } from "../highlights";
-import { toNum } from "../format";
+import { signalClass, toNum } from "../format";
 import type { WatchlistRow } from "../types";
 import type { Cambio } from "../api";
 
@@ -34,12 +34,6 @@ const VARIAZIONI: Array<{ key: string; label: string }> = [
   { key: "PCTV_10D", label: "10D" },
   { key: "PCTV_30D", label: "30D" },
 ];
-
-/** Classe CSS per lo stato del titolo (le regole sono minuscole). */
-function classeStato(stato: string): string {
-  const s = String(stato || "").trim().toLowerCase();
-  return s === "entra" || s === "osserva" || s === "attendi" || s === "evita" ? s : "";
-}
 
 /** Prezzo con i decimali che servono: le cifre piccole (ETF a 0,64) sparirebbero
  *  con due soli decimali, i titoli grandi non ne vogliono tre. */
@@ -333,8 +327,11 @@ export default function HighlightsDashboard({
                   title={apribile ? "Apri il grafico" : undefined}
                 >
                   <span className="hl-ticker">{c.ticker}</span>
-                  {stato ? <span className={`hl-stato ${classeStato(stato)}`}>{stato}</span> : null}
-                  <span className="hl-cambi-tipo">{c.tipo}</span>
+                  {/* Solo l'indicazione, con il badge della pagina Monitor:
+                      "ATTENDI PATTERN" era rumore — il tipo si legge nel testo. */}
+                  {stato ? (
+                    <span className={`table-signal ${signalClass(stato)}`}>{stato}</span>
+                  ) : null}
                   <span className="hl-cambi-testo">{c.testo}</span>
                 </div>
               );

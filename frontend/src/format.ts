@@ -141,3 +141,15 @@ export function percheNonEntra(row: Record<string, unknown>): string | null {
 
   return null;
 }
+
+/**
+ * Classe del badge di indicazione, la stessa usata nella pagina Monitor:
+ * ENTRA verde, OSSERVA azzurro, ATTENDI grigio, EVITA rosso.
+ */
+export function signalClass(valore: unknown): string {
+  const v = String(valore ?? "ATTENDI").toUpperCase();
+  if (v === "ENTRA") return "enter";
+  if (v === "OSSERVA") return "watch";
+  if (v === "EVITA") return "avoid";
+  return "wait";
+}
