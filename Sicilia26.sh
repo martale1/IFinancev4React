@@ -4,9 +4,49 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${IFINANCE_PYTHON:-/home/pi/finance/bin/python}"
 ACTION="${1:-start}"
+UNIT="ifinance.service"
 
 export IFINANCE_PYTHON="$PYTHON_BIN"
 
+# Se il servizio systemd esiste, i comandi passano da lui.
+#
+# PERCHE': l'app viene avviata da systemd (riparte da sola dopo un riavvio o una
+# caduta di corrente). Se questo script lanciasse anche il vecchio `nohup`, si
+# troverebbero due processi a contendersi la porta 8011 e la confusione sarebbe
+# garantita: `status` direbbe "non attivo" mentre il sito risponde.
+# Cosi' invece lo script resta l'unico comando da ricordare, ma obbedisce a systemd.
+if systemctl list-unit-files 2>/dev/null | grep -q "^${UNIT}"; then
+  case "$ACTION" in
+    start)
+      exec sudo systemctl start "$UNIT"
+      ;;
+    stop)
+      exec sudo systemctl stop "$UNIT"
+      ;;
+    restart)
+      exec sudo systemctl restart "$UNIT"
+      ;;
+    status)
+      if systemctl is-active --quiet "$UNIT"; then
+        echo "Sicilia26 attivo (PID $(systemctl show -p MainPID --value "$UNIT"))."
+        echo "  servizio: $UNIT (avviato da ${UNIT} al boot)"
+        exit 0
+      fi
+      echo "Sicilia26 non attivo."
+      echo "  avvialo con: sudo systemctl start $UNIT"
+      exit 1
+      ;;
+    logs)
+      exec sudo journalctl -u "$UNIT" -f -n 40
+      ;;
+    *)
+      echo "Uso: $0 {start|stop|restart|status|logs}"
+      exit 2
+      ;;
+  esac
+fi
+
+# Senza systemd, si torna all'avvio manuale di sempre.
 case "$ACTION" in
   start)
     exec "$ROOT_DIR/start_raspberry.sh"
