@@ -414,6 +414,23 @@ def verifica_mercato_ammesso(pf: dict[str, Any], ticker: str) -> str:
     return mercato
 
 
+def strumento_da_mercato(mercato: str) -> str:
+    """Che cosa e' lo strumento: azione, ETF, ETC, cripto.
+
+    Si ricava dal mercato in cui il titolo viene analizzato. Non e' una verita'
+    di borsa, e' l'etichetta della colonna "Strumento": serve a distinguere a
+    colpo d'occhio un'azione da un ETF, e a questo basta.
+    """
+    codice = str(mercato or "").strip().upper()
+    if codice == "ETF":
+        return "ETF"
+    if codice == "ETC":
+        return "ETC"
+    if codice == "CRYPTO":
+        return "Cripto"
+    return "Azione"
+
+
 def valuta_da_ticker(ticker: str) -> str:
     """Valuta dello strumento ricavata dal suffisso del ticker.
 
@@ -852,6 +869,8 @@ def valuta(pf: dict[str, Any]) -> dict[str, Any]:
             "pnl_netto_eur": round(pnl_netto, 2),
             "pnl_netto_pct": round(pnl_netto / costo_ingresso_totale * 100.0, 2) if costo_ingresso_totale else 0.0,
             "distanza_stop_pct": round(distanza_stop, 2) if distanza_stop is not None else None,
+            "strumento": strumento_da_mercato(str(pos.get("mercato") or "")),
+            "mercato": str(pos.get("mercato") or ""),
             "prezzo_valido": valida,
             "prezzo_fonte": fonte,
         })

@@ -4261,3 +4261,80 @@ td {
 .pf-costi-posizione { margin: 0; font-size: .68rem; color: #7899b8; line-height: 1.45; }
 .pf-costi-posizione b { color: #fbbf24; }
 .pf-piccolo { font-size: .64rem; color: #7899b8; margin-left: .15rem; }
+/* ═══ Vista in stile conto titoli ══════════════════════════════════════ */
+
+/* I tre numeri in grande: valorizzazione, variazione in euro, variazione %. */
+.pf-quadro {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem; padding: .55rem .7rem;
+  border: 1px solid rgba(174,216,249,.16); border-radius: 10px;
+  background: rgba(4,14,26,.55);
+}
+.pf-quadro-voce { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.pf-quadro-voce small { color: #7899b8; font-size: .64rem; text-transform: uppercase; letter-spacing: .04em; }
+.pf-quadro-voce b {
+  font-size: 1.15rem; font-variant-numeric: tabular-nums;
+  color: #e5f2ff; overflow-wrap: anywhere; line-height: 1.15;
+}
+.pf-quadro-voce b.positive { color: #4ade80; }
+.pf-quadro-voce b.negative { color: #fb7185; }
+.pf-quadro-nota { margin: -.2rem 0 0; color: #7899b8; font-size: .7rem; line-height: 1.5; }
+
+/* Tabella delle posizioni: griglia, non <table>, cosi' su telefono diventa un
+   elenco senza scorrimento orizzontale. */
+.pf-tabella { display: flex; flex-direction: column; gap: .15rem; }
+.pf-tabella-testa {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.6fr) .8fr .55fr .7fr .9fr .9fr 1fr 1.05fr 1.05fr auto;
+  gap: .4rem; padding: .25rem .5rem;
+  color: #7899b8; font-size: .62rem; text-transform: uppercase; letter-spacing: .03em;
+  border-bottom: 1px solid rgba(174,216,249,.12);
+}
+.pf-tabella-testa .num { text-align: right; }
+
+.pf-riga-pos {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.6fr) .8fr .55fr .7fr .9fr .9fr 1fr 1.05fr 1.05fr auto;
+  gap: .4rem; align-items: center;
+  padding: .45rem .5rem; border-radius: 8px;
+  border: 1px solid rgba(174,216,249,.1); background: rgba(4,14,26,.42);
+}
+.pf-riga-pos:hover { border-color: rgba(96,165,250,.35); }
+.pf-cella { font-size: .74rem; color: #cfe3f7; min-width: 0; }
+.pf-cella.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pf-cella.titolo { display: flex; flex-direction: column; }
+.pf-cella.titolo b { font-size: .8rem; color: #e5f2ff; }
+.pf-cella.titolo small { color: #7899b8; font-size: .66rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-cella.num b { display: block; font-size: .76rem; }
+.pf-cella.num small { display: block; font-size: .66rem; color: #9fb7cf; }
+.pf-cella.netto b, .pf-cella.netto small { opacity: .95; }
+.pf-cella.positive b, .pf-cella.positive small { color: #4ade80; }
+.pf-cella.negative b, .pf-cella.negative small { color: #fb7185; }
+.pf-cella.azioni { display: flex; gap: .25rem; justify-content: flex-end; }
+.pf-cella.azioni .btn { font-size: .68rem; padding: .2rem .45rem; }
+/* La riga con stop, costi e punto di pareggio: sotto, a tutta larghezza. */
+.pf-cella.nota {
+  grid-column: 1 / -1; color: #7899b8; font-size: .66rem; line-height: 1.45;
+  padding-top: .1rem;
+}
+.pf-cella.nota b { color: #fbbf24; }
+
+/* Su telefono: ogni riga diventa una scheda in colonna, con l'etichetta sopra. */
+@media (max-width: 900px) {
+  .pf-tabella-testa { display: none; }
+  .pf-riga-pos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .3rem .6rem; padding: .55rem .6rem;
+  }
+  .pf-cella[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block; color: #7899b8; font-size: .6rem;
+    text-transform: uppercase; letter-spacing: .03em; margin-bottom: .05rem;
+  }
+  .pf-cella.num { text-align: left; }
+  .pf-cella.titolo { grid-column: 1 / -1; }
+  .pf-cella.azioni { grid-column: 1 / -1; justify-content: flex-start; }
+  .pf-cella.nota { grid-column: 1 / -1; }
+  .pf-quadro { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pf-quadro-voce b { font-size: .95rem; }
+}

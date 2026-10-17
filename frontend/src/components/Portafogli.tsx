@@ -362,33 +362,32 @@ export default function Portafogli() {
             </button>
           </header>
 
-          <div className="pf-numeri">
-            <div className="pf-numero">
-              <small>Valore totale</small>
+          {/* I tre numeri in grande, come nel conto titoli del broker. */}
+          <div className="pf-quadro">
+            <div className="pf-quadro-voce">
+              <small>Valorizzazione EUR</small>
               <b>{euro(dettaglio.valore_totale)}</b>
             </div>
-            <div className="pf-numero">
-              <small>Risultato</small>
+            <div className="pf-quadro-voce">
+              <small>Variazione EUR</small>
               <b className={classeDaSegno(dettaglio.pnl_totale_eur)}>
-                {euro(dettaglio.pnl_totale_eur)} <span>({perc(dettaglio.pnl_totale_pct)})</span>
+                {dettaglio.pnl_totale_eur > 0 ? "+" : ""}
+                {euro(dettaglio.pnl_totale_eur)}
               </b>
             </div>
-            <div className="pf-numero">
-              <small>Liquidi</small>
-              <b>{euro(dettaglio.liquidita)}</b>
-            </div>
-            <div className="pf-numero">
-              <small>Esposizione</small>
-              {/* Non e' una variazione: niente segno + davanti. */}
-              <b>
-                {(toNum(dettaglio.esposizione_pct) ?? 0).toLocaleString("it-IT", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-                %
-              </b>
+            <div className="pf-quadro-voce">
+              <small>Variazione %</small>
+              <b className={classeDaSegno(dettaglio.pnl_totale_pct)}>{perc(dettaglio.pnl_totale_pct)}</b>
             </div>
           </div>
+          <p className="pf-quadro-nota">
+            Liquidi {euro(dettaglio.liquidita)} · esposizione{" "}
+            {(toNum(dettaglio.esposizione_pct) ?? 0).toLocaleString("it-IT", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            % · {dettaglio.num_posizioni} posizioni · capitale iniziale {euro(dettaglio.capitale_iniziale)}
+          </p>
 
           {/* Mercati su cui questo portafoglio puo' operare: si cambiano qui,
               e il backend rifiuta comunque gli acquisti fuori elenco. */}
@@ -586,79 +585,86 @@ export default function Portafogli() {
           {dettaglio.posizioni.length === 0 ? (
             <p className="pf-vuoto">Nessuna posizione aperta.</p>
           ) : (
-            <div className="pf-posizioni">
-              {dettaglio.posizioni.map((pos) => (
-                <div className="pf-posizione" key={pos.id}>
-                  <div className="pf-posizione-testa">
-                    <span className="pf-posizione-ticker">
+            <div className="pf-tabella">
+              <div className="pf-tabella-testa" aria-hidden="true">
+                <span>Titolo</span>
+                <span>Strumento</span>
+                <span>Valuta</span>
+                <span className="num">Quantità</span>
+                <span className="num">Pzo di carico</span>
+                <span className="num">Pzo di mercato</span>
+                <span className="num">Valore €</span>
+                <span className="num">Var € / %</span>
+                <span className="num">Netto se vendi</span>
+                <span />
+              </div>
+
+              {dettaglio.posizioni.map((pos) => {
+                const costi = (toNum(pos.costi_ingresso_eur) ?? 0) + (toNum(pos.costo_vendita_eur) ?? 0);
+                const base = Number(pos.importo_investito_eur ?? pos.valore_eur ?? 1) || 1;
+                const pari = (costi / base) * 100;
+                return (
+                  <div className="pf-riga-pos" key={pos.id}>
+                    <span className="pf-cella titolo" data-label="Titolo">
                       <b>{pos.ticker}</b>
                       <small>{pos.nome}</small>
                     </span>
-                    <span className="pf-posizione-prezzo">
-                      <b>{prezzo(pos.prezzo_corrente)}</b>
-                      <small className={classeDaSegno(pos.pnl_pct)}>{perc(pos.pnl_pct)}</small>
+                    <span className="pf-cella" data-label="Strumento">{pos.strumento || "—"}</span>
+                    <span className="pf-cella" data-label="Valuta">{pos.valuta}</span>
+                    <span className="pf-cella num" data-label="Quantità">{pos.quantita}</span>
+                    <span className="pf-cella num" data-label="Pzo di carico">{prezzo(pos.prezzo_ingresso)}</span>
+                    <span className="pf-cella num" data-label="Pzo di mercato">
+                      {prezzo(pos.prezzo_corrente)}
+                      {!pos.prezzo_valido ? <small className="pf-piccolo">stimato</small> : null}
                     </span>
-                  </div>
-                  <div className="pf-posizione-numeri">
-                    <span>Quantità <b>{pos.quantita}</b></span>
-                    <span>Ingresso <b>{prezzo(pos.prezzo_ingresso)}</b></span>
-                    <span>Valore <b>{euro(pos.valore_eur)}</b></span>
-                    <span title="Solo movimento di prezzo: non comprende le commissioni">
-                      Prezzo{" "}
-                      <b className={classeDaSegno(pos.pnl_eur)}>{euro(pos.pnl_eur)}</b>
-                      <small className="pf-piccolo">{perc(pos.pnl_pct)}</small>
-                    </span>
-                    <span title="Se vendessi adesso: dopo commissioni di acquisto e vendita, Tobin e slippage">
-                      Netto{" "}
-                      <b className={classeDaSegno(pos.pnl_netto_eur)}>{euro(pos.pnl_netto_eur)}</b>
-                      <small className="pf-piccolo">{perc(pos.pnl_netto_pct)}</small>
-                    </span>
-                    <span>Stop <b>{prezzo(pos.stop_attuale)}</b></span>
-                    <span>
-                      Distanza stop{" "}
-                      <b className={classeDaSegno(-(pos.distanza_stop_pct ?? 0))}>
-                        {pos.distanza_stop_pct === null ? "—" : `${pos.distanza_stop_pct.toFixed(2)}%`}
+                    <span className="pf-cella num" data-label="Valore €">{euro(pos.valore_eur)}</span>
+                    <span className={`pf-cella num ${classeDaSegno(pos.pnl_eur)}`} data-label="Var € / %">
+                      <b>
+                        {pos.pnl_eur > 0 ? "+" : ""}
+                        {euro(pos.pnl_eur)}
                       </b>
+                      <small>{perc(pos.pnl_pct)}</small>
+                    </span>
+                    <span
+                      className={`pf-cella num netto ${classeDaSegno(pos.pnl_netto_eur)}`}
+                      data-label="Netto se vendi"
+                      title={`Costi: ${euro(costi)} (commissioni, Tobin, slippage). Per andare in pari serve ${pari.toFixed(2)}%`}
+                    >
+                      <b>
+                        {pos.pnl_netto_eur > 0 ? "+" : ""}
+                        {euro(pos.pnl_netto_eur)}
+                      </b>
+                      <small>{perc(pos.pnl_netto_pct)}</small>
+                    </span>
+                    <span className="pf-cella azioni" data-label="">
+                      {uscita === pos.ticker ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn danger"
+                            disabled={vendiMut.isPending}
+                            onClick={() => vendiMut.mutate(pos.ticker)}
+                          >
+                            {vendiMut.isPending ? "Vendo..." : "Confermo"}
+                          </button>
+                          <button type="button" className="btn ghost" onClick={() => setUscita(null)}>
+                            No
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" className="btn ghost" onClick={() => setUscita(pos.ticker)}>
+                          Vendi
+                        </button>
+                      )}
+                    </span>
+                    <span className="pf-cella nota" data-label="">
+                      Stop {prezzo(pos.stop_attuale)} · distanza{" "}
+                      {pos.distanza_stop_pct === null ? "—" : `${pos.distanza_stop_pct.toFixed(2)}%`} · costi{" "}
+                      {euro(costi)} · per andare in pari serve <b>{pari.toFixed(2)}%</b>
                     </span>
                   </div>
-                  <p className="pf-costi-posizione">
-                    Costi d&apos;ingresso {euro(pos.costi_ingresso_eur)} · costo di vendita{" "}
-                    {euro(pos.costo_vendita_eur)} · per andare in pari serve{" "}
-                    <b>
-                      {(
-                        ((toNum(pos.costi_ingresso_eur) ?? 0) + (toNum(pos.costo_vendita_eur) ?? 0)) /
-                        Math.max(Number(pos.importo_investito_eur ?? pos.valore_eur ?? 1), 1) *
-                        100
-                      ).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      %
-                    </b>
-                  </p>
-                  {!pos.prezzo_valido ? (
-                    <p className="pf-avvertenza">Prezzo non disponibile: il valore usa il prezzo d&apos;ingresso.</p>
-                  ) : null}
-                  <div className="pf-posizione-azioni">
-                    {uscita === pos.ticker ? (
-                      <>
-                        <button
-                          type="button"
-                          className="btn danger"
-                          disabled={vendiMut.isPending}
-                          onClick={() => vendiMut.mutate(pos.ticker)}
-                        >
-                          {vendiMut.isPending ? "Vendo..." : "Confermo la vendita"}
-                        </button>
-                        <button type="button" className="btn ghost" onClick={() => setUscita(null)}>
-                          No
-                        </button>
-                      </>
-                    ) : (
-                      <button type="button" className="btn ghost" onClick={() => setUscita(pos.ticker)}>
-                        Vendi
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

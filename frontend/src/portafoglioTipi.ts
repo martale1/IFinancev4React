@@ -17,6 +17,9 @@ export type PosizionePortafoglio = {
   ticker: string;
   nome?: string;
   valuta: string;
+  /** Azione, ETF, ETC, Cripto. */
+  strumento: string;
+  mercato: string;
   quantita: number;
   prezzo_ingresso: number;
   prezzo_corrente: number;
