@@ -1323,6 +1323,14 @@ textarea {
   font-size: .68rem; font-weight: 700; letter-spacing: .02em;
   padding: .18rem .35rem; border-radius: 6px;
 }
+/* Le azioni stanno in cima al pannello: serve un po' d'aria sotto, prima dei
+   gruppi di dati. */
+.monitor-dense-detail .dense-actions {
+  padding-bottom: .45rem;
+  margin-bottom: .35rem;
+  border-bottom: 1px solid rgba(174, 216, 249, .1);
+}
+
 /* Badge dello stato con sotto l'icona di rimozione rapida. */
 .dense-stato {
   display: inline-flex;

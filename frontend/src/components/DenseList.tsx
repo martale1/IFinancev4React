@@ -147,6 +147,10 @@ export function DenseList({
 
             {espansa ? (
               <div className="monitor-dense-detail">
+                {renderActions ? (
+                  <div className="dense-actions">{renderActions(row)}</div>
+                ) : null}
+
                 <div className="monitor-groups">
                   <div className="monitor-group">
                     <span className="monitor-group-title">Trend</span>
@@ -203,11 +207,6 @@ export function DenseList({
                   </div>
                 </div>
 
-                
-
-                {renderActions ? (
-                  <div className="dense-actions">{renderActions(row)}</div>
-                ) : null}
 
                 {/* Chiudere la scheda: prima bisognava ricliccare la riga, cosa
                     che non si vede. Sta fuori dalla fila delle azioni sul titolo. */}
