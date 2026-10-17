@@ -4237,7 +4237,6 @@ td {
 /* Il giro automatico: azione principale della schermata. */
 .pf-giro { display: flex; flex-direction: column; gap: .35rem; }
 .pf-giro-bottone { align-self: flex-start; font-size: .85rem; padding: .45rem .9rem; }
-.pf-giro-spiega { margin: 0; font-size: .7rem; color: #7899b8; line-height: 1.5; max-width: 80ch; }
 
 /* Esito del giro: chi e' entrato e chi no, con il motivo. */
 .pf-esito {

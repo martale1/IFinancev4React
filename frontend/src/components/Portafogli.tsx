@@ -531,15 +531,7 @@ export default function Portafogli() {
             >
               {giroMut.isPending ? "Giro in corso..." : "🤖 Esegui il giro"}
             </button>
-            <p className="pf-giro-spiega">
-              Il sistema legge l&apos;analisi più recente dei mercati abilitati
-              ({(dettaglio.parametri.mercati ?? []).join(", ") || "nessuno"}), sceglie i titoli che
-              rispettano il profilo — indicazione {dettaglio.parametri.ingressi_da.join(" o ")},
-              TECH ≥ {dettaglio.parametri.tech_score_min}, rischio{" "}
-              {dettaglio.parametri.rischio_ammesso.join(" o ")} — e compra fino al limite di cassa,
-              posizioni e tetto per titolo. Non vende: gli stop sono calcolati ma non agiscono ancora.
-            </p>
-          </div>
+                      </div>
 
           {esitoGiro ? (
             <div className="pf-esito">
