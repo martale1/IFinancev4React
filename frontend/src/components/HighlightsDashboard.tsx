@@ -128,7 +128,8 @@ function RigaVoce({
         </span>
       ) : null}
 
-      <span className="hl-motivo" title={voce.motivo}>{voce.motivo}</span>
+      {/* La condizione ("direzione SU, forza FORTE_SU...") non si mostra: allunga
+          la riga e si legge tutta aprendo il grafico con un clic. */}
     </div>
   );
 }
