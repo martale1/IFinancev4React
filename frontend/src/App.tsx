@@ -51,11 +51,11 @@ import {
 } from "./api";
 
 const tabs = [
-  "🎯 Monitor",
   "📊 Highlights",
   "💼 Portafogli",
-  "🔥 Heatmap",
+  "🎯 Monitor",
   "All",
+  "🔥 Heatmap",
   "🧪 Multi-Pattern Lab",
   "Analizza",
   "Alerts",
