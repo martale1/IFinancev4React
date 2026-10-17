@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   anteprimaAcquisto,
+  aggiornaPortafoglio,
   archiviaPortafoglio,
   compraTitolo,
   creaPortafoglio,
@@ -60,6 +61,18 @@ const PRESET = [
   { chiave: "bilanciato", etichetta: "Bilanciato", nota: "rischio 1% · max 10% per titolo · stop 2 ATR" },
   { chiave: "aggressivo", etichetta: "Aggressivo", nota: "rischio 2% · max 20% per titolo · stop 2,5 ATR" },
 ];
+/** I mercati su cui un portafoglio puo' operare. Devono combaciare con le analisi. */
+const MERCATI = [
+  { chiave: "MIB30", etichetta: "MIB30" },
+  { chiave: "DAX", etichetta: "DAX" },
+  { chiave: "ETF", etichetta: "ETF" },
+  { chiave: "ETC", etichetta: "ETC" },
+  { chiave: "Crypto", etichetta: "Crypto" },
+  { chiave: "US_Others", etichetta: "US / altri" },
+  { chiave: "Preferite", etichetta: "Preferite" },
+];
+
+
 
 export default function Portafogli() {
   const qc = useQueryClient();
@@ -71,6 +84,7 @@ export default function Portafogli() {
   const [nome, setNome] = useState("");
   const [capitale, setCapitale] = useState("10000");
   const [preset, setPreset] = useState("bilanciato");
+  const [mercatiNuovi, setMercatiNuovi] = useState<string[]>(["MIB30", "DAX"]);
 
   // ── acquisto ────────────────────────────────────────────────────────
   const [ticker, setTicker] = useState("");
@@ -101,7 +115,13 @@ export default function Portafogli() {
   };
 
   const creaMut = useMutation({
-    mutationFn: () => creaPortafoglio({ nome, capitale: Number(capitale.replace(",", ".")), preset }),
+    mutationFn: () =>
+      creaPortafoglio({
+        nome,
+        capitale: Number(capitale.replace(",", ".")),
+        preset,
+        parametri: { mercati: mercatiNuovi },
+      }),
     onSuccess: async (pf) => {
       setCreando(false);
       setNome("");
@@ -137,6 +157,16 @@ export default function Portafogli() {
       await ricarica(scelto);
     },
     onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Vendita non riuscita"),
+  });
+
+  const mercatiMut = useMutation({
+    mutationFn: (mercati: string[]) =>
+      aggiornaPortafoglio(String(scelto), { parametri: { mercati } }),
+    onSuccess: async () => {
+      setErrore("");
+      await ricarica(scelto);
+    },
+    onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Modifica non riuscita"),
   });
 
   const archiviaMut = useMutation({
@@ -207,6 +237,29 @@ export default function Portafogli() {
               ))}
             </select>
           </label>
+          <div className="pf-mercati">
+            <span className="pf-mercati-titolo">Mercati su cui operare</span>
+            <div className="pf-mercati-scelta">
+              {MERCATI.map((m) => (
+                <label key={m.chiave} className={mercatiNuovi.includes(m.chiave) ? "attivo" : ""}>
+                  <input
+                    type="checkbox"
+                    checked={mercatiNuovi.includes(m.chiave)}
+                    onChange={(e) =>
+                      setMercatiNuovi((prima) =>
+                        e.target.checked ? [...prima, m.chiave] : prima.filter((x) => x !== m.chiave),
+                      )
+                    }
+                  />
+                  {m.etichetta}
+                </label>
+              ))}
+            </div>
+            {mercatiNuovi.length === 0 ? (
+              <small className="pf-avvertenza">Senza mercati il portafoglio non potra' comprare nulla.</small>
+            ) : null}
+          </div>
+
           <button
             type="button"
             className="btn primary"
@@ -290,6 +343,37 @@ export default function Portafogli() {
                 %
               </b>
             </div>
+          </div>
+
+          {/* Mercati su cui questo portafoglio puo' operare: si cambiano qui,
+              e il backend rifiuta comunque gli acquisti fuori elenco. */}
+          <div className="pf-mercati">
+            <span className="pf-mercati-titolo">Mercati abilitati</span>
+            <div className="pf-mercati-scelta">
+              {MERCATI.map((m) => {
+                const abilitati = dettaglio.parametri.mercati ?? [];
+                const attivo = abilitati.includes(m.chiave);
+                return (
+                  <button
+                    key={m.chiave}
+                    type="button"
+                    className={attivo ? "attivo" : ""}
+                    disabled={mercatiMut.isPending}
+                    onClick={() => {
+                      const nuovi = attivo
+                        ? abilitati.filter((x) => x !== m.chiave)
+                        : [...abilitati, m.chiave];
+                      mercatiMut.mutate(nuovi);
+                    }}
+                  >
+                    {m.etichetta}
+                  </button>
+                );
+              })}
+            </div>
+            {(dettaglio.parametri.mercati ?? []).length === 0 ? (
+              <small className="pf-avvertenza">Nessun mercato abilitato: non si puo' comprare nulla.</small>
+            ) : null}
           </div>
 
           {/* ── acquisto ───────────────────────────────────────────── */}

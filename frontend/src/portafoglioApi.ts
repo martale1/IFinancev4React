@@ -29,6 +29,8 @@ export async function creaPortafoglio(corpo: {
   capitale: number;
   preset?: string;
   note?: string;
+  /** Parametri che sovrascrivono il preset, per esempio `mercati`. */
+  parametri?: Record<string, unknown>;
 }): Promise<Portafoglio> {
   const resp = await fetch(`${API_BASE}/portafogli`, {
     method: "POST",

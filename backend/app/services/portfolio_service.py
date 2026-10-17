@@ -37,6 +37,10 @@ TOBIN_PCT = 0.0010            # 0,10%, solo acquisto, solo azioni italiane
 CAMBIO_PCT = 0.0025           # 0,25% di spread sul cambio
 SLIPPAGE_PCT = 0.0005         # 0,05% prudenziale
 
+# I mercati su cui un portafoglio puo' operare. Devono combaciare con i file di
+# analisi esistenti, altrimenti il mercato non e' verificabile.
+MERCATI_VALIDI = ("MIB30", "DAX", "ETF", "ETC", "Crypto", "US_Others", "Preferite")
+
 # ── Parametri di default di un portafoglio nuovo (preset "Bilanciato") ─
 PARAMETRI_DEFAULT: dict[str, Any] = {
     "rischio_per_operazione_pct": 1.0,
@@ -50,6 +54,7 @@ PARAMETRI_DEFAULT: dict[str, Any] = {
     "trailing_atr_mult": 2.0,
     "obiettivo_pct": 15.0,
     "rischio_ammesso": ["NORMALE", "TESO"],
+    "mercati": list(MERCATI_VALIDI),
     "tech_score_min": 75,
     "ingressi_da": ["ENTRA"],
     "scadenza_segnale_sedute": 3,
@@ -244,6 +249,17 @@ def aggiorna(pid: str, nome: str | None = None, stato: str | None = None,
         sconosciute = [k for k in parametri if k not in PARAMETRI_DEFAULT]
         if sconosciute:
             raise ValueError(f"Parametri non riconosciuti: {', '.join(sconosciute)}")
+        if "mercati" in parametri:
+            scelti = parametri["mercati"]
+            if not isinstance(scelti, list):
+                raise ValueError("'mercati' deve essere una lista")
+            ignoti = [str(m) for m in scelti if str(m) not in MERCATI_VALIDI]
+            if ignoti:
+                raise ValueError(
+                    f"Mercati sconosciuti: {', '.join(ignoti)}. "
+                    f"Validi: {', '.join(MERCATI_VALIDI)}"
+                )
+            parametri = {**parametri, "mercati": [str(m) for m in scelti]}
         pf["parametri"] = {**pf.get("parametri", {}), **parametri}
     scrivi(pf)
     return pf
@@ -294,6 +310,37 @@ def riga_titolo(ticker: str) -> dict[str, Any] | None:
         _CACHE_RIGHE[chiave] = (istante, riga)
         return riga
     return None
+
+
+def mercato_di(ticker: str) -> str | None:
+    """Il mercato di un titolo, letto dalle analisi. None se non e' presente."""
+    riga = riga_titolo(str(ticker or "").strip().upper())
+    if not riga:
+        return None
+    return str(riga.get("_mercato") or "") or None
+
+
+def verifica_mercato_ammesso(pf: dict[str, Any], ticker: str) -> str:
+    """Blocca l'acquisto se il titolo non appartiene ai mercati del portafoglio.
+
+    Restituisce il mercato del titolo. Solleva ValueError se non ammesso o se il
+    mercato non e' verificabile: meglio rifiutare che comprare al buio.
+    """
+    mercato = mercato_di(ticker)
+    ammessi = [str(m) for m in (pf.get("parametri", {}).get("mercati") or [])]
+
+    if mercato is None:
+        raise ValueError(
+            f"{ticker} non e' presente nelle analisi: il suo mercato non e' verificabile, "
+            "quindi l'acquisto e' bloccato. Aggiungilo a un mercato analizzato oppure "
+            "scegli un titolo che compaia nell'elenco."
+        )
+    if ammessi and mercato not in ammessi:
+        raise ValueError(
+            f"{ticker} appartiene al mercato {mercato}, che non e' abilitato per questo "
+            f"portafoglio (abilitati: {', '.join(ammessi) or 'nessuno'})."
+        )
+    return mercato
 
 
 def valuta_da_ticker(ticker: str) -> str:
@@ -494,6 +541,9 @@ def compra(pid: str, ticker: str, importo_eur: float | None = None,
         raise ValueError(f"{simbolo} e' gia' in portafoglio")
 
     par = pf.get("parametri", {})
+    # Prima di tutto: questo titolo appartiene a un mercato su cui il portafoglio
+    # opera? Se no, non si va avanti nemmeno a calcolare la quantita'.
+    verifica_mercato_ammesso(pf, simbolo)
     riga = riga_titolo(simbolo) or {}
     nome = str(riga.get("Name") or simbolo)
     valuta = valuta_da_ticker(simbolo)
@@ -769,6 +819,7 @@ def anteprima_acquisto(pid: str, ticker: str, importo_eur: float | None = None) 
     simbolo = str(ticker or "").strip().upper()
     if not simbolo:
         raise ValueError("Ticker obbligatorio")
+    verifica_mercato_ammesso(pf, simbolo)
     riga = riga_titolo(simbolo) or {}
     nome = str(riga.get("Name") or simbolo)
     valuta = valuta_da_ticker(simbolo)

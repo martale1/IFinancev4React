@@ -62,6 +62,8 @@ export type ParametriPortafoglio = {
   trailing_atr_mult: number;
   obiettivo_pct: number;
   rischio_ammesso: string[];
+  /** Mercati su cui il portafoglio puo' operare. */
+  mercati: string[];
   tech_score_min: number;
   ingressi_da: string[];
   scadenza_segnale_sedute: number;
