@@ -112,8 +112,7 @@ export function prontiAdesso(righe: WatchlistRow[]): VoceHighlight[] {
       motivo: `direzione SU, forza FORTE_SU, momento ${su(r.Momento_Trend).toLowerCase()}, rischio NORMALE`,
       peso: toNum(r.TECH_SCORE) ?? 0,
     }))
-    .sort((a, b) => b.peso - a.peso || (toNum(b.row.ADX) ?? 0) - (toNum(a.row.ADX) ?? 0))
-    .slice(0, MAX_PER_BLOCCO);
+    .sort((a, b) => b.peso - a.peso || (toNum(b.row.ADX) ?? 0) - (toNum(a.row.ADX) ?? 0));
 }
 
 /**
@@ -132,8 +131,7 @@ export function aUnPasso(righe: WatchlistRow[]): VoceHighlight[] {
       // Chi ha il TECH_SCORE piu' alto e' il candidato piu' forte.
       peso: toNum(r.TECH_SCORE) ?? 0,
     }))
-    .sort((a, b) => b.peso - a.peso)
-    .slice(0, MAX_PER_BLOCCO);
+    .sort((a, b) => b.peso - a.peso);
 }
 
 /**
@@ -185,7 +183,7 @@ export function fortiMaFrenati(
   return [...perFreno.entries()]
     .map(([freno, voci]) => ({
       freno,
-      voci: voci.sort((a, b) => b.peso - a.peso).slice(0, MAX_PER_BLOCCO),
+      voci: voci.sort((a, b) => b.peso - a.peso),
     }))
     // I gruppi piu' numerosi prima: sono i freni piu' diffusi sul mercato.
     .sort((a, b) => b.voci.length - a.voci.length);

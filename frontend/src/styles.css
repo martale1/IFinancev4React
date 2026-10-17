@@ -913,6 +913,29 @@ textarea {
   font-size: .74rem;
 }
 .hl-score { color: #86efac; font-size: .7rem; font-weight: 700; }
+/* Punteggio e pulsante Monitor sulla stessa cella della griglia. */
+.hl-azioni {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+}
+/* Il pulsante che aggiunge il titolo al monitoraggio: piccolo, non deve
+   competere con il prezzo. */
+.hl-monitor {
+  font: inherit;
+  font-size: .66rem;
+  padding: .12rem .4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(174, 216, 249, .3);
+  background: rgba(7, 18, 33, .8);
+  color: #b8d4ee;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hl-monitor:hover {
+  border-color: #60a5fa;
+  color: #dcecff;
+}
 /* Il prezzo: cifre a larghezza fissa cosi' i numeri restano incolonnati. */
 .hl-prezzo {
   color: #e5f2ff;

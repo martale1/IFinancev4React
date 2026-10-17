@@ -1,21 +1,24 @@
 /**
  * Cruscotto degli Highlights: quattro blocchi che dicono cosa guardare.
  *
- * Sta accanto alla pagina precedente, non al suo posto: si sceglie con un
- * pulsante, cosi' si giudica sui titoli veri invece che su una descrizione.
+ * I blocchi ricevono TUTTI i titoli e decidono qui quante righe mostrarne: il
+ * conteggio nella casella e' il totale vero. Prima il taglio avveniva nei dati e
+ * il numero mostrava le righe visibili (massimo 5), quindi in "MIB30 + DAX" non
+ * era la somma di MIB30 e DAX.
  *
- * I blocchi rispondono a quattro domande diverse, e per questo non sono una
- * classifica unica:
- *   - Pronti adesso      -> cosa posso fare oggi
- *   - A un passo         -> cosa sto per poter fare, e cosa manca
- *   - Forti ma frenati   -> cosa e' valido ma non ancora operabile
- *   - Nuovi oggi         -> cosa e' cambiato rispetto a ieri
+ * Ogni riga apre il grafico; il pulsante `+ Monitor` la aggiunge al monitoraggio
+ * senza aprire il grafico.
  */
 import { useMemo, useState } from "react";
 
 import { aUnPasso, fortiMaFrenati, prontiAdesso, type VoceHighlight } from "../highlights";
 import { toNum } from "../format";
 import type { WatchlistRow } from "../types";
+
+/** Righe visibili per blocco prima di "mostra tutti". */
+const VISIBILI = 5;
+/** Righe visibili per gruppo, nei "forti ma frenati". */
+const VISIBILI_GRUPPO = 3;
 
 /**
  * Le variazioni percentuali mostrate su ogni riga: 1, 5, 10 e 30 sedute.
@@ -38,19 +41,57 @@ function prezzo(valore: number): string {
   return valore.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-/** Una riga di titolo dentro un blocco: cliccabile per aprire il grafico. */
-function RigaVoce({ voce, onChart }: { voce: VoceHighlight; onChart: (row: WatchlistRow) => void }) {
+/** Una riga di titolo dentro un blocco: cliccabile per il grafico, con il
+ *  pulsante per il monitoraggio. */
+function RigaVoce({
+  voce,
+  onChart,
+  onMonitor,
+}: {
+  voce: VoceHighlight;
+  onChart: (row: WatchlistRow) => void;
+  onMonitor: (row: WatchlistRow) => void;
+}) {
   const score = toNum(voce.row.TECH_SCORE);
   const chiusura = toNum(voce.row.Close);
   const variazioni = VARIAZIONI.map((v) => ({ ...v, valore: toNum(voce.row[v.key]) }));
   const qualcuna = variazioni.some((v) => v.valore !== null);
 
   return (
-    <button type="button" className="hl-riga" onClick={() => onChart(voce.row)} title="Apri il grafico">
+    // Un div e non un button: dentro c'e' un altro pulsante, e un bottone dentro
+    // un bottone non e' valido. Il clic sulla riga apre il grafico; il pulsante
+    // Monitor ferma la propagazione.
+    <div
+      className="hl-riga"
+      role="button"
+      tabIndex={0}
+      onClick={() => onChart(voce.row)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onChart(voce.row);
+        }
+      }}
+      title="Apri il grafico"
+    >
       <span className="hl-ticker">{voce.ticker}</span>
       <span className="hl-nome">{voce.nome || "—"}</span>
       {chiusura !== null ? <span className="hl-prezzo">{prezzo(chiusura)}</span> : null}
-      {score !== null ? <span className="hl-score">TECH {Math.round(score)}</span> : null}
+
+      <span className="hl-azioni">
+        {score !== null ? <span className="hl-score">TECH {Math.round(score)}</span> : null}
+        <button
+          type="button"
+          className="hl-monitor"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMonitor(voce.row);
+          }}
+          title={voce.row.Monitor_Note ? "Modifica la nota di monitoraggio" : "Aggiungi al monitoraggio"}
+        >
+          + Monitor
+        </button>
+      </span>
 
       {qualcuna ? (
         <span className="hl-variazioni">
@@ -74,43 +115,55 @@ function RigaVoce({ voce, onChart }: { voce: VoceHighlight; onChart: (row: Watch
       ) : null}
 
       <span className="hl-motivo">{voce.motivo}</span>
-    </button>
+    </div>
   );
 }
 
-/** Un blocco: titolo, conteggio, spiegazione e righe. */
+/** Un blocco: titolo, conteggio TOTALE, spiegazione e righe. */
 function Blocco({
   titolo,
   sottotitolo,
   voci,
   vuoto,
   onChart,
+  onMonitor,
 }: {
   titolo: string;
   sottotitolo: string;
   voci: VoceHighlight[] | null;
   vuoto: string;
   onChart: (row: WatchlistRow) => void;
+  onMonitor: (row: WatchlistRow) => void;
 }) {
+  const [espanso, setEspanso] = useState(false);
+  const totale = voci ? voci.length : 0;
+  const visibili = voci ? (espanso ? voci : voci.slice(0, VISIBILI)) : [];
+  const resto = totale - visibili.length;
+
   return (
     <section className="hl-blocco">
       <header className="hl-blocco-testata">
         <h3>
           {titolo}
-          {voci ? <b className="hl-conteggio">{voci.length}</b> : null}
+          {voci ? <b className="hl-conteggio">{totale}</b> : null}
         </h3>
         <p>{sottotitolo}</p>
       </header>
-      {voci === null ? (
-        <p className="hl-vuoto">{vuoto}</p>
-      ) : voci.length === 0 ? (
+      {voci === null || totale === 0 ? (
         <p className="hl-vuoto">{vuoto}</p>
       ) : (
-        <div className="hl-righe">
-          {voci.map((v) => (
-            <RigaVoce key={v.ticker} voce={v} onChart={onChart} />
-          ))}
-        </div>
+        <>
+          <div className="hl-righe">
+            {visibili.map((v) => (
+              <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} />
+            ))}
+          </div>
+          {resto > 0 ? (
+            <button type="button" className="btn ghost hl-altri" onClick={() => setEspanso((x) => !x)}>
+              {espanso ? `Mostra solo ${VISIBILI}` : `Mostra tutti i ${totale} (altri ${resto})`}
+            </button>
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -119,9 +172,11 @@ function Blocco({
 export default function HighlightsDashboard({
   righe,
   onChart,
+  onMonitor,
 }: {
   righe: WatchlistRow[];
   onChart: (row: WatchlistRow) => void;
+  onMonitor: (row: WatchlistRow) => void;
 }) {
   const [mostraTuttiFrenati, setMostraTuttiFrenati] = useState(false);
 
@@ -134,6 +189,9 @@ export default function HighlightsDashboard({
     return fortiMaFrenati(righe, gia);
   }, [righe, pronti, passo]);
 
+  const totaleFrenati = frenati.reduce((n, g) => n + g.voci.length, 0);
+  const gruppiVisibili = mostraTuttiFrenati ? frenati : frenati.slice(0, 3);
+
   return (
     <div className="hl-cruscotto">
       <Blocco
@@ -142,6 +200,7 @@ export default function HighlightsDashboard({
         voci={pronti}
         vuoto="Nessun titolo pronto in questo momento."
         onChart={onChart}
+        onMonitor={onMonitor}
       />
 
       <Blocco
@@ -150,13 +209,14 @@ export default function HighlightsDashboard({
         voci={passo}
         vuoto="Nessun titolo vicino all'ingresso."
         onChart={onChart}
+        onMonitor={onMonitor}
       />
 
       <section className="hl-blocco">
         <header className="hl-blocco-testata">
           <h3>
             Forti ma frenati
-            <b className="hl-conteggio">{frenati.reduce((n, g) => n + g.voci.length, 0)}</b>
+            <b className="hl-conteggio">{totaleFrenati}</b>
           </h3>
           <p>TECH_SCORE alto ma non operabili: raggruppati per il freno, che dice cosa aspettare.</p>
         </header>
@@ -164,19 +224,22 @@ export default function HighlightsDashboard({
           <p className="hl-vuoto">Nessun titolo forte bloccato da un freno.</p>
         ) : (
           <div className="hl-gruppi">
-            {(mostraTuttiFrenati ? frenati : frenati.slice(0, 3)).map((g) => (
-              <div className="hl-gruppo" key={g.freno}>
-                <div className="hl-gruppo-titolo">
-                  {g.freno} <b>{g.voci.length}</b>
+            {gruppiVisibili.map((g) => {
+              const dentro = mostraTuttiFrenati ? g.voci : g.voci.slice(0, VISIBILI_GRUPPO);
+              return (
+                <div className="hl-gruppo" key={g.freno}>
+                  <div className="hl-gruppo-titolo">
+                    {g.freno} <b>{g.voci.length}</b>
+                  </div>
+                  {dentro.map((v) => (
+                    <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} />
+                  ))}
                 </div>
-                {g.voci.slice(0, 3).map((v) => (
-                  <RigaVoce key={v.ticker} voce={v} onChart={onChart} />
-                ))}
-              </div>
-            ))}
-            {frenati.length > 3 ? (
+              );
+            })}
+            {frenati.length > 3 || frenati.some((g) => g.voci.length > VISIBILI_GRUPPO) ? (
               <button type="button" className="btn ghost hl-altri" onClick={() => setMostraTuttiFrenati((v) => !v)}>
-                {mostraTuttiFrenati ? "Mostra solo i primi tre" : `Mostra tutti i ${frenati.length} freni`}
+                {mostraTuttiFrenati ? "Mostra solo i primi" : `Mostra tutti (${totaleFrenati} titoli, ${frenati.length} freni)`}
               </button>
             ) : null}
           </div>

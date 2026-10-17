@@ -1385,7 +1385,11 @@ export default function App() {
       ) : null}
 
       {tab === "📊 Highlights" && (highlightsItems.length || daxItems.length) ? (
-        <HighlightsDashboard righe={righeCruscotto} onChart={openChart} />
+        <HighlightsDashboard
+          righe={righeCruscotto}
+          onChart={openChart}
+          onMonitor={(row) => setMonitorModalRow(row)}
+        />
       ) : null}
 
       {/* Pagina precedente. Non e' piu' fra le quattro scelte, quindi non compare;
