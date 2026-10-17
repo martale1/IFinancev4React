@@ -15,7 +15,12 @@ export IFINANCE_PYTHON="$PYTHON_BIN"
 # troverebbero due processi a contendersi la porta 8011 e la confusione sarebbe
 # garantita: `status` direbbe "non attivo" mentre il sito risponde.
 # Cosi' invece lo script resta l'unico comando da ricordare, ma obbedisce a systemd.
-if systemctl list-unit-files 2>/dev/null | grep -q "^${UNIT}"; then
+#
+# Il controllo e' un test sul file, NON una pipe: con `set -o pipefail` un
+# `systemctl | grep -q` puo' risultare falso, perche' grep chiude la pipe appena
+# trova la riga e systemctl muore di SIGPIPE (exit 141), che pipefail considera
+# un errore. E' un errore subdolo: il comando funziona ma la condizione no.
+if [[ -f "/etc/systemd/system/${UNIT}" ]] && command -v systemctl >/dev/null 2>&1; then
   case "$ACTION" in
     start)
       exec sudo systemctl start "$UNIT"
