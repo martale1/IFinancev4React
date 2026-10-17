@@ -1003,6 +1003,29 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+/* Una riga del blocco "Nuovi oggi": tipo di cambiamento e descrizione. */
+.hl-cambio {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  cursor: default;
+}
+.hl-cambi-tipo {
+  font-size: .64rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: .05rem .35rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, .15);
+  color: #93c5fd;
+  white-space: nowrap;
+}
+.hl-cambi-testo {
+  color: #fbbf24;
+  font-size: .74rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .hl-gruppo {
   display: flex;
   flex-direction: column;

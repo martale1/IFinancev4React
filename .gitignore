@@ -43,3 +43,6 @@ frontend/*.tsbuildinfo
 # Generato da scripts/versione.mjs a ogni build. Se fosse versionato, ogni
 # build lo modificherebbe e bloccherebbe i `git pull` successivi (e' successo).
 frontend/src/versioneCostruita.ts
+
+# Stato del confronto "Nuovi oggi": lo scrive il backend a ogni analisi.
+analyses/highlights_state.json

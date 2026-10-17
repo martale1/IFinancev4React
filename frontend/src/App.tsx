@@ -45,6 +45,7 @@ import {
   fetchChartSnapshot,
   upsertMonitorItem,
   removeMonitorItem,
+  fetchCambiamenti,
 } from "./api";
 
 const tabs = [
@@ -629,6 +630,20 @@ export default function App() {
    * due elenchi: i blocchi li riordinano poi per punteggio, quindi MIB30 e DAX
    * si mescolano dove ha senso.
    */
+  /**
+   * I cambiamenti rispetto alla seduta precedente, per il blocco "Nuovi oggi".
+   *
+   * L'elenco dei mercati segue la scelta del cruscotto: cosi' i cambiamenti
+   * riguardano esattamente i titoli che si stanno guardando.
+   */
+  const mercatiCambi = sceltaHighlights === "MIB30+DAX" ? "MIB30,DAX" : sceltaHighlights;
+  const cambiQuery = useQuery({
+    queryKey: ["highlights-cambi", mercatiCambi],
+    queryFn: () => fetchCambiamenti(mercatiCambi),
+    enabled: tab === "📊 Highlights",
+    staleTime: 5 * 60_000,
+  });
+
   const righeCruscotto: WatchlistRow[] = sceltaHighlights === "DAX"
     ? daxItems
     : sceltaHighlights === "MIB30+DAX"
@@ -1402,6 +1417,8 @@ export default function App() {
           onChart={openChart}
           onMonitor={(row) => void toggleMonitor(row)}
           onIsMonitored={(row) => monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
+          cambi={cambiQuery.data?.changes ?? []}
+          cambiData={cambiQuery.data?.date ?? ""}
         />
       ) : null}
 

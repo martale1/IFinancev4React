@@ -59,6 +59,35 @@ async function parseJson<T>(resp: Response): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
+/** Un cambiamento rispetto alla seduta precedente, per il blocco "Nuovi oggi". */
+export type Cambio = {
+  tipo: "indicazione" | "fase" | "pattern" | "nuovo";
+  ticker: string;
+  da: string;
+  a: string;
+  testo: string;
+  market?: string;
+};
+
+export type CambiResponse = {
+  date: string;
+  changes: Cambio[];
+  available: boolean;
+  errore?: string;
+};
+
+/**
+ * Cosa e' cambiato rispetto alla seduta precedente.
+ *
+ * Il confronto lo fa il backend con il file di stato `analyses/highlights_state.json`:
+ * l'Excel di analisi e' una fotografia, quindi senza quello non c'e' nulla da
+ * confrontare e il blocco resterebbe vuoto.
+ */
+export async function fetchCambiamenti(markets: string): Promise<CambiResponse> {
+  const resp = await fetch(`${API_BASE}/highlights/nuovi?markets=${encodeURIComponent(markets)}`);
+  return parseJson<CambiResponse>(resp);
+}
+
 export async function fetchMarkets(): Promise<string[]> {
   const resp = await fetch(`${API_BASE}/markets`);
   const data = await parseJson<{ markets: string[] }>(resp);

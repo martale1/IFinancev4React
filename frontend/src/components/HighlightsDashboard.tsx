@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { aUnPasso, fortiMaFrenati, prontiAdesso, type VoceHighlight } from "../highlights";
 import { toNum } from "../format";
 import type { WatchlistRow } from "../types";
+import type { Cambio } from "../api";
 
 /** Righe visibili per blocco prima di "mostra tutti". */
 const VISIBILI = 5;
@@ -179,13 +180,20 @@ export default function HighlightsDashboard({
   onChart,
   onMonitor,
   onIsMonitored,
+  cambi,
+  cambiData,
 }: {
   righe: WatchlistRow[];
   onChart: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
   onIsMonitored: (row: WatchlistRow) => boolean;
+  /** Cosa e' cambiato rispetto alla seduta precedente. */
+  cambi: Cambio[];
+  /** Data dell'analisi a cui si riferiscono i cambiamenti. */
+  cambiData: string;
 }) {
   const [mostraTuttiFrenati, setMostraTuttiFrenati] = useState(false);
+  const [mostraTuttiCambi, setMostraTuttiCambi] = useState(false);
 
   const pronti = useMemo(() => prontiAdesso(righe), [righe]);
   const passo = useMemo(() => aUnPasso(righe), [righe]);
@@ -257,13 +265,36 @@ export default function HighlightsDashboard({
 
       <section className="hl-blocco">
         <header className="hl-blocco-testata">
-          <h3>Nuovi oggi</h3>
-          <p>Cosa è cambiato rispetto alla seduta precedente: titoli entrati in tendenza, passati a osservazione, pattern scattati.</p>
+          <h3>
+            Nuovi oggi
+            {cambi.length ? <b className="hl-conteggio">{cambi.length}</b> : null}
+          </h3>
+          <p>
+            Cosa è cambiato rispetto alla seduta precedente
+            {cambiData ? ` (analisi del ${cambiData})` : ""}: indicazioni cambiate, fasi nuove, pattern scattati.
+          </p>
         </header>
-        <p className="hl-vuoto">
-          Non ancora disponibile: serve ricordare lo stato della seduta precedente. L&apos;analisi è una fotografia
-          dell&apos;ultima seduta, quindi il confronto richiede un file di stato aggiornato a ogni analisi.
-        </p>
+        {cambi.length === 0 ? (
+          <p className="hl-vuoto">
+            Nessun cambiamento rispetto alla seduta precedente. Il confronto si attiva quando arriva una nuova
+            analisi: se è la prima volta, la seduta in corso fa da riferimento per la prossima.
+          </p>
+        ) : (
+          <div className="hl-righe">
+            {(mostraTuttiCambi ? cambi : cambi.slice(0, 6)).map((c) => (
+              <div className="hl-riga hl-cambio" key={`${c.market ?? ""}-${c.ticker}-${c.tipo}`}>
+                <span className="hl-ticker">{c.ticker}</span>
+                <span className="hl-cambi-tipo">{c.tipo}</span>
+                <span className="hl-cambi-testo">{c.testo}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {cambi.length > 6 ? (
+          <button type="button" className="btn ghost hl-altri" onClick={() => setMostraTuttiCambi((v) => !v)}>
+            {mostraTuttiCambi ? "Mostra solo i primi 6" : `Mostra tutti i ${cambi.length}`}
+          </button>
+        ) : null}
       </section>
     </div>
   );

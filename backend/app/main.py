@@ -73,6 +73,7 @@ from app.services.custom_watchlists_service import (
 )
 from app.services.export_service import generate_buy_pdf_for_market
 from app.services.quote_service import latest_quote, chart_snapshot
+from app.services import highlights_service
 from app.services.monitor_service import (
     list_monitor_items,
     monitor_records,
@@ -637,6 +638,23 @@ def api_scanner_delete_custom_pattern(pattern_id: str):
         return {"status": "ok", "deleted_id": pattern_id}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Errore durante l'eliminazione del pattern: {exc}")
+
+
+@app.get("/api/highlights/nuovi")
+def highlights_nuovi(markets: str = "MIB30") -> dict[str, Any]:
+    """Cosa e' cambiato rispetto alla seduta precedente.
+
+    `markets` e' un elenco separato da virgole (es. "MIB30,DAX"). Il confronto
+    usa il file di stato `analyses/highlights_state.json`: senza, l'Excel e'
+    una fotografia e non c'e' nulla con cui confrontarla.
+    """
+    elenco = [m.strip() for m in str(markets or "").split(",") if m.strip()]
+    if not elenco:
+        elenco = ["MIB30"]
+    try:
+        return highlights_service.cambiamenti(elenco)
+    except Exception as errore:  # non deve mai far cadere la pagina
+        return {"date": "", "changes": [], "available": False, "errore": str(errore)}
 
 
 @app.get("/api/scanner/scan")
