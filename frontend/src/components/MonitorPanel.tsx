@@ -488,13 +488,16 @@ export default function MonitorPanel({
                     "Monitor" qui TOGLIE: nella pagina Monitor i titoli sono gia' dentro,
                     quindi il pulsante e' evidenziato e un clic li rimuove. */}
                 <button type="button" className="btn" onClick={() => onChart(row)}>Grafico</button>
+                {/* In questa pagina tutti i titoli sono monitorati, quindi il
+                    pulsante non puo' "aggiungere": dice esplicitamente che toglie.
+                    Prima era "✓ Monitor" e non si capiva che serviva a rimuoverlo. */}
                 <button
                   type="button"
-                  className="btn monitor-on"
+                  className="btn ghost danger"
                   onClick={() => onRemoveMonitor(tk, src)}
-                  title="In monitoraggio: clicca per toglierlo"
+                  title="Togli questo titolo dal monitoraggio"
                 >
-                  ✓ Monitor
+                  ✕ Rimuovi
                 </button>
                 <button
                   type="button"
@@ -606,11 +609,11 @@ export default function MonitorPanel({
                   <button type="button" className="btn primary" onClick={() => onChart(row)}>Grafico</button>
                   <button
                     type="button"
-                    className="btn monitor-on"
+                    className="btn ghost danger"
                     onClick={() => onRemoveMonitor(tk, src)}
-                    title="In monitoraggio: clicca per toglierlo"
+                    title="Togli questo titolo dal monitoraggio"
                   >
-                    ✓ Monitor
+                    ✕ Rimuovi
                   </button>
                   <button
                     type="button"
