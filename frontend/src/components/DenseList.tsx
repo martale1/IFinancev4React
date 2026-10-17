@@ -42,6 +42,7 @@ export function DenseList({
   renderActions,
   emptyText = "Nessun titolo da mostrare.",
   percentuale,
+  onRemove,
 }: {
   rows: WatchlistRow[];
   /** Azioni mostrate nel dettaglio aperto: ogni tab passa le sue. */
@@ -50,6 +51,8 @@ export function DenseList({
   /** Percentuale da mostrare nella riga. Serve a mostrare quella su cui si sta
    *  ordinando: altrimenti ordinando per 5D i numeri sembrano in disordine. */
   percentuale?: { key: string; label: string };
+  /** Se presente, ogni riga mostra l'icona per togliere il titolo dal monitor. */
+  onRemove?: (row: WatchlistRow) => void;
 }) {
   const [aperta, setAperta] = useState<string | null>(null);
 
@@ -85,14 +88,40 @@ export function DenseList({
 
         return (
           <div className={`monitor-dense-item ${espansa ? "open" : ""}`} key={chiave}>
-            <button
-              type="button"
+            {/* Div e non button: dentro c'e' il pulsante di rimozione, e un
+                pulsante dentro un pulsante non e' valido. Invio e Spazio
+                continuano ad aprire e chiudere la scheda. */}
+            <div
               className="monitor-dense-row"
+              role="button"
+              tabIndex={0}
               onClick={() => setAperta(espansa ? null : chiave)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setAperta(espansa ? null : chiave);
+                }
+              }}
               aria-expanded={espansa}
               title={espansa ? `${tk} — chiudi i dettagli` : `${tk} — mostra tutti i dati`}
             >
-              <span className={`dense-signal table-signal ${signalClass(segnale)}`}>{segnale}</span>
+              <span className="dense-stato">
+                <span className={`dense-signal table-signal ${signalClass(segnale)}`}>{segnale}</span>
+                {onRemove ? (
+                  <button
+                    type="button"
+                    className="dense-rimuovi"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(row);
+                    }}
+                    title="Rimuovi dal monitor"
+                    aria-label={`Rimuovi ${tk} dal monitor`}
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </span>
               <span className="dense-ticker">
                 <b>{tk}</b>
                 {/* Il nome sta accanto al ticker perche' "EMQQ.MI" da solo non dice
@@ -114,7 +143,7 @@ export function DenseList({
               </span>
               <span className={`dense-tech ${techClass(row.TECH_SCORE)}`}>TECH {num(row.TECH_SCORE, 0)}</span>
               <span className="dense-caret" aria-hidden="true">{espansa ? "▴" : "▾"}</span>
-            </button>
+            </div>
 
             {espansa ? (
               <div className="monitor-dense-detail">

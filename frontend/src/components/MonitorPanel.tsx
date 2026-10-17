@@ -473,6 +473,7 @@ export default function MonitorPanel({
         {/* Nessuna barra "Ordina per": in lista l'ordine lo decide la tessera
             cliccata, che mette il suo valore in testa. */}
         <DenseList
+            onRemove={(row) => onRemoveMonitor(String(row.Ticker || "").trim(), String(row.WL_Source_Market || "MIB30"))}
           rows={righeOrdinate}
           percentuale={ordinePerc
             ? { key: ordinePerc.key, label: PERIODI_PERCENTUALE.find((x) => x.key === ordinePerc.key)?.label ?? "" }

@@ -1323,6 +1323,30 @@ textarea {
   font-size: .68rem; font-weight: 700; letter-spacing: .02em;
   padding: .18rem .35rem; border-radius: 6px;
 }
+/* Badge dello stato con sotto l'icona di rimozione rapida. */
+.dense-stato {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .18rem;
+  flex: 0 0 auto;
+}
+.dense-rimuovi {
+  font: inherit;
+  font-size: .7rem;
+  line-height: 1;
+  padding: .12rem .38rem;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 113, 133, .38);
+  background: rgba(24, 8, 14, .55);
+  color: #fda4af;
+  cursor: pointer;
+}
+.dense-rimuovi:hover {
+  border-color: #fb7185;
+  color: #fecdd3;
+  background: rgba(80, 15, 28, .7);
+}
 .dense-ticker { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .dense-ticker b { font-size: .84rem; }
 /* Nome del titolo nella riga della Lista: su una riga sua, troncato con i
