@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { WatchlistRow } from "../types";
-import { num, pct, pctClass, percheNonEntra, toNum } from "../format";
+import { dettaglioMomento, num, pct, pctClass, percheNonEntra, toNum } from "../format";
 
 /**
  * Lista compatta riutilizzabile: una riga per titolo, espandibile sul posto.
@@ -134,7 +134,7 @@ export function DenseList({
                   <div className="monitor-group">
                     <span className="monitor-group-title">Momentum</span>
                     <div className="monitor-metrics">
-                      <span>Momento <b className={statoClass(row.Momento_Trend)}>{String(row.Momento_Trend ?? "-")}</b></span>
+                      <span title="Distanza fra MACD e segnale: se si restringe il momento sta frenando">Momento <b className={statoClass(row.Momento_Trend)}>{String(row.Momento_Trend ?? "-")}</b>{dettaglioMomento(row as Record<string, unknown>) ? ` ${dettaglioMomento(row as Record<string, unknown>)}` : ""}</span>
                       <span>RSI <b>{num(row.RSI, 0)}</b></span>
                       <span>Stoch <b>{num(row.Stoch_K, 0)}/{num(row.Stoch_D, 0)}</b></span>
                       <span>willR <b>{num(row.Williams_R, 0)}</b></span>

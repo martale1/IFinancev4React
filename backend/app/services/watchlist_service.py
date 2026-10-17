@@ -13,7 +13,7 @@ NEEDED_COLUMNS = [
     "Ticker", "Name", "Close", "PCTV_1D", "PCTV_5D", "TECH_SCORE",
     "TECH_STRUCTURE", "TECH_MOMENTUM", "TECH_PARTICIPATION", "TECH_EXTENSION_PENALTY", "Liquidity",
     "Action", "Market_Phase", "Trend_Phase_Detail", "Action_Reason", "Layer3_Warning",
-    "MACD", "MACD_Signal", "MACD_Hist", "MACDH_Trend", "MACDH_Trend_Days",
+    "MACD", "MACD_Signal", "MACD_Hist", "MACD_vs_Signal", "Momento_Diff", "Momento_Diff_3fa", "MACDH_Trend", "MACDH_Trend_Days",
     "RSI", "RSI_Trend", "RSI_Trend_Days",
     "Stoch_K", "Stoch_D", "Williams_R",
     "ADX", "PLUS_DI", "MINUS_DI",

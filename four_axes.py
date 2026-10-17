@@ -380,5 +380,15 @@ def apply_to(df: pd.DataFrame, soglie: dict[str, float] | None = None) -> pd.Dat
     # Cosa manca per ENTRA, con il numero che serve. Scritto qui e non nel
     # backend perche' backend e interfaccia devono dire la stessa cosa: la
     # diagnosi precedente nel backend descriveva un modello diverso da questo.
+    # Distanza MACD - segnale, in valore assoluto, e quella di tre sedute prima.
+    # Serve a mostrare accanto a "Momento" quanto e' positivo e se si sta
+    # allargando o restringendo: "STABILE" da sola non distingue un titolo fermo
+    # da uno che sale forte ma sta frenando. `apply_to` riceve la storia intera,
+    # quindi `shift` funziona.
+    if "MACD" in out.columns and "MACD_Signal" in out.columns:
+        distanza = _num(out, "MACD") - _num(out, "MACD_Signal")
+        out["Momento_Diff"] = distanza.values
+        out["Momento_Diff_3fa"] = distanza.shift(int(s["macd_momento_sedute"])).values
+
     out["Entry_Missing"] = missing_from_axes(assi, fase, out, soglie).values
     return out

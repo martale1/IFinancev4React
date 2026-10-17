@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import TickerNews from "./TickerNews";
 import type { WatchlistRow, QuickAlertField } from "../types";
+import { dettaglioMomento } from "../format";
 import UscitaButton from "./UscitaButton";
 
 
@@ -692,7 +693,7 @@ export default function WatchlistCard({
         <div className="monitor-group">
           <span className="monitor-group-title">Momentum</span>
           <div className="monitor-metrics">
-            <span>Momento <b className={row.Momento_Trend === "CRESCENTE" ? "good" : row.Momento_Trend === "CALANTE" ? "bad" : ""}>{String(row.Momento_Trend ?? "-")}</b></span>
+            <span>Momento <b className={row.Momento_Trend === "CRESCENTE" ? "good" : row.Momento_Trend === "CALANTE" ? "bad" : ""}>{String(row.Momento_Trend ?? "-")}</b>{dettaglioMomento(row as unknown as Record<string, unknown>) ? ` ${dettaglioMomento(row as unknown as Record<string, unknown>)}` : ""}</span>
             <span>RSI <b>{num(row.RSI, 0)}</b></span>
             <span>Stoch <b>{num(stochK, 0)}/{num(stochD, 0)}</b></span>
             <span>willR <b>{num(row.Williams_R, 0)}</b></span>

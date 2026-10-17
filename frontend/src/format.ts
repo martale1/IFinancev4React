@@ -35,6 +35,37 @@ export function pctClass(value: unknown): string {
   return parsed === null || parsed === 0 ? "neutral" : parsed > 0 ? "positive" : "negative";
 }
 
+/** Numero con la virgola, decimali che si adattano alla grandezza. */
+function numeroItaliano(valore: number): string {
+  const dec = Math.abs(valore) < 1 ? 3 : 2;
+  return valore.toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+/**
+ * La distanza fra MACD e segnale, accanto all'etichetta del momento.
+ *
+ * PERCHE' SERVE: `Momento_Trend` vale STABILE in due situazioni opposte — un
+ * titolo fermo e uno che sale forte ma sta frenando. Senza il numero, l'etichetta
+ * sembra dire "non sta succedendo niente" anche quando il titolo corre.
+ * Esempio reale (INW.MI): MACD −0,19 sopra il segnale ma il divario si era
+ * ristretto da +0,066 a +0,057, quindi STABILE.
+ *
+ * Restituisce "" quando i dati non ci sono: meglio niente che un numero inventato.
+ * `Momento_Diff` arriva dall'analisi; se manca (Excel vecchio) si ricava da
+ * MACD − MACD_Signal, che il backend espone gia'.
+ */
+export function dettaglioMomento(row: Record<string, unknown>): string {
+  const diretto = toNum(row.Momento_Diff);
+  const macd = toNum(row.MACD);
+  const segnale = toNum(row.MACD_Signal);
+  const oggi = diretto ?? (macd !== null && segnale !== null ? macd - segnale : null);
+  if (oggi === null) return "";
+
+  const prima = toNum(row.Momento_Diff_3fa);
+  if (prima === null) return `(${numeroItaliano(oggi)})`;
+  return `(${numeroItaliano(oggi)}, era ${numeroItaliano(prima)})`;
+}
+
 /**
  * Perche' un titolo non e' ENTRA: la condizione che manca, detta in modo
  * comprensibile, con il numero che serve per rientrare.
