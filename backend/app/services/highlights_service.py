@@ -133,9 +133,18 @@ def cambiamenti(markets: list[str]) -> dict[str, Any]:
 
         if data_precedente == data:
             # Stessa analisi: si riusano i cambiamenti gia' calcolati, cosi' il
-            # blocco non si svuota alla seconda lettura.
+            # blocco non si svuota alla seconda lettura. Ma i cambiamenti salvati
+            # da una versione precedente non hanno il campo "indicazione": lo si
+            # completa qui con i dati di adesso, cosi' l'interfaccia non resta
+            # senza stato anche sui file vecchi.
             for voce in precedente.get("changes") or []:
-                raccolti.append({**voce, "market": market})
+                arricchita = dict(voce)
+                attuali = titoli.get(str(voce.get("ticker") or "").upper()) or {}
+                if not arricchita.get("indicazione"):
+                    arricchita["indicazione"] = attuali.get("Entry_Signal", "")
+                if not arricchita.get("fase"):
+                    arricchita["fase"] = attuali.get("Market_Phase", "")
+                raccolti.append({**arricchita, "market": market})
             continue
 
         vecchi = precedente.get("items") or {}
