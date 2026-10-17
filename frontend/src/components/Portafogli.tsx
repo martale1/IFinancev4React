@@ -435,7 +435,7 @@ export default function Portafogli() {
             <span className="pf-riga-riepilogo">
               <span className="pf-riga-valore">
                 <b>{euro(p.valore_totale)}</b>
-                <small>valore attuale</small>
+                <small>totale portafoglio</small>
               </span>
               <span className={`pf-riga-var ${classeDaSegno(p.pnl_eur)}`}>
                 <b>
@@ -478,7 +478,9 @@ export default function Portafogli() {
           {/* I tre numeri in grande, come nel conto titoli del broker. */}
           <div className="pf-quadro">
             <div className="pf-quadro-voce">
-              <small>Valorizzazione EUR</small>
+              {/* "Valorizzazione" da sola si confonde con "quanto ho investito":
+                  il totale comprende ANCHE la liquidita' non investita. */}
+              <small>Totale portafoglio</small>
               <b>{euro(dettaglio.valore_totale)}</b>
             </div>
             <div className="pf-quadro-voce">
@@ -499,7 +501,8 @@ export default function Portafogli() {
               : dettaglio.posizioni.length
                 ? "Prezzi non disponibili da Yahoo: uso l'analisi · "
                 : ""}
-            Liquidi {euro(dettaglio.liquidita)} · esposizione{" "}
+            <b>{euro(dettaglio.valore_posizioni)}</b> investiti +{" "}
+            <b>{euro(dettaglio.liquidita)}</b> liquidi = <b>{euro(dettaglio.valore_totale)}</b> · esposizione{" "}
             {(toNum(dettaglio.esposizione_pct) ?? 0).toLocaleString("it-IT", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
