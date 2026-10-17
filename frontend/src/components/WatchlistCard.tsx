@@ -831,6 +831,45 @@ export default function WatchlistCard({
 
 
       <div className="row actions">
+        {/* Ordine uguale su ogni card: Grafico, Monitor, Alert, Uscita, AI, News. */}
+        <button className="btn" disabled={!ticker} onClick={() => ticker && onChart(row)}>
+          Grafico
+        </button>
+        <button
+          className={isMonitored ? "btn monitor-on" : "btn ghost"}
+          disabled={!ticker}
+          onClick={() => onToggleMonitor?.({ ...row, WL_Source_Market: String(row.WL_Source_Market || sourceMarket) })}
+          title={isMonitored ? "Già in monitoraggio: clicca per toglierlo" : "Aggiungi al monitoraggio"}
+          style={isMonitored ? { borderColor: "#0288d1", color: "#0288d1" } : undefined}
+        >
+          {isMonitored ? "✓ Monitor" : "+ Monitor"}
+        </button>
+        <button
+          className={alertSet ? "btn alert-on" : "btn ghost"}
+          disabled={alertBusy || !ticker}
+          onClick={() => {
+            applyAlertPreset();
+            setShowAlertTools((v) => !v);
+            setAlertMsg("");
+          }}
+          title={alertSet ? "Alert presente: apri per modificare o rimuovere" : "Apri opzioni alert"}
+        >
+          {alertBusy ? "..." : alertSet ? "Alert ON" : "Alert"}
+        </button>
+        <UscitaButton row={row as unknown as Record<string, unknown>} />
+        <button
+          className={aiActive ? "btn ai-card-btn active" : "btn ghost ai-card-btn"}
+          disabled={!ticker}
+          onClick={() => ticker && onAi(row)}
+          title={aiActive ? "Chat AI attiva per questo ticker" : "Apri analisi AI"}
+        >
+          AI{aiActive ? " attiva" : ""}
+        </button>
+        <TickerNews row={row} market={sourceMarket} onChart={onChart} />
+      </div>
+      <div className="row actions secondarie">
+        {/* Funzioni di contorno: badge degli alert AI, dettagli, livelli,
+            watchlist. Fuori dalla fila principale per non confonderla. */}
         {aiAlertInfo ? (
           <button
             type="button"
@@ -847,18 +886,6 @@ export default function WatchlistCard({
             📍 Livelli AI {aiLevelAlerts.filter((l) => l.verified).length}/{aiLevelAlerts.length}
           </button>
         ) : null}
-        <button className="btn" disabled={!ticker} onClick={() => ticker && onChart(row)}>
-          Grafico
-        </button>
-        <button
-          className={aiActive ? "btn ai-card-btn active" : "btn ghost ai-card-btn"}
-          disabled={!ticker}
-          onClick={() => ticker && onAi(row)}
-          title={aiActive ? "Chat AI attiva per questo ticker" : "Apri analisi AI"}
-        >
-          AI{aiActive ? " attiva" : ""}
-        </button>
-        <TickerNews row={row} market={sourceMarket} onChart={onChart} />
         <button className="btn ghost" onClick={() => setShowDetails((v) => !v)}>
           {showDetails ? "Nascondi dettagli" : "Dettagli"}
         </button>
@@ -867,34 +894,12 @@ export default function WatchlistCard({
             {showLevels ? "Nascondi livelli" : "Livelli"}
           </button>
         ) : null}
-        <UscitaButton row={row as unknown as Record<string, unknown>} />
-        <button
-          className={alertSet ? "btn alert-on" : "btn ghost"}
-          disabled={alertBusy || !ticker}
-          onClick={() => {
-            applyAlertPreset();
-            setShowAlertTools((v) => !v);
-            setAlertMsg("");
-          }}
-          title={alertSet ? "Alert presente: apri per modificare o rimuovere" : "Apri opzioni alert"}
-        >
-          {alertBusy ? "..." : alertSet ? "Alert ON" : "Alert"}
-        </button>
         <button
           className={showWatchlistTools ? "btn active" : "btn ghost"}
           onClick={() => setShowWatchlistTools((v) => !v)}
           title="Aggiungi a preferite/watchlist"
         >
           {showWatchlistTools ? "Chiudi Watchlist" : "＋ Watchlist"}
-        </button>
-        <button
-          className={isMonitored ? "btn monitor-on" : "btn ghost"}
-          disabled={!ticker}
-          onClick={() => onToggleMonitor?.({ ...row, WL_Source_Market: String(row.WL_Source_Market || sourceMarket) })}
-          title={isMonitored ? "Già in monitoraggio: clicca per toglierlo" : "Aggiungi al monitoraggio"}
-          style={isMonitored ? { borderColor: "#0288d1", color: "#0288d1" } : undefined}
-        >
-          {isMonitored ? "✓ Monitor" : "+ Monitor"}
         </button>
         {currentWatchlistName ? (
           <button className="btn ghost icon-btn remove-btn" disabled={wlBusy} onClick={removeFromCurrentWatchlist} title={`Rimuovi da ${currentWatchlistName}`}>

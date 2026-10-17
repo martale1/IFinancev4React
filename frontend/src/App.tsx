@@ -16,6 +16,7 @@ import { c_eUnaVersioneNuova } from "./version";
 import FooterAnalisi from "./components/FooterAnalisi";
 import RowAlertButton from "./components/RowAlertButton";
 import UscitaButton from "./components/UscitaButton";
+import TickerNews from "./components/TickerNews";
 import HighlightsDashboard from "./components/HighlightsDashboard";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./components/PercentualeSort";
 import { ordinaPerRango, testa, testaIndicazione, ANELLO_FASE, ANELLO_RISCHIO, type Dimensione } from "./ranking";
@@ -1278,9 +1279,6 @@ export default function App() {
           }}
           onChart={openChart}
           onAi={openTickerAi}
-          onNews={() => {
-            setTab("📰 Archivio News");
-          }}
           alertMap={quickAlertMap}
           alertConfigMap={quickAlertConfigMap}
           alertBusyMap={quickAlertBusyMap}
@@ -1667,11 +1665,8 @@ export default function App() {
                 emptyText="Nessun titolo corrisponde ai filtri."
                 renderActions={(row) => (
                   <>
+                    {/* Ordine uguale su ogni card: Grafico, Monitor, Alert, Uscita, AI, News. */}
                     <button type="button" className="btn" onClick={() => openChart(row)}>Grafico</button>
-                    <button type="button" className="btn ghost" onClick={() => openTickerAi(row)}>AI</button>
-                    {/* Monitor: come nelle Schede, "+ Monitor" oppure "✓ Monitor" se e' gia'
-                        in monitoraggio. Prima dalla Lista bisognava passare alle Schede
-                        per mettere un titolo in monitoraggio. */}
                     <button
                       type="button"
                       className={monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "btn monitor-on" : "btn ghost"}
@@ -1684,9 +1679,6 @@ export default function App() {
                     >
                       {monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "✓ Monitor" : "+ Monitor"}
                     </button>
-                    {/* Alert: stessi gestori delle Schede, modulo compatto. Il mercato
-                        sorgente e' quello della riga, non la tab (per le liste
-                        personalizzate "WL:..." il backend lo rifiuta). */}
                     <RowAlertButton
                       row={row}
                       sourceMarket={String(row.WL_Source_Market ?? market)}
@@ -1695,9 +1687,9 @@ export default function App() {
                       onCreate={handleCreateQuickAlert}
                       onRemove={handleRemoveQuickAlert}
                     />
-                    {/* Livelli di uscita: mancavano nella Lista della tab All, mentre
-                        c'erano nella Lista della tab Monitor e nelle Schede. */}
                     <UscitaButton row={row as unknown as Record<string, unknown>} />
+                    <button type="button" className="btn ghost" onClick={() => openTickerAi(row)}>AI</button>
+                    <TickerNews row={row} market={String(row.WL_Source_Market ?? market)} onChart={openChart} />
                   </>
                 )}
               />

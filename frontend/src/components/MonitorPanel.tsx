@@ -3,6 +3,7 @@ import type { WatchlistRow, MonitorResponse, QuickAlertField } from "../types";
 import { AxisTiles } from "./AxisTiles";
 import { DenseList } from "./DenseList";
 import UscitaButton from "./UscitaButton";
+import TickerNews from "./TickerNews";
 import { MarketChips } from "./MarketChips";
 import { PercentualeSort, ordinaPerPercentuale, PERIODI_PERCENTUALE, type OrdinePercentuale } from "./PercentualeSort";
 import { ordinaPerRango, testaIndicazione } from "../ranking";
@@ -28,7 +29,6 @@ type Props = {
   onRemoveMonitor: (ticker: string, sourceMarket?: string) => Promise<void>;
   onChart: (row: WatchlistRow) => void;
   onAi: (row: WatchlistRow) => void;
-  onNews: (ticker: string) => void;
   alertMap: Record<string, boolean>;
   alertConfigMap: Record<string, QuickAlertConfig>;
   alertBusyMap: Record<string, boolean>;
@@ -109,7 +109,6 @@ export default function MonitorPanel({
   onRemoveMonitor,
   onChart,
   onAi,
-  onNews,
   alertMap,
   alertConfigMap,
   alertBusyMap,
@@ -128,12 +127,6 @@ export default function MonitorPanel({
   const [alertOp, setAlertOp] = useState<">" | "<" | "==" | "!=">(">");
   const [alertValue, setAlertValue] = useState("");
   const [alertMsg, setAlertMsg] = useState("");
-  // Nella vista Schede le azioni secondarie stanno in un menu: qui memorizzo
-  // quale card lo ha aperto (chiave mercato-ticker).
-  // Menu "⋯ Altro" delle righe della Lista: separato da `actionsFor`,
-  // che appartiene alle Schede, cosi' i due non si aprono insieme.
-  const [azioniLista, setAzioniLista] = useState<string | null>(null);
-  const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [view, setView] = useState<MonitorView>(() => {
     const chiave = "ifinance-monitor-view";
     const chiaveVersione = "ifinance-monitor-view-default";
@@ -491,8 +484,18 @@ export default function MonitorPanel({
             const chiaveAlert = `${src}::${tk.toUpperCase()}`;
             return (
               <>
+                {/* Ordine uguale su ogni card: Grafico, Monitor, Alert, Uscita, AI, News.
+                    "Monitor" qui TOGLIE: nella pagina Monitor i titoli sono gia' dentro,
+                    quindi il pulsante e' evidenziato e un clic li rimuove. */}
                 <button type="button" className="btn" onClick={() => onChart(row)}>Grafico</button>
-                <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                <button
+                  type="button"
+                  className="btn monitor-on"
+                  onClick={() => onRemoveMonitor(tk, src)}
+                  title="In monitoraggio: clicca per toglierlo"
+                >
+                  ✓ Monitor
+                </button>
                 <button
                   type="button"
                   className={alertMap[chiaveAlert] ? "btn alert-on" : "btn ghost"}
@@ -500,21 +503,9 @@ export default function MonitorPanel({
                 >
                   {alertMap[chiaveAlert] ? "Alert ON" : "Alert"}
                 </button>
-                {/* Azioni secondarie nel menu, come nelle Schede: News e la nota
-                    operativa. Prima erano due pulsanti in piu' sulla stessa riga. */}
                 <UscitaButton row={row as unknown as Record<string, unknown>} />
-                <button
-                  type="button"
-                  className={azioniLista === `${src}-${tk}` ? "btn active" : "btn ghost"}
-                  onClick={() => setAzioniLista(azioniLista === `${src}-${tk}` ? null : `${src}-${tk}`)}
-                >
-                  ⋯ Altro
-                </button>
-                {azioniLista === `${src}-${tk}` ? (
-                  <span className="monitor-card-more">
-                    <button type="button" className="btn ghost" onClick={() => { setAzioniLista(null); onNews(tk); }}>News</button>
-                  </span>
-                ) : null}
+                <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                <TickerNews row={row} market={src} onChart={onChart} />
               </>
             );
           }}
@@ -610,27 +601,28 @@ export default function MonitorPanel({
                   </div>
                 </div>
 
-                {/* Azioni: una primaria, il resto nel menu per non rubare la scena */}
-                <div className="monitor-card-actions">
-                  <button type="button" className="btn primary" onClick={(e) => { e.stopPropagation(); onChart(row); }}>Grafico</button>
-                  <button type="button" className="btn ghost" onClick={(e) => { e.stopPropagation(); setActionsFor(actionsFor === `${src}-${tk}` ? null : `${src}-${tk}`); }}>
-                    ⋯ Altro
+                {/* Ordine uguale su ogni card: Grafico, Monitor, Alert, Uscita, AI, News. */}
+                <div className="monitor-card-actions" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="btn primary" onClick={() => onChart(row)}>Grafico</button>
+                  <button
+                    type="button"
+                    className="btn monitor-on"
+                    onClick={() => onRemoveMonitor(tk, src)}
+                    title="In monitoraggio: clicca per toglierlo"
+                  >
+                    ✓ Monitor
                   </button>
-                  {/* Livelli di uscita: prima c'erano solo nella card della tab All. */}
-                  <span onClick={(e) => e.stopPropagation()}>
-                    <UscitaButton row={row as unknown as Record<string, unknown>} />
-                  </span>
-                  <button type="button" className="btn ghost danger" onClick={(e) => { e.stopPropagation(); onRemoveMonitor(tk, src); }}>Rimuovi</button>
+                  <button
+                    type="button"
+                    className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"}
+                    onClick={() => openAlertBox(row)}
+                  >
+                    {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
+                  </button>
+                  <UscitaButton row={row as unknown as Record<string, unknown>} />
+                  <button type="button" className="btn ghost" onClick={() => onAi(row)}>AI</button>
+                  <TickerNews row={row} market={src} onChart={onChart} />
                 </div>
-                {actionsFor === `${src}-${tk}` ? (
-                  <div className="monitor-card-more">
-                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onAi(row); }}>AI</button>
-                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onNews(tk); }}>News</button>
-                    <button type="button" className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"} onClick={() => { setActionsFor(null); openAlertBox(row); }}>
-                      {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
-                    </button>
-                  </div>
-                ) : null}
               </article>
             );
           })}

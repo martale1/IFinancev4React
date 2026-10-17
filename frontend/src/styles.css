@@ -2996,6 +2996,26 @@ td {
 
 }
 
+/* Riga secondaria delle azioni di card: badge degli alert AI, Dettagli, Livelli,
+   Watchlist. Piu' piccola della fila principale, che deve restare la prima cosa
+   che si legge: Grafico, Monitor, Alert, Uscita, AI, News. */
+.row.actions.secondarie {
+  margin-top: -.2rem;
+  opacity: .85;
+}
+.row.actions.secondarie .btn {
+  font-size: .72rem;
+  padding: .2rem .45rem;
+}
+/* Su telefono i sei pulsanti vanno a capo, ma restano tutti visibili: due per
+   riga invece di uno per riga, che allungherebbe troppo la card. */
+@media (max-width: 700px) {
+  .row.actions:not(.secondarie) .btn {
+    flex: 1 1 calc(50% - .35rem);
+    min-width: 0;
+  }
+}
+
 /* ===== DATI DEL GRAFICO (tutte le larghezze) =====
    Queste regole erano dentro la media query del telefono (max-width: 600px):
    sul PC non si applicavano affatto, quindi le percentuali restavano attaccate
