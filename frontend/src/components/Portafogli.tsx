@@ -566,7 +566,9 @@ export default function Portafogli() {
                   <b>{e.ticker}</b>
                   <span>{e.nome}</span>
                   <small>
-                    {e.quantita} × {prezzo(e.prezzo)} = {euro(e.importo_eur)} · TECH {e.tech_score} · stop {prezzo(e.stop)}
+                    {e.quantita} × {prezzo(e.prezzo)} = {euro(e.importo_eur)} · TECH {e.tech_score}
+                    {e.rr !== null && e.rr !== undefined ? ` · R/R ${Number(e.rr).toFixed(2)}` : ""}
+                    {e.stop_pct !== null && e.stop_pct !== undefined ? ` · stop ${Number(e.stop_pct).toFixed(2)}%` : ""}
                   </small>
                 </div>
               ))}

@@ -1103,6 +1103,21 @@ def candidati_da_segnale(pf: dict[str, Any]) -> tuple[list[dict[str, Any]], list
                 )
                 continue
 
+            # Rapporto rischio/ricompensa: il criterio di ordinamento.
+            rr = None
+            stop_pct = None
+            if chiusura and chiusura > 0:
+                atr_riga = _numero(riga.get("ATR"))
+                if not atr_riga:
+                    atr_pct = _numero(riga.get("ATR_PCT"))
+                    atr_riga = chiusura * atr_pct / 100.0 if atr_pct else chiusura * 0.03
+                stop_calcolato = calcola_stop(chiusura, atr_riga, par)
+                distanza_stop = chiusura - stop_calcolato
+                obiettivo = chiusura * (1.0 + float(par.get("obiettivo_pct", 15.0)) / 100.0)
+                if distanza_stop > 0:
+                    rr = (obiettivo - chiusura) / distanza_stop
+                    stop_pct = distanza_stop / chiusura * 100.0
+
             ammessi.append({
                 "ticker": ticker,
                 "nome": str(riga.get("Name") or ticker),
@@ -1112,11 +1127,15 @@ def candidati_da_segnale(pf: dict[str, Any]) -> tuple[list[dict[str, Any]], list
                 "adx": _numero(riga.get("ADX")),
                 "rischio_trend": rischio,
                 "distanza_media_pct": round(distanza, 2) if distanza is not None else None,
+                "rr": round(rr, 2) if rr is not None else None,
+                "stop_pct": round(stop_pct, 2) if stop_pct is not None else None,
             })
 
-    # Ordine: prima il punteggio, poi la solidita' del trend. A parita' di tutto,
-    # il ticker, cosi' due giri con gli stessi dati producono lo stesso risultato.
-    ammessi.sort(key=lambda c: (-c["tech_score"], -(c["adx"] or 0.0), c["ticker"]))
+    # Ordine: rapporto rischio/ricompensa decrescente. A parita' di R/R conta il
+    # punteggio, poi il ticker: cosi' due giri con gli stessi dati producono lo
+    # stesso risultato, senza dipendere dall'ordine di lettura del file.
+    ammessi.sort(key=lambda c: (-(c["rr"] if c["rr"] is not None else -1.0),
+                                -c["tech_score"], c["ticker"]))
     return ammessi, esclusi
 
 
@@ -1224,6 +1243,9 @@ def esegui_giro(pid: str) -> dict[str, Any]:
             "tech_score": round(candidato["tech_score"], 1),
             "indicazione": candidato["indicazione"],
             "stop": posizione["stop_iniziale"],
+            "rr": candidato.get("rr"),
+            "stop_pct": candidato.get("stop_pct"),
+            "distanza_media_pct": candidato.get("distanza_media_pct"),
         })
         analisi_usate[candidato["mercato"]] = str(riga.get("Date") or "")[:10]
 

@@ -127,6 +127,8 @@ export type EsitoGiro = {
     tech_score: number;
     indicazione: string;
     stop: number;
+    rr?: number | null;
+    stop_pct?: number | null;
   }>;
   scarti: Array<{ ticker: string; motivo: string; dettaglio?: string }>;
   candidati_valutati: number;

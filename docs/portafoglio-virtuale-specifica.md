@@ -307,10 +307,24 @@ comprare, nello stesso giro.
 9. `quantita` calcolata > 0 e importo ≥ `liquidita_minima_ordine_eur`
 10. fascia oraria compatibile col mercato del titolo (vedi 5.5)
 
-### 5.3 Ordine di priorità dei candidati
+### 5.3 Ordine di priorità
 
-`TECH_SCORE` decrescente → `ADX` decrescente → rischio `NORMALE` prima di `TESO` → ticker
-in ordine alfabetico (per rendere il risultato ripetibile a parità di punteggio).
+**Per rapporto rischio/ricompensa, dal più alto.**
+
+```
+stop   = prezzo − ATR × stop_atr_mult   (con i limiti min/max del profilo)
+target = prezzo × (1 + obiettivo_pct/100)
+R/R    = (target − prezzo) / (prezzo − stop)
+```
+
+A parità di R/R: `TECH_SCORE` più alto, poi ticker in ordine alfabetico (per
+rendere il risultato ripetibile).
+
+**Perché non il punteggio**: `TECH_SCORE` satura — misurato il 17/10, 7 titoli su 9
+avevano esattamente 93,3 — quindi l'ordine finiva per deciderlo l'ADX, che misura la
+forza del trend ma non dice quanto conviene entrare. Un titolo poco volatile ha lo
+stop vicino e un R/R alto; uno che si muove tanto ha lo stop lontano e un R/R basso.
+`TECH_SCORE` resta come **filtro** (≥ minimo), non come ordinamento.
 
 ### 5.4 Condizioni di uscita, in ordine di priorità
 
