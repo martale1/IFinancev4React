@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WatchlistRow, QuickAlertField, AiProposedCondition, AiCriticalLevel } from "../types";
 import { analyzeChartImage, createAiAlert, createAiLevelAlert, deleteAlertRule, fetchAlerts, fetchNews, searchNews, type NewsReport } from "../api";
+import { formatVolume } from "../format";
 
 type ChartAiAlertInfo = {
   ruleId: string; enabled: boolean; verified: number; total: number;
@@ -920,6 +921,14 @@ export default function ChartModal(props: Props) {
               <span className="dati-label">Prezzo</span>
               <div className="dati-riga">
                 <span className="level-chip close">Close: {fmtPrice(close)}</span>
+                {/* Il volume accanto al prezzo: dice se il movimento e' stato
+                    fatto con scambi reali. Numero intero con i separatori,
+                    come sulle card. */}
+                {props.row ? (
+                  <span className="level-chip volume" title="Volume dell'ultima seduta">
+                    VOL: {formatVolume(props.row.Volume)}
+                  </span>
+                ) : null}
               </div>
             </div>
           )}

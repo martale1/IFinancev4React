@@ -42,6 +42,19 @@ function numeroItaliano(valore: number): string {
 }
 
 /**
+ * Volume in numero intero, con i separatori delle migliaia.
+ *
+ * Perche' il numero intero e non "1,76M": il volume serve a valutare se un
+ * movimento e' stato fatto con scambi reali, e la cifra esatta lo dice meglio di
+ * un'abbreviazione. Chi vuole la forma breve la trova nelle card.
+ */
+export function formatVolume(value: unknown): string {
+  const parsed = toNum(value);
+  if (parsed === null) return "—";
+  return Math.round(parsed).toLocaleString("it-IT");
+}
+
+/**
  * La distanza fra MACD e segnale, accanto all'etichetta del momento.
  *
  * PERCHE' SERVE: `Momento_Trend` vale STABILE in due situazioni opposte — un
