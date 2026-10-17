@@ -202,17 +202,86 @@ export default function App() {
   }, [monitorRawItems]);
 
 
+  /**
+   * Aggiunta al monitor, con il pulsante che si aggiorna subito.
+   *
+   * Stesso motivo della rimozione: `GET /api/monitor` impiega quasi 4 secondi, e
+   * il pulsante restava "+ Monitor" per tutto quel tempo. Ora l'elenco grezzo
+   * (["monitor-items"], da cui dipende lo stato dei pulsanti) riceve subito una
+   * voce provvisoria, e la conferma del server la sostituisce.
+   */
   const upsertMonitorMutation = useMutation({
     mutationFn: upsertMonitorItem,
-    onSuccess: () => {
+    onMutate: async ({ ticker, source_market, name }) => {
+      const grezzi = qc.getQueryData<Record<string, unknown>>(["monitor-items"]);
+      await qc.cancelQueries({ queryKey: ["monitor-items"] });
+      if (grezzi && Array.isArray(grezzi.raw_items)) {
+        const elenco = grezzi.raw_items as Record<string, unknown>[];
+        const c_e = elenco.some((v) => String(v?.ticker ?? "").toUpperCase() === String(ticker ?? "").toUpperCase());
+        if (!c_e) {
+          qc.setQueryData(["monitor-items"], {
+            ...grezzi,
+            raw_items: [...elenco, { ticker: String(ticker).toUpperCase(), source_market: String(source_market ?? ""), name: name ?? "", note: "" }],
+          });
+        }
+      }
+      return { grezzi };
+    },
+    onError: (_errore, _variabili, contesto) => {
+      if (contesto?.grezzi) qc.setQueryData(["monitor-items"], contesto.grezzi);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["monitor"] });
       qc.invalidateQueries({ queryKey: ["monitor-items"] });
     },
   });
 
+  /**
+   * Rimozione dal monitor, con aggiornamento IMMEDIATO della lista.
+   *
+   * DIFETTO OSSERVATO. Dopo il clic la card spariva solo dopo ~4 secondi, perche'
+   * `GET /api/monitor` impiega quasi 4 secondi (ricostruisce i dati di tutti i
+   * mercati monitorati). In quei secondi sembrava che il pulsante non funzionasse,
+   * e cliccando di nuovo si toglievano altri titoli: l'elenco e' sceso da 34 a 30.
+   *
+   * ORA: la riga viene tolta subito dalla copia in memoria (onMutate), poi il
+   * server conferma e la lista si ricarica. Se il server rifiuta, la riga torna
+   * al suo posto (onError).
+   */
   const removeMonitorMutation = useMutation({
     mutationFn: removeMonitorItem,
-    onSuccess: () => {
+    onMutate: async ({ ticker, source_market }) => {
+      const tk = String(ticker ?? "").toUpperCase();
+      const src = String(source_market ?? "");
+      await qc.cancelQueries({ queryKey: ["monitor"] });
+      await qc.cancelQueries({ queryKey: ["monitor-items"] });
+
+      const precedente = qc.getQueryData<Record<string, unknown>>(["monitor"]);
+      const uguale = (voce: Record<string, unknown>) => {
+        const t2 = String(voce?.Ticker ?? voce?.ticker ?? "").toUpperCase();
+        const s2 = String(voce?.WL_Source_Market ?? voce?.source_market ?? "");
+        return t2 === tk && (!src || !s2 || s2 === src);
+      };
+      if (precedente && Array.isArray(precedente.items)) {
+        qc.setQueryData(["monitor"], {
+          ...precedente,
+          items: (precedente.items as Record<string, unknown>[]).filter((voce) => !uguale(voce)),
+        });
+      }
+      const grezzi = qc.getQueryData<Record<string, unknown>>(["monitor-items"]);
+      if (grezzi && Array.isArray(grezzi.raw_items)) {
+        qc.setQueryData(["monitor-items"], {
+          ...grezzi,
+          raw_items: (grezzi.raw_items as Record<string, unknown>[]).filter((voce) => !uguale(voce)),
+        });
+      }
+      return { precedente, grezzi };
+    },
+    onError: (_errore, _variabili, contesto) => {
+      if (contesto?.precedente) qc.setQueryData(["monitor"], contesto.precedente);
+      if (contesto?.grezzi) qc.setQueryData(["monitor-items"], contesto.grezzi);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["monitor"] });
       qc.invalidateQueries({ queryKey: ["monitor-items"] });
     },
