@@ -4396,3 +4396,28 @@ td {
   border-top: 1px dashed rgba(251, 191, 36, .2);
   margin-top: .15rem;
 }
+
+/* ── Pannello dei livelli di uscita dentro la fila dei pulsanti ──────────
+   Era un fratello dei pulsanti in una fila flex: essendo alto, li STIRAVA
+   tutti (Grafico, Alert, AI... diventavano colonne lunghe). Ora la fila
+   allinea in alto e il pannello prende una riga sua, sotto i pulsanti. */
+.row.actions { align-items: flex-start; }
+.row.actions > .level-strip {
+  flex: 1 1 100%;
+  margin-top: .3rem;
+}
+/* Larghezza leggibile: nome a sinistra, numero a destra, senza un vuoto in mezzo. */
+.level-strip.level-stop { max-width: 34rem; }
+
+/* Le righe dei livelli: nome e tipo nella prima colonna, valore e distanza
+   allineati a destra. Su schermo stretto il tipo va sotto il nome. */
+.level-stop .uscita-riga { gap: .35rem .6rem; }
+.level-stop .uscita-riga b { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 700px) {
+  .level-strip.level-stop { max-width: 100%; }
+  .level-stop .uscita-riga { grid-template-columns: minmax(0, 1fr) auto; }
+  .level-stop .uscita-tipo { grid-column: 1; }
+  .level-stop .uscita-riga b { grid-column: 1; text-align: left; font-size: .9rem; }
+  .level-stop .uscita-dist { grid-column: 2; grid-row: 2; }
+}
