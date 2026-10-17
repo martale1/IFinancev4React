@@ -312,6 +312,71 @@ def riga_titolo(ticker: str) -> dict[str, Any] | None:
     return None
 
 
+def risolvi_titolo(testo: str) -> str:
+    """Dal testo scritto dall'utente al ticker vero.
+
+    "Eni" diventa "ENI.MI". Se il testo non corrisponde a nulla si restituisce
+    com'e': il messaggio d'errore successivo dira' che non e' verificabile, che e'
+    piu' chiaro di un "non trovato" generico.
+    """
+    grezzo = str(testo or "").strip()
+    if not grezzo:
+        return grezzo
+    try:
+        from app.services.monitor_service import resolve_input
+
+        risolto = resolve_input(grezzo, None)
+        if risolto.get("found"):
+            ticker = str(risolto["item"].get("ticker") or "").strip()
+            if ticker:
+                return ticker.upper()
+    except Exception:
+        pass
+    return grezzo.upper()
+
+
+def candidati(pf: dict[str, Any], ricerca: str, limite: int = 12) -> list[dict[str, Any]]:
+    """Titoli dei mercati abilitati che corrispondono al testo cercato.
+
+    Serve a non dover conoscere i ticker a memoria. Restituisce anche indicazione
+    e TECH, cosi' si sceglie con un'informazione davanti invece che alla cieca.
+    """
+    from app.services.watchlist_service import load_market_dataframe
+
+    termine = str(ricerca or "").strip().lower()
+    ammessi = [str(m) for m in (pf.get("parametri", {}).get("mercati") or [])]
+    if not ammessi:
+        return []
+
+    trovati: list[dict[str, Any]] = []
+    for mercato in ammessi:
+        try:
+            df = load_market_dataframe(mercato)
+        except Exception:
+            continue
+        if df is None or df.empty or "Ticker" not in df.columns:
+            continue
+
+        for _, riga in df.iterrows():
+            ticker = str(riga.get("Ticker") or "").strip().upper()
+            if not ticker:
+                continue
+            nome = str(riga.get("Name") or "")
+            if termine and termine not in ticker.lower() and termine not in nome.lower():
+                continue
+            trovati.append({
+                "ticker": ticker,
+                "nome": nome or ticker,
+                "mercato": mercato,
+                "indicazione": riga.get("Entry_Signal"),
+                "tech_score": riga.get("TECH_SCORE"),
+                "rischio": riga.get("Rischio_Trend"),
+            })
+            if len(trovati) >= limite:
+                return trovati
+    return trovati
+
+
 def mercato_di(ticker: str) -> str | None:
     """Il mercato di un titolo, letto dalle analisi. None se non e' presente."""
     riga = riga_titolo(str(ticker or "").strip().upper())
@@ -541,6 +606,8 @@ def compra(pid: str, ticker: str, importo_eur: float | None = None,
         raise ValueError(f"{simbolo} e' gia' in portafoglio")
 
     par = pf.get("parametri", {})
+    # Si puo' scrivere il nome invece del ticker: "Eni" vale "ENI.MI".
+    simbolo = risolvi_titolo(simbolo)
     # Prima di tutto: questo titolo appartiene a un mercato su cui il portafoglio
     # opera? Se no, non si va avanti nemmeno a calcolare la quantita'.
     verifica_mercato_ammesso(pf, simbolo)
@@ -819,6 +886,8 @@ def anteprima_acquisto(pid: str, ticker: str, importo_eur: float | None = None) 
     simbolo = str(ticker or "").strip().upper()
     if not simbolo:
         raise ValueError("Ticker obbligatorio")
+    # Anche qui: nome o ticker, indifferente.
+    simbolo = risolvi_titolo(simbolo)
     verifica_mercato_ammesso(pf, simbolo)
     riga = riga_titolo(simbolo) or {}
     nome = str(riga.get("Name") or simbolo)

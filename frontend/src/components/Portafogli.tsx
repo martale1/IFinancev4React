@@ -11,7 +11,7 @@
  * Tutti gli importi mostrati sono in EURO, tranne il prezzo dello strumento che
  * resta nella sua valuta (indicata accanto).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -20,6 +20,7 @@ import {
   archiviaPortafoglio,
   compraTitolo,
   creaPortafoglio,
+  fetchCandidati,
   fetchOperazioniPortafoglio,
   fetchPortafogli,
   fetchPortafoglio,
@@ -90,6 +91,10 @@ export default function Portafogli() {
   const [ticker, setTicker] = useState("");
   const [importo, setImporto] = useState("");
   const [anteprima, setAnteprima] = useState<AnteprimaAcquisto | null>(null);
+  /** Titoli proposti mentre si scrive nel campo di ricerca. */
+  const [suggerimenti, setSuggerimenti] = useState<
+    Array<{ ticker: string; nome: string; mercato: string; indicazione?: string | null; tech_score?: number | null }>
+  >([]);
 
   // ── vendita: due passaggi, perche' e' denaro (anche se finto) ───────
   const [uscita, setUscita] = useState<string | null>(null);
@@ -177,6 +182,29 @@ export default function Portafogli() {
     },
     onError: (e: unknown) => setErrore(e instanceof Error ? e.message : "Archiviazione non riuscita"),
   });
+
+  // Suggerimenti: si chiede al server dopo una breve pausa dalla digitazione,
+  // cosi' scrivere "campari" non produce sette richieste.
+  useEffect(() => {
+    const testo = ticker.trim();
+    if (!scelto || testo.length < 2) {
+      setSuggerimenti([]);
+      return;
+    }
+    let annullato = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const trovati = await fetchCandidati(scelto, testo);
+        if (!annullato) setSuggerimenti(trovati);
+      } catch {
+        if (!annullato) setSuggerimenti([]);
+      }
+    }, 250);
+    return () => {
+      annullato = true;
+      window.clearTimeout(timer);
+    };
+  }, [ticker, scelto]);
 
   const caricaAnteprima = async () => {
     if (!scelto || !ticker.trim()) return;
@@ -385,7 +413,7 @@ export default function Portafogli() {
                   setTicker(e.target.value);
                   setAnteprima(null);
                 }}
-                placeholder="Ticker (es. ENI.MI)"
+                placeholder="Cerca un titolo (es. Eni, o ENI.MI)"
                 aria-label="Ticker da comprare"
               />
               <input
@@ -402,6 +430,38 @@ export default function Portafogli() {
                 Anteprima
               </button>
             </div>
+
+            {suggerimenti.length > 0 && !anteprima ? (
+              <div className="pf-suggerimenti">
+                {suggerimenti.map((c2) => (
+                  <button
+                    key={`${c2.mercato}-${c2.ticker}`}
+                    type="button"
+                    onClick={() => {
+                      setTicker(c2.ticker);
+                      setSuggerimenti([]);
+                      void (async () => {
+                        try {
+                          const risultato = await anteprimaAcquisto(String(scelto), c2.ticker);
+                          setAnteprima(risultato);
+                          setErrore("");
+                        } catch (e) {
+                          setAnteprima(null);
+                          setErrore(e instanceof Error ? e.message : "Anteprima non disponibile");
+                        }
+                      })();
+                    }}
+                  >
+                    <b>{c2.ticker}</b>
+                    <span>{c2.nome}</span>
+                    <small>
+                      {c2.mercato}
+                      {c2.indicazione ? ` · ${c2.indicazione}` : ""}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             {anteprima ? (
               <div className="pf-anteprima">

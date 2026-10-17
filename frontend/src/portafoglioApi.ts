@@ -103,3 +103,14 @@ export async function fetchOperazioniPortafoglio(id: string): Promise<Operazione
   const dati = await parseJson<{ operazioni: OperazioneChiusa[] }>(resp);
   return dati.operazioni ?? [];
 }
+
+/** Titoli dei mercati abilitati che corrispondono al testo cercato. */
+export async function fetchCandidati(
+  id: string,
+  testo: string,
+): Promise<Array<{ ticker: string; nome: string; mercato: string; indicazione?: string | null; tech_score?: number | null }>> {
+  const parametri = new URLSearchParams({ q: testo });
+  const resp = await fetch(`${API_BASE}/portafogli/${encodeURIComponent(id)}/candidati?${parametri.toString()}`);
+  const dati = await parseJson<{ candidati: Array<{ ticker: string; nome: string; mercato: string }> }>(resp);
+  return dati.candidati ?? [];
+}

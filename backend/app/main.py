@@ -1483,6 +1483,18 @@ def portafogli_anteprima(pid: str, ticker: str, importo_eur: float | None = None
         raise HTTPException(status_code=500, detail=str(errore))
 
 
+@app.get("/api/portafogli/{pid}/candidati")
+def portafogli_candidati(pid: str, q: str = Query(default="")) -> dict[str, Any]:
+    """Titoli dei mercati abilitati che corrispondono al testo cercato."""
+    try:
+        pf = portfolio_service.leggi(pid)
+        return {"candidati": portfolio_service.candidati(pf, q)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portafoglio inesistente")
+    except Exception as errore:
+        return {"candidati": [], "errore": str(errore)}
+
+
 @app.post("/api/portafogli/{pid}/compra")
 def portafogli_compra(pid: str, req: PortfolioBuyRequest) -> dict[str, Any]:
     try:
