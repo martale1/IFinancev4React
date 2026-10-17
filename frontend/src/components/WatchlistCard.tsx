@@ -56,7 +56,7 @@ type Props = {
   currentWatchlistName: string | null;
   onRemoveFromWatchlist: (input: { name: string; ticker: string; source_market?: string }) => Promise<string>;
   isMonitored?: boolean;
-  onOpenMonitorModal?: (row: WatchlistRow) => void;
+  onToggleMonitor?: (row: WatchlistRow) => void;
 };
 
 type CheckItem = {
@@ -457,7 +457,7 @@ export default function WatchlistCard({
   currentWatchlistName,
   onRemoveFromWatchlist,
   isMonitored,
-  onOpenMonitorModal,
+  onToggleMonitor,
 }: Props) {
   const [showDetails, setShowDetails] = useState(false);
   const [detailMode, setDetailMode] = useState<"BUY" | "SELL">("BUY");
@@ -888,10 +888,10 @@ export default function WatchlistCard({
           {showWatchlistTools ? "Chiudi Watchlist" : "＋ Watchlist"}
         </button>
         <button
-          className={isMonitored ? "btn active" : "btn ghost"}
+          className={isMonitored ? "btn monitor-on" : "btn ghost"}
           disabled={!ticker}
-          onClick={() => onOpenMonitorModal?.({ ...row, WL_Source_Market: String(row.WL_Source_Market || sourceMarket) })}
-          title={isMonitored ? "In monitoraggio attivo (clicca per la nota o per rimuovere)" : "Aggiungi a monitoraggio attivo"}
+          onClick={() => onToggleMonitor?.({ ...row, WL_Source_Market: String(row.WL_Source_Market || sourceMarket) })}
+          title={isMonitored ? "Già in monitoraggio: clicca per toglierlo" : "Aggiungi al monitoraggio"}
           style={isMonitored ? { borderColor: "#0288d1", color: "#0288d1" } : undefined}
         >
           {isMonitored ? "✓ Monitor" : "+ Monitor"}

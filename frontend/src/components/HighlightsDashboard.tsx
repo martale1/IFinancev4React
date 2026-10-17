@@ -47,10 +47,13 @@ function RigaVoce({
   voce,
   onChart,
   onMonitor,
+  inMonitor,
 }: {
   voce: VoceHighlight;
   onChart: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
+  /** Gia' in monitoraggio: il pulsante si evidenzia e un clic lo toglie. */
+  inMonitor: boolean;
 }) {
   const score = toNum(voce.row.TECH_SCORE);
   const chiusura = toNum(voce.row.Close);
@@ -82,14 +85,14 @@ function RigaVoce({
         {score !== null ? <span className="hl-score">TECH {Math.round(score)}</span> : null}
         <button
           type="button"
-          className="hl-monitor"
+          className={inMonitor ? "hl-monitor attivo" : "hl-monitor"}
           onClick={(e) => {
             e.stopPropagation();
             onMonitor(voce.row);
           }}
-          title={voce.row.Monitor_Note ? "Modifica la nota di monitoraggio" : "Aggiungi al monitoraggio"}
+          title={inMonitor ? "Già in monitoraggio: clicca per toglierlo" : "Aggiungi al monitoraggio"}
         >
-          + Monitor
+          {inMonitor ? "✓ Monitor" : "+ Monitor"}
         </button>
       </span>
 
@@ -127,6 +130,7 @@ function Blocco({
   vuoto,
   onChart,
   onMonitor,
+  onIsMonitored,
 }: {
   titolo: string;
   sottotitolo: string;
@@ -134,6 +138,7 @@ function Blocco({
   vuoto: string;
   onChart: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
+  onIsMonitored: (row: WatchlistRow) => boolean;
 }) {
   const [espanso, setEspanso] = useState(false);
   const totale = voci ? voci.length : 0;
@@ -155,7 +160,7 @@ function Blocco({
         <>
           <div className="hl-righe">
             {visibili.map((v) => (
-              <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} />
+              <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
             ))}
           </div>
           {resto > 0 ? (
@@ -173,10 +178,12 @@ export default function HighlightsDashboard({
   righe,
   onChart,
   onMonitor,
+  onIsMonitored,
 }: {
   righe: WatchlistRow[];
   onChart: (row: WatchlistRow) => void;
   onMonitor: (row: WatchlistRow) => void;
+  onIsMonitored: (row: WatchlistRow) => boolean;
 }) {
   const [mostraTuttiFrenati, setMostraTuttiFrenati] = useState(false);
 
@@ -201,6 +208,7 @@ export default function HighlightsDashboard({
         vuoto="Nessun titolo pronto in questo momento."
         onChart={onChart}
         onMonitor={onMonitor}
+        onIsMonitored={onIsMonitored}
       />
 
       <Blocco
@@ -210,6 +218,7 @@ export default function HighlightsDashboard({
         vuoto="Nessun titolo vicino all'ingresso."
         onChart={onChart}
         onMonitor={onMonitor}
+        onIsMonitored={onIsMonitored}
       />
 
       <section className="hl-blocco">
@@ -232,7 +241,7 @@ export default function HighlightsDashboard({
                     {g.freno} <b>{g.voci.length}</b>
                   </div>
                   {dentro.map((v) => (
-                    <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} />
+                    <RigaVoce key={v.ticker} voce={v} onChart={onChart} onMonitor={onMonitor} inMonitor={onIsMonitored(v.row)} />
                   ))}
                 </div>
               );

@@ -26,7 +26,6 @@ type Props = {
     moved_from_market?: string | null;
   }>;
   onRemoveMonitor: (ticker: string, sourceMarket?: string) => Promise<void>;
-  onOpenNoteModal: (row: WatchlistRow) => void;
   onChart: (row: WatchlistRow) => void;
   onAi: (row: WatchlistRow) => void;
   onNews: (ticker: string) => void;
@@ -108,7 +107,6 @@ export default function MonitorPanel({
   markets,
   onAddMonitor,
   onRemoveMonitor,
-  onOpenNoteModal,
   onChart,
   onAi,
   onNews,
@@ -202,8 +200,8 @@ export default function MonitorPanel({
       if (!term) return true;
       const tk = String(row.Ticker || "").toLowerCase();
       const nm = String(row.Name || "").toLowerCase();
-      const note = String(row.Monitor_Note || "").toLowerCase();
       const mkt = String(row.WL_Source_Market || "").toLowerCase();
+      const note = String(row.Monitor_Note || "").toLowerCase();
       return tk.includes(term) || nm.includes(term) || note.includes(term) || mkt.includes(term);
     });
   }, [items, filterText, mercatoMostrato]);
@@ -333,13 +331,6 @@ export default function MonitorPanel({
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
-          <input
-            className="monitor-note-input"
-            type="text"
-            placeholder="Nota opzionale (es. breakout sopra 12.20)"
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-          />
           <button type="submit" className="btn primary monitor-add-button" disabled={adding || !newTicker.trim()}>
             {adding ? "Aggiungo..." : "+ Aggiungi a Monitor"}
           </button>
@@ -522,7 +513,6 @@ export default function MonitorPanel({
                 {azioniLista === `${src}-${tk}` ? (
                   <span className="monitor-card-more">
                     <button type="button" className="btn ghost" onClick={() => { setAzioniLista(null); onNews(tk); }}>News</button>
-                    <button type="button" className="btn ghost" onClick={() => { setAzioniLista(null); onOpenNoteModal(row); }}>Nota</button>
                   </span>
                 ) : null}
               </>
@@ -536,7 +526,6 @@ export default function MonitorPanel({
             const tk = String(row.Ticker || "").trim();
             const nm = String(row.Name || tk);
             const src = String(row.WL_Source_Market || "MIB30");
-            const note = String(row.Monitor_Note || "").trim();
             const phase = String(row.Market_Phase || "-");
             const detail = String(row.Trend_Phase_Detail || "").replace(/_/g, " ");
             const entry = String(row.Entry_Signal || "ATTENDI").toUpperCase();
@@ -570,7 +559,7 @@ export default function MonitorPanel({
                     LIQ <b className={String(row.Liquidity ?? "").toUpperCase() === "OK" ? "good" : "bad"}>{String(row.Liquidity ?? "-")}</b>
                   </span>
                 </div>
-                {note ? <p className="monitor-note">📝 {note}</p> : null}
+                
 
                 {/* Metriche raggruppate per uso: livelli in tono neutro, solo i
                     giudizi (variazioni, direzione) hanno colore semantico. */}
@@ -637,7 +626,6 @@ export default function MonitorPanel({
                   <div className="monitor-card-more">
                     <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onAi(row); }}>AI</button>
                     <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onNews(tk); }}>News</button>
-                    <button type="button" className="btn ghost" onClick={() => { setActionsFor(null); onOpenNoteModal(row); }}>Nota</button>
                     <button type="button" className={alertMap[`${src}::${tk.toUpperCase()}`] ? "btn alert-on" : "btn ghost"} onClick={() => { setActionsFor(null); openAlertBox(row); }}>
                       {alertMap[`${src}::${tk.toUpperCase()}`] ? "Alert ON" : "Alert"}
                     </button>

@@ -329,7 +329,7 @@ type Props = {
   }) => Promise<string>;
   onRemoveAlert?: (input: { row: WatchlistRow; source_market: string }) => Promise<string>;
   isMonitored?: boolean;
-  onOpenMonitorModal?: (row: WatchlistRow) => void;
+  onToggleMonitor?: (row: WatchlistRow) => void;
 };
 
 export default function ChartModal(props: Props) {
@@ -1022,7 +1022,7 @@ export default function ChartModal(props: Props) {
             <button
               className={props.isMonitored ? "btn active" : "btn ghost"}
               disabled={!props.row}
-              onClick={() => props.row && props.onOpenMonitorModal?.({ ...props.row, WL_Source_Market: String(props.row.WL_Source_Market || props.sourceMarket) })}
+              onClick={() => props.row && props.onToggleMonitor?.({ ...props.row, WL_Source_Market: String(props.row.WL_Source_Market || props.sourceMarket) })}
               title={props.isMonitored ? "In monitoraggio attivo: clicca per modificare nota o rimuovere" : "Aggiungi questo titolo al Monitor"}
             >
               {props.isMonitored ? "🎯 ✓ Monitor" : "🎯 + Monitor"}

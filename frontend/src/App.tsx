@@ -26,7 +26,6 @@ import MarketHeatmapPanel from "./components/MarketHeatmapPanel";
 import NewsArchive from "./components/NewsArchive";
 import IndicatorsTablePanel from "./components/IndicatorsTablePanel";
 import MonitorPanel from "./components/MonitorPanel";
-import MonitorNoteModal from "./components/MonitorNoteModal";
 import type { AlertRule, WatchlistRow, QuickAlertField } from "./types";
 
 import {
@@ -200,15 +199,6 @@ export default function App() {
     return set;
   }, [monitorRawItems]);
 
-  const monitoredNotesMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const item of monitorRawItems) {
-      if (item.ticker) map.set(item.ticker.toUpperCase(), item.note || "");
-    }
-    return map;
-  }, [monitorRawItems]);
-
-  const [monitorModalRow, setMonitorModalRow] = useState<WatchlistRow | null>(null);
 
   const upsertMonitorMutation = useMutation({
     mutationFn: upsertMonitorItem,
@@ -593,6 +583,29 @@ export default function App() {
    * mercati complete non compaiono piu' in questa tab.
    */
   const [sceltaHighlights, setSceltaHighlights] = useState<"MIB30" | "DAX" | "MIB30+DAX" | "ETC">("MIB30+DAX");
+  /**
+   * Aggiunge o toglie un titolo dal monitoraggio, a seconda che ci sia gia'.
+   *
+   * Un solo gestore per tutti i pulsanti `Monitor` dell'app: prima ognuno apriva
+   * il modulo della nota, e per togliere bisognava cercare il pulsante dentro il
+   * modulo. Ora il clic fa quello che ci si aspetta dal pulsante.
+   */
+  async function toggleMonitor(row: WatchlistRow): Promise<void> {
+    const tk = String(row.Ticker ?? "").trim();
+    const src = String(row.WL_Source_Market ?? market).trim();
+    if (!tk || !src) return;
+    try {
+      if (monitoredSet.has(tk.toUpperCase())) {
+        await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: src });
+      } else {
+        // Nessuna nota: si aggiunge e basta.
+        await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: src, note: "" });
+      }
+    } catch (errore) {
+      console.error("[monitor] operazione non riuscita", errore);
+    }
+  }
+
   const highlightsItems: WatchlistRow[] = highlightsFullQuery.data?.items ?? [];
   /**
    * I titoli del DAX, per il cruscotto "MIB30 + DAX".
@@ -1194,7 +1207,7 @@ export default function App() {
                 currentWatchlistName={parseCurrentWatchlistName(String(globalSearchRow.WL_Source_Market ?? market))}
                 onRemoveFromWatchlist={handleRemoveFromWatchlist}
                 isMonitored={monitoredSet.has(String(globalSearchRow.Ticker ?? "").toUpperCase())}
-                onOpenMonitorModal={(r) => setMonitorModalRow(r)}
+                onToggleMonitor={(r) => void toggleMonitor(r)}
               />
             </div>
           ) : null}
@@ -1248,7 +1261,6 @@ export default function App() {
           onRemoveMonitor={async (tk, mkt) => {
             await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });
           }}
-          onOpenNoteModal={(row) => setMonitorModalRow(row)}
           onChart={openChart}
           onAi={openTickerAi}
           onNews={() => {
@@ -1388,7 +1400,8 @@ export default function App() {
         <HighlightsDashboard
           righe={righeCruscotto}
           onChart={openChart}
-          onMonitor={(row) => setMonitorModalRow(row)}
+          onMonitor={(row) => void toggleMonitor(row)}
+          onIsMonitored={(row) => monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
         />
       ) : null}
 
@@ -1622,7 +1635,7 @@ export default function App() {
                 currentWatchlistName={parseCurrentWatchlistName(market)}
                 onRemoveFromWatchlist={handleRemoveFromWatchlist}
                 isMonitored={monitoredSet.has(String(row.Ticker ?? "").toUpperCase())}
-                onOpenMonitorModal={(r) => setMonitorModalRow(r)}
+                onToggleMonitor={(r) => void toggleMonitor(r)}
               />
             ))}
           </section> : watchlistView === "list" ? (
@@ -1642,7 +1655,16 @@ export default function App() {
                     {/* Monitor: come nelle Schede, "+ Monitor" oppure "✓ Monitor" se e' gia'
                         in monitoraggio. Prima dalla Lista bisognava passare alle Schede
                         per mettere un titolo in monitoraggio. */}
-                    <button type="button" className="btn ghost" onClick={() => setMonitorModalRow(row)}>
+                    <button
+                      type="button"
+                      className={monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "btn monitor-on" : "btn ghost"}
+                      onClick={() => void toggleMonitor(row)}
+                      title={
+                        monitoredSet.has(String(row.Ticker ?? "").toUpperCase())
+                          ? "Già in monitoraggio: clicca per toglierlo"
+                          : "Aggiungi al monitoraggio"
+                      }
+                    >
                       {monitoredSet.has(String(row.Ticker ?? "").toUpperCase()) ? "✓ Monitor" : "+ Monitor"}
                     </button>
                     {/* Alert: stessi gestori delle Schede, modulo compatto. Il mercato
@@ -1702,7 +1724,7 @@ export default function App() {
         onCreateAlert={handleCreateQuickAlert}
         onRemoveAlert={handleRemoveQuickAlert}
         isMonitored={Boolean(chartRow && monitoredSet.has(String(chartRow.Ticker ?? "").toUpperCase()))}
-        onOpenMonitorModal={(row) => setMonitorModalRow(row)}
+        onToggleMonitor={(row) => void toggleMonitor(row)}
         onClose={() => {
           setChartTicker("");
           setChartRow(null);
@@ -1722,19 +1744,6 @@ export default function App() {
           setAiTickerRow(null);
           setAiTickerMarket("");
         }}
-      />
-      <MonitorNoteModal
-        open={Boolean(monitorModalRow)}
-        row={monitorModalRow}
-        existingNote={monitorModalRow ? (monitoredNotesMap.get(String(monitorModalRow.Ticker || "").toUpperCase()) || "") : ""}
-        isMonitored={Boolean(monitorModalRow && monitoredSet.has(String(monitorModalRow.Ticker || "").toUpperCase()))}
-        onSave={async (tk, mkt, note, name) => {
-          await upsertMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt, note, name });
-        }}
-        onRemove={async (tk, mkt) => {
-          await removeMonitorMutation.mutateAsync({ ticker: tk, source_market: mkt });
-        }}
-        onClose={() => setMonitorModalRow(null)}
       />
       <FooterAnalisi
         percorso={footerQuery.data?.source_path ?? footerQuery.data?.source_file}

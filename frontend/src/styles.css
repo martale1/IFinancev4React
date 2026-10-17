@@ -936,6 +936,18 @@ textarea {
   border-color: #60a5fa;
   color: #dcecff;
 }
+
+/* Pulsante Monitor quando il titolo E' gia' in monitoraggio: stessa evidenza
+   dei pulsanti "attivi" altrove nell'app, cosi' si capisce a colpo d'occhio. */
+.hl-monitor.attivo,
+.btn.monitor-on {
+  border-color: #0288d1 !important;
+  color: #7dd3fc !important;
+  background: rgba(2, 136, 209, .18) !important;
+}
+.btn.monitor-on:hover {
+  border-color: #38bdf8 !important;
+}
 /* Il prezzo: cifre a larghezza fissa cosi' i numeri restano incolonnati. */
 .hl-prezzo {
   color: #e5f2ff;

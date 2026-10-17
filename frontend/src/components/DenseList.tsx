@@ -66,7 +66,6 @@ export function DenseList({
         const fase = String(row.Market_Phase ?? "-");
         const direzione = String(row.Direzione_Trend ?? "-");
         const forza = String(row.Forza_Trend ?? "-").replace("FORTE_", "");
-        const nota = String(row.Monitor_Note || "").trim();
         const chiave = `${src}-${tk}-${indice}`;
         const espansa = aperta === chiave;
         // Nome leggibile: si toglie il suffisso di mercato attaccato in coda
@@ -103,7 +102,7 @@ export function DenseList({
                 {nomeBreve ? <em className="dense-nome" title={nomeBreve}>{nomeBreve}</em> : null}
                 <small>
                   {fase} · {direzione}/{forza}
-                  {nota ? " · 📝" : ""}
+                 
                 </small>
               </span>
               <span className="dense-numbers">
@@ -175,7 +174,7 @@ export function DenseList({
                   </div>
                 </div>
 
-                {nota ? <p className="dense-note">📝 {nota}</p> : null}
+                
 
                 {renderActions ? (
                   <div className="dense-actions">{renderActions(row)}</div>
