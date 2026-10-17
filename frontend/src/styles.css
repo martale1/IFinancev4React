@@ -4338,3 +4338,22 @@ td {
   .pf-quadro { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pf-quadro-voce b { font-size: .95rem; }
 }
+/* Comandi sopra la tabella delle posizioni: filtri e "Nascondi". */
+.pf-comandi { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; }
+.pf-comando { display: flex; flex-direction: column; gap: .15rem; }
+.pf-comando span { color: #7899b8; font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
+.pf-comando select {
+  font: inherit; font-size: .74rem; padding: .28rem .45rem; border-radius: 7px;
+  border: 1px solid rgba(174,216,249,.22); background: rgba(4,14,26,.85); color: #dbeafe;
+}
+.pf-comandi-conteggio { align-self: center; }
+.pf-comandi .btn { font-size: .72rem; padding: .26rem .55rem; }
+
+/* Intestazioni cliccabili: ordinano la tabella. */
+.pf-th {
+  font: inherit; font-size: .62rem; text-transform: uppercase; letter-spacing: .03em;
+  color: #7899b8; background: transparent; border: 0; padding: 0; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+.pf-th:hover { color: #b8d4ee; }
+.pf-th.num { text-align: right; }

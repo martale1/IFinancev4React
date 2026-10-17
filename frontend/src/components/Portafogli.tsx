@@ -103,6 +103,17 @@ export default function Portafogli() {
   /** Risultato dell'ultimo giro automatico: chi ha comprato e chi no. */
   const [esitoGiro, setEsitoGiro] = useState<EsitoGiro | null>(null);
 
+  // ── comandi della tabella (come nel conto titoli del broker) ────────
+  const [filtroStrumento, setFiltroStrumento] = useState("Tutti");
+  const [filtroValuta, setFiltroValuta] = useState("Tutte");
+  /** Colonna di ordinamento e verso. Default: valore, dal piu' grande. */
+  const [ordine, setOrdine] = useState<{ chiave: string; verso: "asc" | "desc" }>({
+    chiave: "valore_eur",
+    verso: "desc",
+  });
+  /** Maschera gli importi: serve quando si guarda lo schermo insieme ad altri. */
+  const [nascondi, setNascondi] = useState(false);
+
   const elencoQuery = useQuery({ queryKey: ["portafogli"], queryFn: fetchPortafogli });
   const dettaglioQuery = useQuery({
     queryKey: ["portafoglio", scelto],
@@ -241,6 +252,78 @@ export default function Portafogli() {
 
   const dettaglio = dettaglioQuery.data;
   const operazioni = operazioniQuery.data ?? [];
+
+  /** Valori distinti per i due menu a tendina. */
+  const strumentiDisponibili = useMemo(() => {
+    const insieme = new Set<string>();
+    for (const pos of dettaglio?.posizioni ?? []) {
+      if (pos.strumento) insieme.add(pos.strumento);
+    }
+    return ["Tutti", ...Array.from(insieme).sort()];
+  }, [dettaglio]);
+
+  const valuteDisponibili = useMemo(() => {
+    const insieme = new Set<string>();
+    for (const pos of dettaglio?.posizioni ?? []) {
+      if (pos.valuta) insieme.add(pos.valuta);
+    }
+    return ["Tutte", ...Array.from(insieme).sort()];
+  }, [dettaglio]);
+
+  /** Posizioni da mostrare: filtrate e ordinate. */
+  const posizioniVisibili = useMemo(() => {
+    const tutte = dettaglio?.posizioni ?? [];
+    const filtrate = tutte.filter(
+      (pos) =>
+        (filtroStrumento === "Tutti" || pos.strumento === filtroStrumento) &&
+        (filtroValuta === "Tutte" || pos.valuta === filtroValuta),
+    );
+    const valore = (pos: (typeof filtrate)[number], chiave: string): number | string => {
+      switch (chiave) {
+        case "ticker":
+          return pos.ticker;
+        case "strumento":
+          return pos.strumento ?? "";
+        case "valuta":
+          return pos.valuta ?? "";
+        case "quantita":
+          return Number(pos.quantita) || 0;
+        case "prezzo_ingresso":
+          return Number(pos.prezzo_ingresso) || 0;
+        case "prezzo_corrente":
+          return Number(pos.prezzo_corrente) || 0;
+        case "valore_eur":
+          return Number(pos.valore_eur) || 0;
+        case "pnl":
+          return Number(pos.pnl_eur) || 0;
+        case "netto":
+          return Number(pos.pnl_netto_eur) || 0;
+        default:
+          return 0;
+      }
+    };
+    return [...filtrate].sort((a, b) => {
+      const va = valore(a, ordine.chiave);
+      const vb = valore(b, ordine.chiave);
+      const confronto =
+        typeof va === "string" || typeof vb === "string"
+          ? String(va).localeCompare(String(vb))
+          : Number(va) - Number(vb);
+      return ordine.verso === "asc" ? confronto : -confronto;
+    });
+  }, [dettaglio, filtroStrumento, filtroValuta, ordine]);
+
+  /** Clic su un'intestazione: ordina, e al secondo clic inverte. */
+  const ordinaPer = (chiave: string) => {
+    setOrdine((prima) =>
+      prima.chiave === chiave
+        ? { chiave, verso: prima.verso === "asc" ? "desc" : "asc" }
+        : { chiave, verso: chiave === "ticker" || chiave === "strumento" || chiave === "valuta" ? "asc" : "desc" },
+    );
+  };
+  const freccia = (chiave: string) => (ordine.chiave === chiave ? (ordine.verso === "asc" ? " ▲" : " ▼") : "");
+  /** Maschera un importo quando "Nascondi" e' attivo. */
+  const soldi = (valore: string) => (nascondi ? "•••••" : valore);
 
   const totaleGenerale = useMemo(() => {
     const portafogli = elencoQuery.data ?? [];
@@ -579,27 +662,78 @@ export default function Portafogli() {
           </details>
 
           {/* ── posizioni ──────────────────────────────────────────── */}
+          {/* Comandi sopra la tabella: strumenti, valuta, nascondi. */}
+          <div className="pf-comandi">
+            <label className="pf-comando">
+              <span>Strumenti</span>
+              <select value={filtroStrumento} onChange={(e) => setFiltroStrumento(e.target.value)}>
+                {strumentiDisponibili.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+            </label>
+            <label className="pf-comando">
+              <span>Valuta</span>
+              <select value={filtroValuta} onChange={(e) => setFiltroValuta(e.target.value)}>
+                {valuteDisponibili.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className={nascondi ? "btn active" : "btn ghost"}
+              onClick={() => setNascondi((v) => !v)}
+              title={nascondi ? "Mostra di nuovo gli importi" : "Nascondi gli importi"}
+            >
+              {nascondi ? "👁 Mostra" : "👁‍🗨 Nascondi"}
+            </button>
+            <span className="pf-conteggio pf-comandi-conteggio">
+              {posizioniVisibili.length} di {dettaglio.posizioni.length}
+            </span>
+          </div>
+
           <h4 className="pf-sezione">
             Posizioni <span className="pf-conteggio">{dettaglio.posizioni.length}</span>
           </h4>
           {dettaglio.posizioni.length === 0 ? (
             <p className="pf-vuoto">Nessuna posizione aperta.</p>
+          ) : posizioniVisibili.length === 0 ? (
+            <p className="pf-vuoto">Nessuna posizione con questi filtri.</p>
           ) : (
             <div className="pf-tabella">
-              <div className="pf-tabella-testa" aria-hidden="true">
-                <span>Titolo</span>
-                <span>Strumento</span>
-                <span>Valuta</span>
-                <span className="num">Quantità</span>
-                <span className="num">Pzo di carico</span>
-                <span className="num">Pzo di mercato</span>
-                <span className="num">Valore €</span>
-                <span className="num">Var € / %</span>
-                <span className="num">Netto se vendi</span>
+              <div className="pf-tabella-testa">
+                <button type="button" className="pf-th" onClick={() => ordinaPer("ticker")}>
+                  Titolo{freccia("ticker")}
+                </button>
+                <button type="button" className="pf-th" onClick={() => ordinaPer("strumento")}>
+                  Strumento{freccia("strumento")}
+                </button>
+                <button type="button" className="pf-th" onClick={() => ordinaPer("valuta")}>
+                  Valuta{freccia("valuta")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("quantita")}>
+                  Quantità{freccia("quantita")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("prezzo_ingresso")}>
+                  Pzo di carico{freccia("prezzo_ingresso")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("prezzo_corrente")}>
+                  Pzo di mercato{freccia("prezzo_corrente")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("valore_eur")}>
+                  Valore €{freccia("valore_eur")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("pnl")}>
+                  Var € / %{freccia("pnl")}
+                </button>
+                <button type="button" className="pf-th num" onClick={() => ordinaPer("netto")}>
+                  Netto se vendi{freccia("netto")}
+                </button>
                 <span />
               </div>
 
-              {dettaglio.posizioni.map((pos) => {
+              {posizioniVisibili.map((pos) => {
                 const costi = (toNum(pos.costi_ingresso_eur) ?? 0) + (toNum(pos.costo_vendita_eur) ?? 0);
                 const base = Number(pos.importo_investito_eur ?? pos.valore_eur ?? 1) || 1;
                 const pari = (costi / base) * 100;
@@ -617,13 +751,13 @@ export default function Portafogli() {
                       {prezzo(pos.prezzo_corrente)}
                       {!pos.prezzo_valido ? <small className="pf-piccolo">stimato</small> : null}
                     </span>
-                    <span className="pf-cella num" data-label="Valore €">{euro(pos.valore_eur)}</span>
+                    <span className="pf-cella num" data-label="Valore €">{soldi(euro(pos.valore_eur))}</span>
                     <span className={`pf-cella num ${classeDaSegno(pos.pnl_eur)}`} data-label="Var € / %">
                       <b>
                         {pos.pnl_eur > 0 ? "+" : ""}
-                        {euro(pos.pnl_eur)}
+                        {soldi(euro(pos.pnl_eur))}
                       </b>
-                      <small>{perc(pos.pnl_pct)}</small>
+                      <small>{nascondi ? "•••" : perc(pos.pnl_pct)}</small>
                     </span>
                     <span
                       className={`pf-cella num netto ${classeDaSegno(pos.pnl_netto_eur)}`}
@@ -632,9 +766,9 @@ export default function Portafogli() {
                     >
                       <b>
                         {pos.pnl_netto_eur > 0 ? "+" : ""}
-                        {euro(pos.pnl_netto_eur)}
+                        {soldi(euro(pos.pnl_netto_eur))}
                       </b>
-                      <small>{perc(pos.pnl_netto_pct)}</small>
+                      <small>{nascondi ? "•••" : perc(pos.pnl_netto_pct)}</small>
                     </span>
                     <span className="pf-cella azioni" data-label="">
                       {uscita === pos.ticker ? (
@@ -660,7 +794,7 @@ export default function Portafogli() {
                     <span className="pf-cella nota" data-label="">
                       Stop {prezzo(pos.stop_attuale)} · distanza{" "}
                       {pos.distanza_stop_pct === null ? "—" : `${pos.distanza_stop_pct.toFixed(2)}%`} · costi{" "}
-                      {euro(costi)} · per andare in pari serve <b>{pari.toFixed(2)}%</b>
+                      {soldi(euro(costi))} · per andare in pari serve <b>{pari.toFixed(2)}%</b>
                     </span>
                   </div>
                 );
