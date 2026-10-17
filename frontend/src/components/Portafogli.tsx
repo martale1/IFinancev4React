@@ -557,10 +557,27 @@ export default function Portafogli() {
           {esitoGiro ? (
             <div className="pf-esito">
               <p className="pf-esito-titolo">
+                {esitoGiro.vendite.length > 0
+                  ? `Vendute ${esitoGiro.vendite.length} posizioni`
+                  : "Nessuna vendita"}
+                {" · "}
                 {esitoGiro.eseguiti.length > 0
-                  ? `Comprati ${esitoGiro.eseguiti.length} titoli su ${esitoGiro.candidati_valutati} candidati`
-                  : `Nessun acquisto su ${esitoGiro.candidati_valutati} candidati`}
+                  ? `comprati ${esitoGiro.eseguiti.length} su ${esitoGiro.candidati_valutati} candidati`
+                  : `nessun acquisto su ${esitoGiro.candidati_valutati} candidati`}
               </p>
+              {esitoGiro.vendite.map((v) => (
+                <div
+                  className={`pf-esito-riga ${v.pnl_netto_eur >= 0 ? "buono" : "fuori"}`}
+                  key={`v-${v.ticker}`}
+                >
+                  <b>{v.ticker}</b>
+                  <span>{v.motivo}</span>
+                  <small>
+                    {v.quantita} × {prezzo(v.prezzo)} · {v.pnl_netto_eur > 0 ? "+" : ""}
+                    {euro(v.pnl_netto_eur)} ({perc(v.pnl_pct)}) · {v.dettaglio}
+                  </small>
+                </div>
+              ))}
               {esitoGiro.eseguiti.map((e) => (
                 <div className="pf-esito-riga buono" key={e.ticker}>
                   <b>{e.ticker}</b>

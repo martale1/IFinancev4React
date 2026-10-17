@@ -4376,3 +4376,4 @@ td {
   .pf-riga { flex-wrap: wrap; }
   .pf-riga-riepilogo { justify-content: flex-start; text-align: left; flex-basis: 100%; }
 }
+.pf-esito-riga.fuori b { color: #fb7185; }

@@ -1144,6 +1144,128 @@ def _posizioni_aperte_oggi(pf: dict[str, Any]) -> int:
     return sum(1 for pos in pf.get("posizioni") or [] if str(pos.get("data_ingresso")) == oggi)
 
 
+def _sedute_trascorse(data_iso: str | None) -> int:
+    """Quante sedute (giorni feriali) sono passate dall'ingresso."""
+    try:
+        inizio = date.fromisoformat(str(data_iso or ""))
+    except (TypeError, ValueError):
+        return 0
+    oggi = date.today()
+    if oggi <= inizio:
+        return 0
+    try:
+        import numpy as np
+
+        return int(np.busday_count(inizio, oggi))
+    except Exception:
+        return (oggi - inizio).days
+
+
+def _motivo_uscita(pf: dict[str, Any], pos: dict[str, Any], prezzo: float,
+                   riga: dict[str, Any]) -> tuple[str, str] | None:
+    """La prima condizione di uscita che scatta, con il perche'.
+
+    Restituisce (motivo, dettaglio) oppure None se la posizione va tenuta.
+    """
+    stop = float(pos.get("stop_attuale") or 0.0)
+    obiettivo = float(pos.get("obiettivo") or 0.0)
+
+    if stop > 0 and prezzo <= stop:
+        return "stop", f"prezzo {prezzo:.3f} sotto lo stop {stop:.3f}"
+
+    if obiettivo > 0 and prezzo >= obiettivo:
+        return "obiettivo", f"prezzo {prezzo:.3f} sopra l'obiettivo {obiettivo:.3f}"
+
+    # Segnale: si esce prima che il titolo si degradi del tutto.
+    indicazione = str(riga.get("Entry_Signal") or "").strip().upper()
+    momento = str(riga.get("Momento_Trend") or "").strip().upper()
+    fase = str(riga.get("Market_Phase") or "").strip().upper()
+    if indicazione == "EVITA":
+        return "segnale", "indicazione EVITA"
+    if momento == "CALANTE":
+        return "segnale", "momento CALANTE"
+    if fase == "RIBASSO":
+        return "segnale", "fase RIBASSO"
+
+    limite = int(pf.get("parametri", {}).get("uscita_tempo_sedute", 0) or 0)
+    if limite > 0:
+        sedute = _sedute_trascorse(pos.get("data_ingresso"))
+        if sedute >= limite:
+            return "tempo", f"{sedute} sedute in posizione (limite {limite})"
+
+    return None
+
+
+def esegui_uscite(pid: str) -> list[dict[str, Any]]:
+    """Chiude le posizioni che hanno raggiunto una condizione di uscita.
+
+    Aggiorna anche lo stop dinamico. Restituisce l'elenco delle vendite eseguite.
+    """
+    pf = leggi(pid)
+    par = pf.get("parametri", {})
+    trailing_mult = float(par.get("trailing_atr_mult", 0.0) or 0.0)
+    vendite: list[dict[str, Any]] = []
+    stop_modificati = False
+
+    # Si lavora su una copia: `vendi()` rilegge il file, quindi modificare qui e
+    # salvare dopo sarebbe una corsa. Prima aggiorno gli stop, poi vendo.
+    for pos in pf.get("posizioni") or []:
+        ticker = str(pos.get("ticker") or "")
+        if not ticker:
+            continue
+        try:
+            prezzo, _fonte, _quando, _fresco = prezzo_di_mercato(ticker)
+        except Exception:
+            continue
+
+        # Stop dinamico: sale con il prezzo, non scende mai.
+        atr = float(pos.get("atr_ingresso") or 0.0)
+        if trailing_mult > 0 and atr > 0:
+            candidato = prezzo - atr * trailing_mult
+            attuale = float(pos.get("stop_attuale") or 0.0)
+            if candidato > attuale:
+                pos["stop_attuale"] = _arrotonda_prezzo(candidato)
+                stop_modificati = True
+
+    if stop_modificati:
+        scrivi(pf)
+
+    # Ora le uscite vere, rileggendo lo stato aggiornato.
+    pf = leggi(pid)
+    for pos in list(pf.get("posizioni") or []):
+        ticker = str(pos.get("ticker") or "")
+        if not ticker:
+            continue
+        try:
+            prezzo, _fonte, _quando, _fresco = prezzo_di_mercato(ticker)
+        except Exception:
+            continue  # senza prezzo non si vende: meglio fermi che al buio
+        riga = riga_titolo(ticker) or {}
+        decisione = _motivo_uscita(pf, pos, prezzo, riga)
+        if decisione is None:
+            continue
+        motivo, dettaglio = decisione
+        try:
+            esito = vendi(pid, ticker, motivo=motivo)
+        except Exception:
+            continue
+        operazione = esito["operazione"]
+        vendite.append({
+            "ticker": ticker,
+            "nome": pos.get("nome"),
+            "quantita": operazione["quantita"],
+            "prezzo": operazione["prezzo_uscita"],
+            "motivo": motivo,
+            "dettaglio": dettaglio,
+            "pnl_netto_eur": operazione["pnl_netto_eur"],
+            "pnl_pct": operazione["pnl_pct"],
+            "giorni_detenuti": operazione["giorni_detenuti"],
+        })
+        pf = leggi(pid)
+
+    return vendite
+
+
 def esegui_giro(pid: str) -> dict[str, Any]:
     """Un giro completo di soli ingressi, decisi dal sistema.
 
@@ -1151,8 +1273,27 @@ def esegui_giro(pid: str) -> dict[str, Any]:
     controlla tutti i limiti, e ogni rinuncia viene registrata.
     """
     pf = leggi(pid)
+    if pf.get("stato") == "archiviato":
+        raise ValueError("Il portafoglio e' archiviato: non si esegue")
+
+    # PRIMA LE USCITE. Anche in pausa: fermare le vendite quando il mercato gira
+    # e' il modo piu' sicuro di perdere. La pausa ferma solo gli acquisti.
+    vendite = esegui_uscite(pid)
+    pf = leggi(pid)
+    eseguiti: list[dict[str, Any]] = []
+    scarti: list[dict[str, Any]] = []
+
     if pf.get("stato") != "attivo":
-        raise ValueError(f"Il portafoglio e' '{pf.get('stato')}': mettilo attivo per eseguire un giro")
+        return {
+            "portafoglio": valuta(pf),
+            "eseguiti": [],
+            "vendite": vendite,
+            "scarti": [{"ticker": "-", "motivo": "portafoglio_in_pausa",
+                        "dettaglio": "le uscite sono attive, gli acquisti sono sospesi"}],
+            "candidati_valutati": 0,
+            "analisi_usate": {},
+            "liquidita_dopo": pf.get("liquidita"),
+        }
 
     par = pf.get("parametri", {})
     max_posizioni = int(par.get("max_posizioni", 12))
@@ -1162,8 +1303,6 @@ def esegui_giro(pid: str) -> dict[str, Any]:
     gia_oggi = _posizioni_aperte_oggi(pf)
 
     candidati, esclusi = candidati_da_segnale(pf)
-    eseguiti: list[dict[str, Any]] = []
-    scarti: list[dict[str, Any]] = []
     analisi_usate: dict[str, str] = {}
 
     for candidato in candidati:
@@ -1277,6 +1416,7 @@ def esegui_giro(pid: str) -> dict[str, Any]:
     return {
         "portafoglio": valuta(pf),
         "eseguiti": eseguiti,
+        "vendite": vendite,
         # Gli scarti riportati all'utente includono anche gli esclusi dai filtri.
         "scarti": scarti + esclusi,
         "candidati_valutati": len(candidati),

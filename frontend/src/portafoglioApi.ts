@@ -130,6 +130,18 @@ export type EsitoGiro = {
     rr?: number | null;
     stop_pct?: number | null;
   }>;
+  /** Posizioni chiuse dal motore in questo giro. */
+  vendite: Array<{
+    ticker: string;
+    nome?: string;
+    quantita: number;
+    prezzo: number;
+    motivo: string;
+    dettaglio?: string;
+    pnl_netto_eur: number;
+    pnl_pct: number;
+    giorni_detenuti?: number;
+  }>;
   scarti: Array<{ ticker: string; motivo: string; dettaglio?: string }>;
   candidati_valutati: number;
   analisi_usate: Record<string, string>;
