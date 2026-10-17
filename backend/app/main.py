@@ -1483,6 +1483,15 @@ def portafogli_anteprima(pid: str, ticker: str, importo_eur: float | None = None
         raise HTTPException(status_code=500, detail=str(errore))
 
 
+@app.post("/api/portafogli/esegui-tutti")
+def portafogli_esegui_tutti() -> dict[str, Any]:
+    """Un giro su tutti i portafogli, come dopo un'analisi ma a mano."""
+    try:
+        return portfolio_service.esegui_tutti(origine="manuale")
+    except Exception as errore:
+        raise HTTPException(status_code=500, detail=str(errore))
+
+
 @app.post("/api/portafogli/{pid}/esegui")
 def portafogli_esegui(pid: str) -> dict[str, Any]:
     """Un giro di ingressi decisi dal sistema, secondo il profilo del portafoglio.

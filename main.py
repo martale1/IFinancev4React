@@ -1180,3 +1180,53 @@ if analysis_settings.resolve_send_alerts(Path(OUTPUT_FOLDER)):
     )
 else:
     print("[ALERTS] Invio notifiche disattivato per questa esecuzione.", flush=True)
+
+# ═══════════════════════════════════════════════════════════════════════
+# Portafoglio virtuale: un giro a valle di ogni analisi.
+#
+# Il cron lancia questo script 10 volte al giorno. Dopo che gli Excel sono stati
+# scritti, il portafoglio controlla se deve vendere o comprare. Non e' un motore a
+# intervalli: senza una nuova analisi, non succede niente.
+#
+# Le USCITE girano sempre, anche su analisi fatte a mercato aperto: uno stop deve
+# agire comunque. Gli INGRESSI invece, se il mercato e' aperto, restano spenti
+# salvo che il portafoglio abbia `ingressi_intraday` attivo: un segnale nato su una
+# barra incompleta puo' sparire alla chiusura.
+#
+# Si puo' disattivare per una singola esecuzione con IFINANCE_SKIP_PORTAFOGLIO=1.
+# Qualsiasi errore qui NON deve fermare l'analisi: viene registrato e si prosegue.
+def esegui_portafogli_dopo_analisi() -> None:
+    if str(os.environ.get("IFINANCE_SKIP_PORTAFOGLIO", "")).strip().lower() in {"1", "true", "yes", "si", "si'"}:
+        print("[PORTAFOGLIO] saltato per questa esecuzione (IFINANCE_SKIP_PORTAFOGLIO)", flush=True)
+        return
+    try:
+        import sys
+
+        cartella_backend = str(Path(__file__).resolve().parent / "backend")
+        if cartella_backend not in sys.path:
+            sys.path.insert(0, cartella_backend)
+
+        from app.services import portfolio_service
+
+        esito = portfolio_service.esegui_tutti(origine="analisi")
+        riepilogo = esito.get("riepilogo", {})
+        stato_mercato = "mercato aperto" if esito.get("mercato_aperto") else "mercato chiuso"
+        print(
+            f"[PORTAFOGLIO] {stato_mercato}: "
+            f"{riepilogo.get('vendite', 0)} vendite, {riepilogo.get('acquisti', 0)} acquisti",
+            flush=True,
+        )
+        for voce in esito.get("portafogli", []):
+            if voce["vendite"] or voce["acquisti"]:
+                print(f"[PORTAFOGLIO]   {voce['nome']}: {voce['vendite']} vendite, {voce['acquisti']} acquisti", flush=True)
+                for v in voce.get("dettaglio_vendite", []):
+                    print(f"[PORTAFOGLIO]     venduto {v['ticker']} ({v['motivo']}) P/L {v['pnl_eur']:+.2f} EUR", flush=True)
+                for a in voce.get("dettaglio_acquisti", []):
+                    print(f"[PORTAFOGLIO]     comprato {a['ticker']} {a['quantita']} x {a['prezzo']}", flush=True)
+        for errore in esito.get("errori", []):
+            print(f"[PORTAFOGLIO]   errore su {errore['id']}: {errore['errore']}", flush=True)
+    except Exception as errore:  # mai bloccare l'analisi per il portafoglio
+        print(f"[PORTAFOGLIO] errore: {errore}", flush=True)
+
+
+esegui_portafogli_dopo_analisi()

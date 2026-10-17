@@ -59,6 +59,9 @@ PARAMETRI_DEFAULT: dict[str, Any] = {
     "rischio_ammesso": ["NORMALE"],
     # Quanto sopra la media (EMA50) un titolo puo' essere per essere comprato.
     "distanza_max_media_pct": 3.5,
+    # Comprare anche su un'analisi fatta a mercato aperto (barra incompleta).
+    # Spento: il segnale puo' sparire alla chiusura. Si accende consapevolmente.
+    "ingressi_intraday": False,
     "mercati": list(MERCATI_VALIDI),
     "tech_score_min": 75,
     "ingressi_da": ["ENTRA"],
@@ -1266,7 +1269,7 @@ def esegui_uscite(pid: str) -> list[dict[str, Any]]:
     return vendite
 
 
-def esegui_giro(pid: str) -> dict[str, Any]:
+def esegui_giro(pid: str, consenti_ingressi: bool = True) -> dict[str, Any]:
     """Un giro completo di soli ingressi, decisi dal sistema.
 
     Non vende: le uscite automatiche sono la fase 2. Ma prima di comprare
@@ -1304,6 +1307,21 @@ def esegui_giro(pid: str) -> dict[str, Any]:
 
     candidati, esclusi = candidati_da_segnale(pf)
     analisi_usate: dict[str, str] = {}
+
+    if not consenti_ingressi:
+        # Solo uscite: il segnale arriva da una barra incompleta, non si compra.
+        for voce in scarti:
+            pass
+        return {
+            "portafoglio": valuta(pf),
+            "eseguiti": [],
+            "vendite": vendite,
+            "scarti": [{"ticker": "-", "motivo": "analisi_intraday",
+                        "dettaglio": "compravendita sospesa: analisi a mercato aperto"}],
+            "candidati_valutati": 0,
+            "analisi_usate": {},
+            "liquidita_dopo": pf.get("liquidita"),
+        }
 
     for candidato in candidati:
         ticker = candidato["ticker"]
@@ -1422,6 +1440,74 @@ def esegui_giro(pid: str) -> dict[str, Any]:
         "candidati_valutati": len(candidati),
         "analisi_usate": analisi_usate,
         "liquidita_dopo": pf.get("liquidita"),
+    }
+
+
+def _e_mercato_aperto(adesso: datetime | None = None) -> bool:
+    """Siamo dentro l'orario di contrattazione italiana?
+
+    Serve a distinguere un'analisi fatta a mercato aperto (barra incompleta) da
+    quella di fine giornata. Approssimazione dichiarata: non conosce i festivi,
+    ed e' voluta — in un giorno festivo non ci sono nuove barre, quindi i segnali
+    non cambiano e il portafoglio non compra comunque nulla di nuovo.
+    """
+    ora = adesso or datetime.now()
+    if ora.weekday() >= 5:  # sabato e domenica
+        return False
+    inizio = ora.replace(hour=9, minute=0, second=0, microsecond=0)
+    fine = ora.replace(hour=17, minute=45, second=0, microsecond=0)
+    return inizio <= ora <= fine
+
+
+def esegui_tutti(origine: str = "manuale") -> dict[str, Any]:
+    """Un giro su tutti i portafogli attivi.
+
+    Non si ferma se uno fallisce: un portafoglio rotto non deve bloccare gli altri,
+    ne' l'analisi che l'ha chiamato.
+    """
+    mercato_aperto = _e_mercato_aperto()
+    risultati: list[dict[str, Any]] = []
+    errori: list[dict[str, str]] = []
+
+    for voce in elenco():
+        if voce.get("stato") == "archiviato":
+            continue
+        pid = voce["id"]
+        try:
+            pf = leggi(pid)
+            # Gli ingressi si consentono se: e' il giro manuale, oppure il
+            # portafoglio ha scelto di comprare anche su analisi intraday.
+            consenti = (origine == "manuale") or (not mercato_aperto) or bool(
+                pf.get("parametri", {}).get("ingressi_intraday")
+            )
+            esito = esegui_giro(pid, consenti_ingressi=consenti)
+            risultati.append({
+                "id": pid,
+                "nome": pf.get("nome", pid),
+                "vendite": len(esito.get("vendite") or []),
+                "acquisti": len(esito.get("eseguiti") or []),
+                "liquidita": esito.get("liquidita_dopo"),
+                "dettaglio_vendite": [
+                    {"ticker": v["ticker"], "motivo": v["motivo"], "pnl_eur": v["pnl_netto_eur"]}
+                    for v in esito.get("vendite") or []
+                ],
+                "dettaglio_acquisti": [
+                    {"ticker": a["ticker"], "quantita": a["quantita"], "prezzo": a["prezzo"]}
+                    for a in esito.get("eseguiti") or []
+                ],
+            })
+        except Exception as errore:
+            errori.append({"id": pid, "errore": str(errore)})
+
+    return {
+        "origine": origine,
+        "mercato_aperto": mercato_aperto,
+        "portafogli": risultati,
+        "errori": errori,
+        "riepilogo": {
+            "vendite": sum(r["vendite"] for r in risultati),
+            "acquisti": sum(r["acquisti"] for r in risultati),
+        },
     }
 
 
