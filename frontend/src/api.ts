@@ -67,6 +67,10 @@ export type Cambio = {
   a: string;
   testo: string;
   market?: string;
+  /** Indicazione attuale del titolo (ENTRA/OSSERVA/ATTENDI/EVITA). */
+  indicazione?: string | null;
+  /** Fase di mercato attuale, mostrata come contesto. */
+  fase?: string | null;
 };
 
 export type CambiResponse = {

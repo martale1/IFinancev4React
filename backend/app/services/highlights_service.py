@@ -153,6 +153,8 @@ def cambiamenti(markets: list[str]) -> dict[str, Any]:
                             "ticker": ticker,
                             "da": "",
                             "a": valori.get("Entry_Signal", ""),
+                            "indicazione": valori.get("Entry_Signal", ""),
+                            "fase": valori.get("Market_Phase", ""),
                             "testo": "entrato per la prima volta nell'analisi",
                         }
                     )
@@ -165,6 +167,8 @@ def cambiamenti(markets: list[str]) -> dict[str, Any]:
                         "ticker": ticker,
                         "da": prima.get("Entry_Signal", ""),
                         "a": valori.get("Entry_Signal", ""),
+                        "indicazione": valori.get("Entry_Signal", ""),
+                        "fase": valori.get("Market_Phase", ""),
                         "testo": f"{prima.get('Entry_Signal', '?')} → {valori.get('Entry_Signal', '?')}",
                     }
                 )
@@ -175,6 +179,8 @@ def cambiamenti(markets: list[str]) -> dict[str, Any]:
                         "ticker": ticker,
                         "da": prima.get("Market_Phase", ""),
                         "a": valori.get("Market_Phase", ""),
+                        "indicazione": valori.get("Entry_Signal", ""),
+                        "fase": valori.get("Market_Phase", ""),
                         "testo": f"{prima.get('Market_Phase', '?')} → {valori.get('Market_Phase', '?')}",
                     }
                 )
@@ -199,6 +205,8 @@ def cambiamenti(markets: list[str]) -> dict[str, Any]:
                                 "ticker": ticker,
                                 "da": "",
                                 "a": pattern,
+                                "indicazione": _testo(riga.get("Entry_Signal")),
+                                "fase": _testo(riga.get("Market_Phase")),
                                 "testo": f"pattern {pattern} iniziato oggi",
                             }
                         )

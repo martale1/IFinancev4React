@@ -35,6 +35,12 @@ const VARIAZIONI: Array<{ key: string; label: string }> = [
   { key: "PCTV_30D", label: "30D" },
 ];
 
+/** Classe CSS per lo stato del titolo (le regole sono minuscole). */
+function classeStato(stato: string): string {
+  const s = String(stato || "").trim().toLowerCase();
+  return s === "entra" || s === "osserva" || s === "attendi" || s === "evita" ? s : "";
+}
+
 /** Prezzo con i decimali che servono: le cifre piccole (ETF a 0,64) sparirebbero
  *  con due soli decimali, i titoli grandi non ne vogliono tre. */
 function prezzo(valore: number): string {
@@ -214,6 +220,16 @@ export default function HighlightsDashboard({
     return fortiMaFrenati(righe, gia);
   }, [righe, pronti, passo]);
 
+  // Per aprire il grafico da un cambiamento serve la riga completa del titolo.
+  const perTicker = useMemo(() => {
+    const mappa = new Map<string, WatchlistRow>();
+    for (const riga of righe) {
+      const tk = String(riga.Ticker ?? "").toUpperCase();
+      if (tk) mappa.set(tk, riga);
+    }
+    return mappa;
+  }, [righe]);
+
   const totaleFrenati = frenati.reduce((n, g) => n + g.voci.length, 0);
   const gruppiVisibili = mostraTuttiFrenati ? frenati : frenati.slice(0, 3);
 
@@ -291,13 +307,38 @@ export default function HighlightsDashboard({
           </p>
         ) : (
           <div className="hl-righe">
-            {(mostraTuttiCambi ? cambi : cambi.slice(0, 6)).map((c) => (
-              <div className="hl-riga hl-cambio" key={`${c.market ?? ""}-${c.ticker}-${c.tipo}`}>
-                <span className="hl-ticker">{c.ticker}</span>
-                <span className="hl-cambi-tipo">{c.tipo}</span>
-                <span className="hl-cambi-testo">{c.testo}</span>
-              </div>
-            ))}
+            {(mostraTuttiCambi ? cambi : cambi.slice(0, 6)).map((c) => {
+              const riga = perTicker.get(c.ticker.toUpperCase());
+              const stato = String(c.indicazione ?? riga?.Entry_Signal ?? "").trim().toUpperCase();
+              // Il grafico si apre solo se il titolo e' fra le righe caricate:
+              // senza riga non ci sarebbe nulla da mostrare.
+              const apribile = Boolean(riga);
+              return (
+                <div
+                  className={`hl-riga hl-cambio ${apribile ? "apribile" : ""}`}
+                  key={`${c.market ?? ""}-${c.ticker}-${c.tipo}`}
+                  role={apribile ? "button" : undefined}
+                  tabIndex={apribile ? 0 : undefined}
+                  onClick={apribile && riga ? () => onChart(riga) : undefined}
+                  onKeyDown={
+                    apribile && riga
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onChart(riga);
+                          }
+                        }
+                      : undefined
+                  }
+                  title={apribile ? "Apri il grafico" : undefined}
+                >
+                  <span className="hl-ticker">{c.ticker}</span>
+                  {stato ? <span className={`hl-stato ${classeStato(stato)}`}>{stato}</span> : null}
+                  <span className="hl-cambi-tipo">{c.tipo}</span>
+                  <span className="hl-cambi-testo">{c.testo}</span>
+                </div>
+              );
+            })}
           </div>
         )}
         {cambi.length > 6 ? (
