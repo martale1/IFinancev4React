@@ -220,13 +220,35 @@ def elenco() -> list[dict[str, Any]]:
         if not isinstance(pf, dict) or "id" not in pf:
             continue
         operazioni = leggi_righe(pf["id"], "_operazioni")
+
+        # Riepilogo vero anche a portafoglio chiuso: senza il valore attuale la
+        # riga mostrerebbe solo la liquidita', che non dice se stai guadagnando.
+        # Il costo e' una quotazione per posizione, servita dalla cache dell'Excel.
+        valore_totale = 0.0
+        valore_posizioni = 0.0
+        for pos in pf.get("posizioni") or []:
+            try:
+                prezzo, _fonte = prezzo_corrente(str(pos.get("ticker")))
+                cambio = cambio_a_eur(str(pos.get("valuta", "EUR")))
+                valore_posizioni += float(pos.get("quantita", 0.0)) * prezzo * cambio
+            except Exception:
+                # Prezzo non disponibile: la posizione vale il suo costo.
+                valore_posizioni += float(pos.get("importo_investito_eur", 0.0))
+        valore_totale = float(pf.get("liquidita", 0.0)) + valore_posizioni
+        capitale = float(pf.get("capitale_iniziale", 0.0))
+
         risultato.append({
             "id": pf["id"],
             "nome": pf.get("nome", pf["id"]),
             "stato": pf.get("stato", "attivo"),
             "valuta_base": pf.get("valuta_base", "EUR"),
-            "capitale_iniziale": pf.get("capitale_iniziale", 0.0),
+            "capitale_iniziale": capitale,
             "liquidita": pf.get("liquidita", 0.0),
+            "valore_totale": round(valore_totale, 2),
+            "valore_posizioni": round(valore_posizioni, 2),
+            "pnl_eur": round(valore_totale - capitale, 2),
+            "pnl_pct": round((valore_totale / capitale - 1.0) * 100.0, 2) if capitale else 0.0,
+            "esposizione_pct": round(valore_posizioni / valore_totale * 100.0, 2) if valore_totale else 0.0,
             "num_posizioni": len(pf.get("posizioni") or []),
             "num_operazioni": len(operazioni),
             "creato": pf.get("creato"),

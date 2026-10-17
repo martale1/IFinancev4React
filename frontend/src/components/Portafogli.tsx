@@ -418,9 +418,26 @@ export default function Portafogli() {
               <b>{p.nome}</b>
               <small>{p.stato}</small>
             </span>
-            <span className="pf-riga-numeri">
-              <b>{euro(p.liquidita)}</b>
-              <small>liquidi · {p.num_posizioni} posizioni · {p.num_operazioni} operazioni</small>
+            {/* Il riepilogo utile: quanto vale, se stai guadagnando e di quanto. */}
+            <span className="pf-riga-riepilogo">
+              <span className="pf-riga-valore">
+                <b>{euro(p.valore_totale)}</b>
+                <small>valore attuale</small>
+              </span>
+              <span className={`pf-riga-var ${classeDaSegno(p.pnl_eur)}`}>
+                <b>
+                  {(toNum(p.pnl_eur) ?? 0) > 0 ? "+" : ""}
+                  {euro(p.pnl_eur)}
+                </b>
+                <small>{perc(p.pnl_pct)}</small>
+              </span>
+              <span className="pf-riga-dettagli">
+                <small>
+                  liquidi {euro(p.liquidita)} · {p.num_posizioni} posizioni · esposizione{" "}
+                  {(toNum(p.esposizione_pct) ?? 0).toFixed(0)}%
+                </small>
+                <small>{p.num_operazioni} operazioni chiuse</small>
+              </span>
             </span>
             <span className="pf-riga-azione">{scelto === p.id ? "▴" : "▾"}</span>
           </button>

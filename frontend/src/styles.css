@@ -4357,3 +4357,23 @@ td {
 }
 .pf-th:hover { color: #b8d4ee; }
 .pf-th.num { text-align: right; }
+/* Riepilogo della riga chiusa: valore, variazione, poi i dettagli minuti. */
+.pf-riga-riepilogo {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: .2rem 1.1rem; justify-content: flex-end; text-align: right;
+  min-width: 0; flex: 1 1 auto;
+}
+.pf-riga-valore, .pf-riga-var { display: flex; flex-direction: column; }
+.pf-riga-valore b { font-size: .95rem; color: #e5f2ff; font-variant-numeric: tabular-nums; }
+.pf-riga-valore small { color: #7899b8; font-size: .62rem; text-transform: uppercase; letter-spacing: .03em; }
+.pf-riga-var b { font-size: .9rem; font-variant-numeric: tabular-nums; }
+.pf-riga-var small { font-size: .68rem; font-variant-numeric: tabular-nums; }
+.pf-riga-var.positive b, .pf-riga-var.positive small { color: #4ade80; }
+.pf-riga-var.negative b, .pf-riga-var.negative small { color: #fb7185; }
+.pf-riga-var.neutral b, .pf-riga-var.neutral small { color: #9fb7cf; }
+.pf-riga-dettagli { display: flex; flex-direction: column; }
+.pf-riga-dettagli small { color: #7899b8; font-size: .64rem; }
+@media (max-width: 700px) {
+  .pf-riga { flex-wrap: wrap; }
+  .pf-riga-riepilogo { justify-content: flex-start; text-align: left; flex-basis: 100%; }
+}

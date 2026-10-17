@@ -7,6 +7,12 @@ export type PortafoglioElenco = {
   valuta_base: string;
   capitale_iniziale: number;
   liquidita: number;
+  /** Valore attuale: liquidita' piu' posizioni ai prezzi correnti. */
+  valore_totale: number;
+  valore_posizioni: number;
+  pnl_eur: number;
+  pnl_pct: number;
+  esposizione_pct: number;
   num_posizioni: number;
   num_operazioni: number;
   creato?: string | null;
